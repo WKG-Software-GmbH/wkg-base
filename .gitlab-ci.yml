@@ -9,7 +9,7 @@ variables:
     MINOR_VERSION: "0"
 
 build:
-    image: mcr.microsoft.com/dotnet/sdk:7.0
+    image: mcr.microsoft.com/dotnet/sdk:7.0-alpine
     script:
         - dotnet restore ${PROJECT_FILE_PATH}
         - dotnet build ${PROJECT_FILE_PATH} -c Release -o app/build
@@ -41,7 +41,7 @@ increase_version:
     tags:
         - docker    
 
-deploy_ef:
+deploy:
     image: mcr.microsoft.com/dotnet/sdk:7.0-alpine 
     script:
         - cat ${WKG_ROOT_CA} >> /usr/local/share/ca-certificates/wkgrootca.crt

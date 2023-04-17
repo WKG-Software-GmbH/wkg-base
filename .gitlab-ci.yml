@@ -1,0 +1,65 @@
+stages:
+    - build
+    - increase_version
+    - deploy
+
+variables:
+    PROJECT_FILE_PATH: "Wkg/Wkg/Wkg.csproj"
+    MAJOR_VERSION: "1"
+    MINOR_VERSION: "0"
+
+build:
+    image: mcr.microsoft.com/dotnet/sdk:7.0
+    script:
+        - dotnet restore ${PROJECT_FILE_PATH}
+        - dotnet build ${PROJECT_FILE_PATH} -c Release -o app/build
+    stage: build
+    tags:
+        - docker   
+
+increase_version:
+    variables:
+        VERSION: "${MAJOR_VERSION}.${MINOR_VERSION}.${CI_PIPELINE_ID}"
+    script:
+        - mkdir vars
+        - case ${CI_COMMIT_BRANCH} in 
+            (rc-*) export VERSION=${VERSION}"-rc";; 
+            (dev-*) export VERSION=${VERSION}"-dev";;  
+            esac        
+        - echo $VERSION > vars/version
+        - echo "New Version Number is ${VERSION}"
+    stage:
+        increase_version
+    only:
+        # Deprecated, use rules with newer gitlab version
+        - main
+        - /^rc-.*$/
+        - /^dev-.*$/ 
+    artifacts:
+        paths: 
+            - vars
+    tags:
+        - docker    
+
+deploy_ef:
+    image: mcr.microsoft.com/dotnet/sdk:7.0-alpine 
+    script:
+        - cat ${WKG_ROOT_CA} >> /usr/local/share/ca-certificates/wkgrootca.crt
+        - update-ca-certificates --fresh
+        - cat vars/version
+        - export VERSION=$(cat vars/version) 
+        - echo ${VERSION}
+        - dotnet pack "${PROJECT_FILE_PATH}" -v q -c Release -o app/pack -p:PackageVersion=${VERSION} -p:IsPackable=true
+        - dotnet nuget add source "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/nuget/index.json" --name gitlab --username gitlab-ci-token --password $CI_JOB_TOKEN --store-password-in-clear-text
+        - dotnet nuget push "app/pack/*.nupkg" --source gitlab 
+    stage:
+        deploy
+    dependencies:
+        - increase_version  
+    only:
+        # Deprecated, use rules with newer gitlab version
+        - main
+        - /^rc-.*$/
+        - /^dev-.*$/        
+    tags:
+        - docker

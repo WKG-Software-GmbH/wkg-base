@@ -5,7 +5,7 @@ stages:
 
 variables:
     PROJECT_FILE_PATH: "Wkg/Wkg/Wkg.csproj"
-    MAJOR_VERSION: "1"
+    MAJOR_VERSION: "7"
     MINOR_VERSION: "0"
 
 build:

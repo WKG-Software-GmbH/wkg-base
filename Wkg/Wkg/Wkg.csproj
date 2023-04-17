@@ -9,11 +9,6 @@
     </PropertyGroup>
 
     <PropertyGroup>
-        <IsPackable>true</IsPackable>
-        <AssemblyVersion>7.0.3</AssemblyVersion>
-        <FileVersion>7.0.3</FileVersion>
-        <Version>7.0.3</Version>
-        <PackageVersion>7.0.3</PackageVersion>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <DebugSymbols>true</DebugSymbols>
         <EmbedAllSources>true</EmbedAllSources>

@@ -1,0 +1,291 @@
+﻿namespace Wkg.Extensions.Reflection;
+
+public static partial class TypeExtensions
+{
+    public static partial IEnumerable<Type> GetDirectInterfaces(this Type type)
+    {
+        Type[] allInterfaces = type.GetInterfaces();
+        return allInterfaces
+            .Except(allInterfaces.SelectMany(i => i.GetInterfaces()))               // Remove all interfaces that are inherited from other interfaces
+            .Except(type.BaseType?.GetInterfaces() ?? Enumerable.Empty<Type>());    // Remove all interfaces that are inherited from the base type
+    }
+
+    public static partial IEnumerable<Type[]> GetGenericTypeArgumentsOfInterfaces(this Type type, Type interfaceType)
+    {
+        _ = type ?? throw new ArgumentNullException(nameof(type));
+
+        return type
+            .GetInterfaces()
+            .GetGenericTypeArgumentsOfInterfacesCore(interfaceType);
+    }
+
+    public static partial IEnumerable<Type[]> GetGenericTypeArgumentsOfDirectInterfaces(this Type type, Type interfaceType)
+    {
+        _ = type ?? throw new ArgumentNullException(nameof(type));
+
+        return type
+            .GetDirectInterfaces()
+            .GetGenericTypeArgumentsOfInterfacesCore(interfaceType);
+    }
+
+    private static IEnumerable<Type[]> GetGenericTypeArgumentsOfInterfacesCore(this IEnumerable<Type> interfaces, Type interfaceType)
+    {
+        _ = interfaceType ?? throw new ArgumentNullException(nameof(interfaceType));
+
+        return interfaces
+            .Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == interfaceType)
+            .Select(i => i.GetGenericArguments());
+    }
+
+    public static partial Type[]? GetGenericTypeArgumentsOfSingleInterface(this Type type, Type interfaceType)
+    {
+        _ = type ?? throw new ArgumentNullException(nameof(type));
+
+        return type
+            .GetInterfaces()
+            .GetGenericTypeArgumentsOfSingleInterfaceCore(interfaceType);
+    }
+
+    public static partial Type[]? GetGenericTypeArgumentsOfSingleDirectInterface(this Type type, Type interfaceType)
+    {
+        _ = type ?? throw new ArgumentNullException(nameof(type));
+
+        return type
+            .GetDirectInterfaces()
+            .GetGenericTypeArgumentsOfSingleInterfaceCore(interfaceType);
+    }
+
+    private static Type[]? GetGenericTypeArgumentsOfSingleInterfaceCore(this IEnumerable<Type> interfaces, Type interfaceType)
+    {
+        _ = interfaceType ?? throw new ArgumentNullException(nameof(interfaceType));
+
+        return interfaces
+            .Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == interfaceType)
+            .Select(i => i.GetGenericArguments())
+            .SingleOrDefault();
+    }
+
+    public static partial bool ImplementsGenericInterfaceWithTypeParameter(this Type type, Type interfaceType, Type typeParam) => type
+        .GetInterfaces()
+        .ImplementsGenericInterfaceWithTypeParametersCore(interfaceType, typeParam);
+
+    public static partial bool ImplementsDirectGenericInterfaceWithTypeParameter(this Type type, Type interfaceType, Type typeParam) => type
+        .GetDirectInterfaces()
+        .ImplementsGenericInterfaceWithTypeParametersCore(interfaceType, typeParam);
+
+    public static partial bool ImplementsGenericInterfaceWithTypeParameters(this Type type, Type interfaceType, params Type[] typeParams) => type
+        .GetInterfaces()
+        .ImplementsGenericInterfaceWithTypeParametersCore(interfaceType, typeParams);
+
+    public static partial bool ImplementsDirectGenericInterfaceWithTypeParameters(this Type type, Type interfaceType, params Type[] typeParams) => type
+        .GetDirectInterfaces()
+        .ImplementsGenericInterfaceWithTypeParametersCore(interfaceType, typeParams);
+
+    private static bool ImplementsGenericInterfaceWithTypeParametersCore(this IEnumerable<Type> interfaces, Type interfaceType, params Type[] argumentTypes) => interfaces
+        .Any(i =>
+            i.IsGenericType
+            && i.GetGenericTypeDefinition() == interfaceType
+            && i.GetGenericArguments().SequenceEqual(argumentTypes));
+
+    public static partial bool ExtendsGenericBaseClass(this Type type, Type genericBaseClass)
+    {
+        _ = type ?? throw new ArgumentNullException(nameof(type));
+        _ = genericBaseClass ?? throw new ArgumentNullException(nameof(genericBaseClass));
+
+        if (!genericBaseClass.IsClass || !genericBaseClass.IsGenericTypeDefinition)
+        {
+            throw new ArgumentException("The generic base class must be a generic class definition.", nameof(genericBaseClass));
+        }
+        if (type.IsClass)
+        {
+            Type? baseType = type.BaseType;
+            while (baseType is not null)
+            {
+                if (baseType.IsGenericType && baseType.GetGenericTypeDefinition() == genericBaseClass)
+                {
+                    return true;
+                }
+                baseType = baseType.BaseType;
+            }
+        }
+        return false;
+    }
+
+    public static partial bool ExtendsGenericBaseClassDirectly(this Type type, Type genericBaseClass)
+    {
+        _ = type ?? throw new ArgumentNullException(nameof(type));
+        _ = genericBaseClass ?? throw new ArgumentNullException(nameof(genericBaseClass));
+
+        if (!genericBaseClass.IsClass || !genericBaseClass.IsGenericTypeDefinition)
+        {
+            throw new ArgumentException("The generic base class must be a generic class definition.", nameof(genericBaseClass));
+        }
+        return type.IsClass 
+            && type.BaseType is not null 
+            && type.BaseType.IsGenericType 
+            && type.BaseType.GetGenericTypeDefinition() == genericBaseClass;
+    }
+    
+    public static partial bool TryGetGenericBaseClassTypeArguments(this Type type, Type genericBaseClass, out Type[]? typeArguments)
+    {
+        _ = type ?? throw new ArgumentNullException(nameof(type));
+        _ = genericBaseClass ?? throw new ArgumentNullException(nameof(genericBaseClass));
+
+        if (!genericBaseClass.IsClass || !genericBaseClass.IsGenericTypeDefinition)
+        {
+            throw new ArgumentException("The generic base class must be a generic class definition.", nameof(genericBaseClass));
+        }
+        if (type.IsClass)
+        {
+            Type? baseType = type.BaseType;
+            while (baseType is not null)
+            {
+                if (baseType.IsGenericType && baseType.GetGenericTypeDefinition() == genericBaseClass)
+                {
+                    typeArguments = baseType.GetGenericArguments();
+                    return true;
+                }
+                baseType = baseType.BaseType;
+            }
+        }
+
+        typeArguments = null;
+        return false;
+    }
+
+    public static partial bool TryGetGenericBaseClassTypeArgument(this Type type, Type genericBaseClass, out Type? typeArgument)
+    {
+        if (TryGetGenericBaseClassTypeArguments(type, genericBaseClass, out Type[]? typeArguments))
+        {
+            typeArgument = typeArguments.Single();
+            return true;
+        }
+        typeArgument = null;
+        return false;
+    }
+
+    public static partial bool TryGetDirectGenericBaseClassTypeArguments(this Type type, Type genericBaseClass, out Type[]? typeArguments)
+    {
+        _ = type ?? throw new ArgumentNullException(nameof(type));
+        _ = genericBaseClass ?? throw new ArgumentNullException(nameof(genericBaseClass));
+
+        if (!genericBaseClass.IsClass || !genericBaseClass.IsGenericTypeDefinition)
+        {
+            throw new ArgumentException("The generic base class must be a generic class definition.", nameof(genericBaseClass));
+        }
+
+        if (type.IsClass 
+            && type.BaseType is not null 
+            && type.BaseType.IsGenericType 
+            && type.BaseType.GetGenericTypeDefinition() == genericBaseClass)
+        {
+            typeArguments = type.BaseType.GetGenericArguments();
+            return true;
+        }
+
+        typeArguments = null;
+        return false;
+    }
+
+    public static partial bool TryGetDirectGenericBaseClassTypeArgument(this Type type, Type genericBaseClass, out Type? typeArgument)
+    {
+        if (TryGetDirectGenericBaseClassTypeArguments(type, genericBaseClass, out Type[]? typeArguments))
+        {
+            typeArgument = typeArguments.Single();
+            return true;
+        }
+        typeArgument = null;
+        return false;
+    }
+
+    public static partial Type[]? GetGenericBaseClassTypeArguments(this Type type, Type genericBaseClass)
+    {
+        _ = TryGetGenericBaseClassTypeArguments(type, genericBaseClass, out Type[]? typeArguments);
+        return typeArguments;
+    }
+
+    public static partial Type? GetGenericBaseClassTypeArgument(this Type type, Type genericBaseClass)
+    {
+        _ = TryGetGenericBaseClassTypeArgument(type, genericBaseClass, out Type? typeArgument);
+        return typeArgument;
+    }
+
+    public static partial Type[]? GetDirectGenericBaseClassTypeArguments(this Type type, Type genericBaseClass)
+    {
+        _ = TryGetDirectGenericBaseClassTypeArguments(type, genericBaseClass, out Type[]? typeArguments);
+        return typeArguments;
+    }
+
+    public static partial Type? GetDirectGenericBaseClassTypeArgument(this Type type, Type genericBaseClass)
+    {
+        _ = TryGetDirectGenericBaseClassTypeArgument(type, genericBaseClass, out Type? typeArgument);
+        return typeArgument;
+    }
+
+    public static partial bool ImplementsInterface(this Type type, Type interfaceType)
+    {
+        _ = type ?? throw new ArgumentNullException(nameof(type));
+        _ = interfaceType ?? throw new ArgumentNullException(nameof(interfaceType));
+
+        if (!interfaceType.IsInterface)
+        {
+            throw new ArgumentException("The interface type must be an interface.", nameof(interfaceType));
+        }
+        return interfaceType.IsAssignableFrom(type);
+    }
+
+    public static partial bool ImplementsGenericInterface(this Type type, Type genericInterfaceType) =>
+        ImplementsGenericInterfaceCore(type, genericInterfaceType, t => t.GetInterfaces());
+
+    public static partial bool ImplementsGenericInterfaceDirectly(this Type type, Type genericInterfaceType) =>
+        ImplementsGenericInterfaceCore(type, genericInterfaceType, t => t.GetDirectInterfaces());
+
+    private static bool ImplementsGenericInterfaceCore(Type type, Type genericInterfaceType, Func<Type, IEnumerable<Type>> getInterfaces)
+    {
+        _ = type ?? throw new ArgumentNullException(nameof(type));
+        _ = genericInterfaceType ?? throw new ArgumentNullException(nameof(genericInterfaceType));
+
+        if (!genericInterfaceType.IsInterface || !genericInterfaceType.IsGenericTypeDefinition)
+        {
+            throw new ArgumentException("The generic interface type must be a generic interface definition.", nameof(genericInterfaceType));
+        }
+        return getInterfaces(type).Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == genericInterfaceType);
+    }
+
+    public static partial Type[]? GetDirectGenericInterfaceTypeArguments(this Type type, Type genericInterfaceType)
+    {
+        _ = TryGetDirectGenericInterfaceTypeArguments(type, genericInterfaceType, out Type[]? typeArguments);
+        return typeArguments;
+    }
+
+    public static partial Type? GetDirectGenericInterfaceTypeArgument(this Type type, Type genericInterfaceType)
+    {
+        if (TryGetDirectGenericInterfaceTypeArguments(type, genericInterfaceType, out Type[]? typeArguments))
+        {
+            return typeArguments.Single();
+        }
+        return null;
+    }
+
+    public static partial bool TryGetDirectGenericInterfaceTypeArguments(this Type type, Type genericInterfaceType, out Type[]? genericTypeArguments)
+    {
+        _ = type ?? throw new ArgumentNullException(nameof(type));
+        _ = genericInterfaceType ?? throw new ArgumentNullException(nameof(genericInterfaceType));
+
+        if (!genericInterfaceType.IsInterface || !genericInterfaceType.IsGenericTypeDefinition)
+        {
+            throw new ArgumentException("The generic interface type must be a generic interface definition.", nameof(genericInterfaceType));
+        }
+        foreach (Type interfaceType in type.GetDirectInterfaces())
+        {
+            if (interfaceType.IsGenericType && interfaceType.GetGenericTypeDefinition() == genericInterfaceType)
+            {
+                genericTypeArguments = interfaceType.GetGenericArguments();
+                return true;
+            }
+        }
+
+        genericTypeArguments = null;
+        return false;
+    }
+}

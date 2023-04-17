@@ -53,7 +53,7 @@ deploy:
         # Todo Case when debug or rc or always?
         #- dotnet pack "${PROJECT_FILE_PATH}" -v n -c Debug -o app/symbolspack --include-source --include-symbols -p:PackageVersion=${VERSION} -p:IsPackable=true -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg
         #- dotnet pack "${PROJECT_FILE_PATH}" -v n -c Debug -o app/symbolspack -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg
-        - dotnet nuget add source http://wkg-spiwie.home.wkg.de:5555/v3/index.json --name baget
+        - dotnet nuget add source ${BAGET_SERVER_URL}/v3/index.json --name baget
         - dotnet nuget push "app/pack/*.nupkg" --source baget -k ${BAGET_API_KEY}
         #- dotnet nuget push "app/symbolspack/*.snupkg" --source baget -k ${BAGET_API_KEY}
     stage:

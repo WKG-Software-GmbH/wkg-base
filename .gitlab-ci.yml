@@ -5,7 +5,7 @@ stages:
 
 variables:
     PROJECT_FILE_PATH: "Wkg/Wkg/Wkg.csproj"
-    MAJOR_VERSION: "7"
+    MAJOR_VERSION: "1"
     MINOR_VERSION: "0"
 
 build:
@@ -49,7 +49,7 @@ deploy:
         - cat vars/version
         - export VERSION=$(cat vars/version) 
         - echo ${VERSION}
-        - dotnet pack "${PROJECT_FILE_PATH}" -v q -c Release -o app/pack -p:PackageVersion=${VERSION} -p:IsPackable=true
+        - dotnet pack "${PROJECT_FILE_PATH}" -v q -c Release -o app/pack -p:PackageVersion=${VERSION}
         - dotnet nuget add source "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/nuget/index.json" --name gitlab --username gitlab-ci-token --password $CI_JOB_TOKEN --store-password-in-clear-text
         - dotnet nuget push "app/pack/*.nupkg" --source gitlab 
     stage:

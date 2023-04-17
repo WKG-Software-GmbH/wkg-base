@@ -50,10 +50,11 @@ deploy:
         - export VERSION=$(cat vars/version) 
         - echo ${VERSION}
         - dotnet pack "${PROJECT_FILE_PATH}" -v q -c Release -o app/pack -p:PackageVersion=${VERSION} -p:IsPackable=true
-        #- dotnet nuget add source "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/nuget/index.json" --name gitlab --username gitlab-ci-token --password $CI_JOB_TOKEN --store-password-in-clear-text
-        #- dotnet nuget push "app/pack/*.nupkg" --source gitlab 
+        # Todo Case when debug or rc or always?
+        - dotnet pack "${PROJECT_FILE_PATH}" -v q -c Release -o app/pack -p:PackageVersion=${VERSION} -p:IsPackable=true -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg
         - dotnet nuget add source http://wkg-spiwie.home.wkg.de:5555/v3/index.json --name baget
         - dotnet nuget push "app/pack/*.nupkg" --source baget -k ${BAGET_API_KEY}
+        - dotnet nuget push "app/pack/*.snupkg" --source baget -k ${BAGET_API_KEY}
     stage:
         deploy
     dependencies:

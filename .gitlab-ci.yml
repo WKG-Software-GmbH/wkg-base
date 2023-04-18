@@ -22,12 +22,14 @@ increase_version:
         VERSION: "${MAJOR_VERSION}.${MINOR_VERSION}.${CI_PIPELINE_ID}"
     script:
         - mkdir vars
-        - case ${CI_COMMIT_BRANCH} in 
+        # Branch and Tag Names are located in different Variables
+        - if [ -z "$CI_COMMIT_TAG" ]; then export BRANCHORTAG=${CI_COMMIT_BRANCH}; else export BRANCHORTAG=${CI_COMMIT_TAG}; fi;
+        - case ${BRANCHORTAG} in 
             (rc-*) export VERSION=${VERSION}"-rc";; 
             (dev-*) export VERSION=${VERSION}"-dev";;  
             esac        
         - echo $VERSION > vars/version
-        - echo "New Version Number is ${VERSION}"
+        - echo "New Version Number is " ${VERSION}
     stage:
         increase_version
     only:
@@ -62,9 +64,10 @@ deploy:
         - increase_version  
     only:
         # Deprecated, use rules with newer gitlab version
-        - main
-        - /^rc-.*$/
-        - /^dev-.*$/  
+        #- main
+        #- /^rc-.*$/
+        #- /^dev-.*$/ 
+        - test 
     artifacts:
         name: pack-output
         paths:

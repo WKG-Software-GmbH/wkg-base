@@ -8,40 +8,12 @@ variables:
     MAJOR_VERSION: "7"
     MINOR_VERSION: "0"
 
-build:
-    image: mcr.microsoft.com/dotnet/sdk:7.0
-    script:
-        - dotnet restore ${PROJECT_FILE_PATH}
-        - dotnet build ${PROJECT_FILE_PATH} -c Release -o app/build
-    stage: build
-    tags:
-        - docker   
-
-increase_version:
-    variables:
-        VERSION: "${MAJOR_VERSION}.${MINOR_VERSION}.${CI_PIPELINE_ID}"
-    script:
-        - mkdir vars
-        # Branch and Tag Names are located in different Variables
-        - if [ -z "$CI_COMMIT_TAG" ]; then export BRANCHORTAG=${CI_COMMIT_BRANCH}; else export BRANCHORTAG=${CI_COMMIT_TAG}; fi;
-        - case ${BRANCHORTAG} in 
-            (rc-*) export VERSION=${VERSION}"-rc";; 
-            (dev-*) export VERSION=${VERSION}"-dev";;  
-            esac        
-        - echo $VERSION > vars/version
-        - echo "New Version Number is " ${VERSION}
-    stage:
-        increase_version
-    only:
-        # Deprecated, use rules with newer gitlab version
-        - main
-        - /^rc-.*$/
-        - /^dev-.*$/ 
-    artifacts:
-        paths: 
-            - vars
-    tags:
-        - docker    
+include:
+    - project: 'infrastructure/gitlab'
+      ref: 'initial_templates'
+      file:
+          - '/gitlab/templates/jobs/build_dotnet_7.yml'
+          - '/gitlab/templates/jobs/increase_version.yml'
 
 deploy:
     image: mcr.microsoft.com/dotnet/sdk:7.0 

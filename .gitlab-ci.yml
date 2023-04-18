@@ -64,10 +64,9 @@ deploy:
         - increase_version  
     only:
         # Deprecated, use rules with newer gitlab version
-        #- main
-        #- /^rc-.*$/
-        #- /^dev-.*$/ 
-        - test 
+        - main
+        - /^rc-.*$/
+        - /^dev-.*$/ 
     artifacts:
         name: pack-output
         paths:

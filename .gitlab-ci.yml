@@ -27,7 +27,7 @@ increase_version:
             (dev-*) export VERSION=${VERSION}"-dev";;  
             esac        
         - echo $VERSION > vars/version
-        - echo "New Version Number is ${VERSION}"
+        - echo "New Version Number is " ${VERSION}
     stage:
         increase_version
     only:

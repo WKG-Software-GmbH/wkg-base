@@ -1,7 +1,7 @@
 stages:
     - build
-    - increase_version
-    - deploy
+    - increase-version
+    - deploy-baget
 
 variables:
     PROJECT_FILE_PATH: "Wkg/Wkg/Wkg.csproj"
@@ -14,35 +14,13 @@ include:
       file:
           - '/gitlab/templates/jobs/build_dotnet_7.yml'
           - '/gitlab/templates/jobs/increase_version.yml'
+          - '/gitlab/templates/jobs/deploy_baget_dotnet_7.yml'
+
+build:
+    extends: .build
+
+increase_version:
+    extends: .increase-version
 
 deploy:
-    image: mcr.microsoft.com/dotnet/sdk:7.0 
-    script:
-        - cat ${WKG_ROOT_CA} >> /usr/local/share/ca-certificates/wkgrootca.crt
-        - update-ca-certificates --fresh
-        - cat vars/version
-        - export VERSION=$(cat vars/version) 
-        - echo ${VERSION}
-        - dotnet pack "${PROJECT_FILE_PATH}" -v q -c Release -o app/pack -p:PackageVersion=${VERSION} -p:IsPackable=true
-        # Todo Case when debug or rc or always?
-        #- dotnet pack "${PROJECT_FILE_PATH}" -v n -c Debug -o app/symbolspack --include-source --include-symbols -p:PackageVersion=${VERSION} -p:IsPackable=true -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg
-        #- dotnet pack "${PROJECT_FILE_PATH}" -v n -c Debug -o app/symbolspack -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg
-        - dotnet nuget add source ${BAGET_SERVER_URL}/v3/index.json --name baget
-        - dotnet nuget push "app/pack/*.nupkg" --source baget -k ${BAGET_API_KEY}
-        #- dotnet nuget push "app/symbolspack/*.snupkg" --source baget -k ${BAGET_API_KEY}
-    stage:
-        deploy
-    dependencies:
-        - increase_version  
-    only:
-        # Deprecated, use rules with newer gitlab version
-        - main
-        - /^rc-.*$/
-        - /^dev-.*$/ 
-    artifacts:
-        name: pack-output
-        paths:
-            - app/pack
-        expire_in: 2 hour              
-    tags:
-        - docker
+    extends: .deploy-baget

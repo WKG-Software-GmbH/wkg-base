@@ -17,7 +17,7 @@
         <Description>Internal WKG library containing reusable cross-platform frameworks for all projects.</Description>
         <Company>WKG Software GmbH</Company>
         <Authors>WKG Software GmbH</Authors>
-        <Copyright>© WKG Software GmbH 2023</Copyright>
+        <Copyright>Copyright (c) WKG Software GmbH 2023</Copyright>
         <PackageIcon>logo.png</PackageIcon>
         <Title>WKG Library Core</Title>
         <PackageType>Dependency</PackageType>

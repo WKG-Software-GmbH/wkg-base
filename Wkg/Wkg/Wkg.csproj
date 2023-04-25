@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+    <!--.NET build settings-->
     <PropertyGroup>
         <TargetFramework>net7.0</TargetFramework>
         <LangVersion>latest</LangVersion>
@@ -7,24 +8,29 @@
         <Nullable>enable</Nullable>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
-
+    
+    <!--Nuget packaging-->
     <PropertyGroup>
-        <GenerateDocumentationFile>true</GenerateDocumentationFile>
-        <DebugSymbols>true</DebugSymbols>
-        <EmbedAllSources>true</EmbedAllSources>
-        <DebugType>embedded</DebugType>
+        <IsPackable>true</IsPackable>
         <RepositoryUrl>https://git.wkg.lan/WKG/components/wkg-base.git</RepositoryUrl>
         <PackageProjectUrl>https://git.wkg.lan/WKG/components/wkg-base.git</PackageProjectUrl>
         <Description>Internal WKG library containing reusable cross-platform frameworks for all projects.</Description>
         <Company>WKG Software GmbH</Company>
         <Authors>WKG Software GmbH</Authors>
-        <Copyright>© WKG Software GmbH 2023</Copyright>
+        <Copyright>Copyright (c) WKG Software GmbH 2023</Copyright>
         <PackageIcon>logo.png</PackageIcon>
         <Title>WKG Library Core</Title>
         <PackageType>Dependency</PackageType>
         <PackageTags>
             Unmanaged;Collections
         </PackageTags>
+    </PropertyGroup>
+    
+    <!--Nuget symbols and debugging-->
+    <PropertyGroup>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     </PropertyGroup>
     
     <ItemGroup>

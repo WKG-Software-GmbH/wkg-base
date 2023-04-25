@@ -9,12 +9,12 @@ variables:
     MINOR_VERSION: "1"
 
 include:
-    - project: 'infrastructure/gitlab'
-      ref: 'initial_templates'
+    - project: 'wkg/gitlab-templates'
+      ref: 'v1.0.0'
       file:
-          - '/gitlab/templates/jobs/build_dotnet_7.yml'
-          - '/gitlab/templates/jobs/increase_version.yml'
-          - '/gitlab/templates/jobs/deploy_baget_dotnet_7.yml'
+          - '/jobs/build_dotnet_7.yml'
+          - '/jobs/increase_version.yml'
+          - '/jobs/deploy_baget_dotnet_7.yml'
 
 build:
     extends: .build

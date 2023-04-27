@@ -31,10 +31,11 @@ public static class GuidExtensions
         {
             // indices 4, 6, 8 and 10 will contain a '-' delimiter character in the Guid string.
             // --> leave space for those delimiters
-            if (i is 4 or 6 or 8 or 10)
-            {
-                skip++;
-            }
+            int mask = ~(((-(i ^ 4)) >> 31) & ((-(i ^ 6)) >> 31) & ((-(i ^ 8)) >> 31) & ((-(i ^ 10)) >> 31));
+
+            // mask will be 0xFFFFFFFF for indices 4, 6, 8 and 10 and 0x00000000 for all other indices
+            // --> skip those indices
+            skip += 1 & mask;
 
             // stretch high and low bytes of every single byte into two bytes (skipping '-' delimiter characters)
             result[(2 * i) + skip] = (byte)(buffer[i] >> 0x4);

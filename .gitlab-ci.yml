@@ -1,5 +1,6 @@
 stages:
     - build
+    - test
     - increase-version
     - deploy-baget
 
@@ -10,14 +11,18 @@ variables:
 
 include:
     - project: 'wkg/gitlab-templates'
-      ref: 'v1.0.0'
+      ref: 'unit-tests'
       file:
           - '/jobs/build_dotnet_7.yml'
+          - '/jobs/test_dotnet_7.yml'
           - '/jobs/increase_version.yml'
           - '/jobs/deploy_baget_dotnet_7.yml'
 
 build:
     extends: .build
+
+test:
+    extends: .test
 
 increase-version:
     extends: .increase-version

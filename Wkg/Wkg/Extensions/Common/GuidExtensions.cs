@@ -3,6 +3,9 @@ using System.Text;
 
 namespace Wkg.Extensions.Common;
 
+/// <summary>
+/// Contains extension methods for the <see cref="Guid"/> struct.
+/// </summary>
 public static class GuidExtensions
 {
     /// <summary>

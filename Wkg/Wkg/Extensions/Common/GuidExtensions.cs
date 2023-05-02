@@ -1,7 +1,11 @@
-﻿using System.Text;
+﻿using System.Runtime.CompilerServices;
+using System.Text;
 
 namespace Wkg.Extensions.Common;
 
+/// <summary>
+/// Contains extension methods for the <see cref="Guid"/> struct.
+/// </summary>
 public static class GuidExtensions
 {
     /// <summary>
@@ -17,9 +21,6 @@ public static class GuidExtensions
         // allocate enough bytes to store Guid ASCII string
         Span<byte> result = stackalloc byte[36];
 
-        // set all bytes to 0xFF (to be able to distinguish them from real data)
-        result.Fill(0xFF);
-
         // get bytes from guid
         Span<byte> buffer = stackalloc byte[16];
         _ = guid.TryWriteBytes(buffer);
@@ -31,32 +32,36 @@ public static class GuidExtensions
         {
             // indices 4, 6, 8 and 10 will contain a '-' delimiter character in the Guid string.
             // --> leave space for those delimiters
-            if (i is 4 or 6 or 8 or 10)
-            {
-                skip++;
-            }
+            // we can check if i is even and i / 2 is >= 2 and <= 5 to determine if we are at one of those indices
+            // 0xF...F if i is odd and 0x0...0 if i is even
+            int isOddMask = -(i & 1);
 
-            // stretch high and low bytes of every single byte into two bytes (skipping '-' delimiter characters)
-            result[(2 * i) + skip] = (byte)(buffer[i] >> 0x4);
-            result[(2 * i) + 1 + skip] = (byte)(buffer[i] & 0x0Fu);
+            // 0xF...F if i / 2 is < 2 and 0x0...0 if i / 2 is >= 2
+            int less2Mask = ((i >> 1) - 2) >> 31;
+
+            // 0xF...F if i / 2 is > 5 and 0x0...0 if i / 2 is <= 5
+            int greater5Mask = ~(((i >> 1) - 6) >> 31);
+
+            // 0xF...F if i is even and 2 <= i / 2 <= 5 otherwise 0x0...0
+            int skipIndexMask = ~(isOddMask | less2Mask | greater5Mask);
+
+            // skipIndexMask will be 0xFFFFFFFF for indices 4, 6, 8 and 10 and 0x00000000 for all other indices
+            // --> skip those indices
+            skip += 1 & skipIndexMask;
+            result[(2 * i) + skip] = ToHexCharBranchless(buffer[i] >>> 0x4);
+            result[(2 * i) + skip + 1] = ToHexCharBranchless(buffer[i] & 0x0F);
         }
 
-        // iterate over precomputed byte array.
-        // values 0x0 to 0xF are final hex values, but must be mapped to ASCII characters.
-        // value 0xFF is to be mapped to '-' delimiter character.
-        for (int i = 0; i < result.Length; i++)
-        {
-            // map bytes to ASCII values (a-f will be lowercase)
-            ref byte b = ref result[i];
-            b = b switch
-            {
-                0xFF => 0x2D,                // Map 0xFF to '-' character
-                < 0xA => (byte)(b + 0x30u),  // Map 0x0 - 0x9 to '0' - '9'
-                _ => (byte)(b + 0x57u)       // Map 0xA - 0xF to 'a' - 'f'
-            };
-        }
+        // add dashes
+        const byte dash = (byte)'-';
+        result[8] = result[13] = result[18] = result[23] = dash;
 
         // get string from ASCII encoded guid byte array
         return Encoding.ASCII.GetString(result);
     }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static byte ToHexCharBranchless(int b) =>
+        // b + 0x30 for [0-9] if 0 <= b <= 9 and b + 0x30 + 0x27 for [a-f] if 10 <= b <= 15
+        (byte)(b + 0x30 + (0x27 & ~((b - 0xA) >> 31)));
 }

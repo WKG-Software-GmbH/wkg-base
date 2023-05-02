@@ -98,6 +98,12 @@ public static unsafe partial class MemoryManager
         ? tracker.GetAllocationSnapshot(reset)
         : null;
 
+    /// <summary>
+    /// Attempts to register an external allocation with the current memory manager if allocation tracking is supported.
+    /// </summary>
+    /// <param name="ptr">The base address of the allocation.</param>
+    /// <param name="size">The size of the allocation, in bytes.</param>
+    /// <returns><see langword="true"/> if the allocation was registered; otherwise, <see langword="false"/>.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool TryRegisterExternalAllocation(void* ptr, nuint size)
     {
@@ -109,6 +115,11 @@ public static unsafe partial class MemoryManager
         return false;
     }
 
+    /// <summary>
+    /// Attempts to unregister an external allocation with the current memory manager if allocation tracking is supported.
+    /// </summary>
+    /// <param name="ptr">The base address of the allocation.</param>
+    /// <returns><see langword="true"/> if the allocation was unregistered; otherwise, <see langword="false"/>.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool TryUnregisterExternalAllocation(void* ptr)
     {

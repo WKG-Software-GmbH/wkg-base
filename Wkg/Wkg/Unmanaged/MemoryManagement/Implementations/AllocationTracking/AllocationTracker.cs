@@ -3,20 +3,35 @@ using System.Diagnostics;
 
 namespace Wkg.Unmanaged.MemoryManagement.Implementations.AllocationTracking;
 
+/// <summary>
+/// Represents an <see cref="IMemoryManager"/> capable of tracking allocations.
+/// </summary>
+/// <typeparam name="TMemoryManager"></typeparam>
 public readonly unsafe struct AllocationTracker<TMemoryManager> : IMemoryManager, IAllocationTracker where TMemoryManager : struct, IMemoryManager
 {
     private static readonly ConcurrentDictionary<nuint, Allocation> _allocations = new();
 
     private readonly TMemoryManager _impl = new();
 
+    /// <summary>
+    /// Creates a new instance of the <see cref="AllocationTracker{TMemoryManager}"/> class.
+    /// </summary>
     public AllocationTracker()
     {
     }
 
+    /// <summary>
+    /// <inheritdoc/>
+    /// </summary>
+    /// <remarks>
+    /// This property is always <see langword="true"/>.
+    /// </remarks>
     public bool SupportsAllocationTracking => true;
 
+    /// <inheritdoc/>
     public void Clear() => _allocations.Clear();
 
+    /// <inheritdoc/>
     [StackTraceHidden]
     public static void* Calloc(int count, int size)
     {
@@ -26,12 +41,14 @@ public readonly unsafe struct AllocationTracker<TMemoryManager> : IMemoryManager
         return p;
     }
 
+    /// <inheritdoc/>
     public static void Free(void* memory)
     {
         TMemoryManager.Free(memory);
         _allocations.TryRemove((nuint)memory, out _);
     }
 
+    /// <inheritdoc/>
     [StackTraceHidden]
     public static void* Malloc(int size)
     {
@@ -41,6 +58,7 @@ public readonly unsafe struct AllocationTracker<TMemoryManager> : IMemoryManager
         return p;
     }
 
+    /// <inheritdoc/>
     [StackTraceHidden]
     public static void* Realloc(void* previous, int newSize)
     {
@@ -51,6 +69,7 @@ public readonly unsafe struct AllocationTracker<TMemoryManager> : IMemoryManager
         return p;
     }
 
+    /// <inheritdoc/>
     [StackTraceHidden]
     public T* Calloc<T>(int count) where T : unmanaged
     {
@@ -60,6 +79,7 @@ public readonly unsafe struct AllocationTracker<TMemoryManager> : IMemoryManager
         return p;
     }
 
+    /// <inheritdoc/>
     public AllocationSnapshot GetAllocationSnapshot(bool reset = false)
     {
         Allocation[] allocations = _allocations.Values.ToArray();
@@ -71,6 +91,7 @@ public readonly unsafe struct AllocationTracker<TMemoryManager> : IMemoryManager
         return new AllocationSnapshot(allocations);
     }
 
+    /// <inheritdoc/>
     [StackTraceHidden]
     public T* Realloc<T>(T* previous, int newCount) where T : unmanaged
     {
@@ -81,6 +102,7 @@ public readonly unsafe struct AllocationTracker<TMemoryManager> : IMemoryManager
         return p;
     }
 
+    /// <inheritdoc/>
     [StackTraceHidden]
     public void RegisterExternalAllocation(void* handle, nuint size)
     {
@@ -88,5 +110,6 @@ public readonly unsafe struct AllocationTracker<TMemoryManager> : IMemoryManager
         _allocations.TryAdd((nuint)handle, allocation);
     }
 
+    /// <inheritdoc/>
     public void UnregisterExternalAllocation(void* handle) => _allocations.TryRemove(new UIntPtr(handle), out _);
 }

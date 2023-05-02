@@ -1,23 +1,28 @@
 stages:
     - build
+    - test
     - increase-version
     - deploy-baget
 
 variables:
     PROJECT_FILE_PATH: "Wkg/Wkg/Wkg.csproj"
     MAJOR_VERSION: "7"
-    MINOR_VERSION: "0"
+    MINOR_VERSION: "1"
 
 include:
-    - project: 'infrastructure/gitlab'
-      ref: 'initial_templates'
+    - project: 'wkg/gitlab-templates'
+      ref: 'v1.1.0'
       file:
-          - '/gitlab/templates/jobs/build_dotnet_7.yml'
-          - '/gitlab/templates/jobs/increase_version.yml'
-          - '/gitlab/templates/jobs/deploy_baget_dotnet_7.yml'
+          - '/jobs/build_dotnet_7.yml'
+          - '/jobs/test_dotnet_7.yml'
+          - '/jobs/increase_version.yml'
+          - '/jobs/deploy_baget_dotnet_7.yml'
 
 build:
     extends: .build
+
+test:
+    extends: .test
 
 increase-version:
     extends: .increase-version

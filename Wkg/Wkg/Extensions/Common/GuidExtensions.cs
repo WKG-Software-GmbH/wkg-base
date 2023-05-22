@@ -9,13 +9,11 @@ namespace Wkg.Extensions.Common;
 public static class GuidExtensions
 {
     /// <summary>
-    /// Converts the <paramref name="guid"/> to it's big endian string representation.
+    /// Converts a <see cref="Guid"/> to its big endian string representation.
     /// <para>
     /// <see href="https://stackoverflow.com/questions/48147681/get-a-guid-to-encode-using-big-endian-formatting-c-sharp"/>
     /// </para>
     /// </summary>
-    /// <param name="guid"></param>
-    /// <returns></returns>
     public static string ToStringBigEndian(this Guid guid)
     {
         // allocate enough bytes to store Guid ASCII string

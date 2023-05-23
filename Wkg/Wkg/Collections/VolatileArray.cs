@@ -3,7 +3,7 @@
 namespace Wkg.Collections;
 
 /// <summary>
-/// An array of objects accessing it's elements using <see cref="Volatile.Read{T}(ref T)"/> and <see cref="Volatile.Write{T}(ref T, T)"/>.
+/// An array of objects accessing its elements using <see cref="Volatile.Read{T}(ref T)"/> and <see cref="Volatile.Write{T}(ref T, T)"/>.
 /// </summary>
 /// <typeparam name="T">The underlying type of this array.</typeparam>
 public class VolatileArray<T> : IEnumerable<T>, IEnumerator<T> where T : class

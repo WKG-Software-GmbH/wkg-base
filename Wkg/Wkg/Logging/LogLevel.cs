@@ -16,14 +16,9 @@ public enum LogLevel
     Debug,
 
     /// <summary>
-    /// Functionality is unavailable, invariants are broken, data is lost and something went wrong somewhere.
+    /// The user did a thing to trigger an input event.
     /// </summary>
-    Error,
-
-    /// <summary>
-    /// The last breath of your application before it dies a horrible and unexpected death.
-    /// </summary>
-    Fatal,
+    Event,
 
     /// <summary>
     /// Things happen. The kind of things you want to know about regardless of what you're currently working on like important changes of the application state.
@@ -36,7 +31,12 @@ public enum LogLevel
     Warning,
 
     /// <summary>
-    /// The user did a thing to trigger an input event.
+    /// Functionality is unavailable, invariants are broken, data is lost and something went wrong somewhere.
     /// </summary>
-    Event
+    Error,
+
+    /// <summary>
+    /// The last breath of your application before it dies a horrible and unexpected death.
+    /// </summary>
+    Fatal
 }

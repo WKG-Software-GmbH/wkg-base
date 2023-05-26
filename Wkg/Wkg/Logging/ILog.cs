@@ -1,4 +1,5 @@
-﻿using Wkg.Logging.Writers;
+﻿using Wkg.Logging.Loggers;
+using Wkg.Logging.Writers;
 
 namespace Wkg.Logging;
 

@@ -1,6 +1,6 @@
 ﻿using Wkg.Logging.Writers;
 
-namespace Wkg.Logging;
+namespace Wkg.Logging.Loggers;
 
 public interface ILogger
 {

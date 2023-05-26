@@ -5,7 +5,7 @@ using Wkg.Logging.Generators;
 using Wkg.Logging.Sinks;
 using Wkg.Logging.Writers;
 
-namespace Wkg.Logging;
+namespace Wkg.Logging.Loggers;
 
 public class Logger : ILogger
 {

@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Wkg.Logging.Configuration;
-using Wkg.Logging.Entries;
+using Wkg.Logging.Generators;
 using Wkg.Logging.Sinks;
 using Wkg.Logging.Writers;
 

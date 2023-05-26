@@ -1,4 +1,4 @@
-﻿using Wkg.Logging.Entries;
+﻿using Wkg.Logging.Generators;
 using Wkg.Logging.Sinks;
 
 namespace Wkg.Logging.Configuration;
@@ -7,7 +7,7 @@ public partial class LoggerConfiguration
 {
     private readonly List<ILogSink> _logSinks = new();
     private int _mainThreadId = 0;
-    private Func<CompiledLoggerConfiguration, ILogEntryGenerator> _generatorFactory = DefaultLogEntryGenerator.Create;
+    private Func<CompiledLoggerConfiguration, ILogEntryGenerator> _generatorFactory = TracingLogEntryGenerator.Create;
 
     private LoggerConfiguration()
     {

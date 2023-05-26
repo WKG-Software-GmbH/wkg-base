@@ -1,4 +1,4 @@
-﻿using Wkg.Logging.Entries;
+﻿using Wkg.Logging.Generators;
 using Wkg.Logging.Sinks;
 
 namespace Wkg.Logging.Configuration;

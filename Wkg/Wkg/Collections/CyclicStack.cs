@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace Wkg.Collections;
+﻿namespace Wkg.Collections;
 
 /// <summary>
 /// A last-in, first-out collection of objects implemented on to of a ring buffer allowing the bottom most element to be overridden once the specified <see cref="Capacity"/> is reached.

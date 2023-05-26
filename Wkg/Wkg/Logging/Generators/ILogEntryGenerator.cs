@@ -1,7 +1,6 @@
-﻿using Wkg.Logging;
-using Wkg.Logging.Configuration;
+﻿using Wkg.Logging.Configuration;
 
-namespace Wkg.Logging.Entries;
+namespace Wkg.Logging.Generators;
 
 public interface ILogEntryGenerator
 {

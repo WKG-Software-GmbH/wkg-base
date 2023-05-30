@@ -44,7 +44,19 @@ public class Logger : ILogger
     [StackTraceHidden]
     public void Log(Exception exception, ILogWriter logWriter, LogLevel logLevel = LogLevel.Error)
     {
-        string entry = _logEntryGenerator.Generate(exception, logLevel);
+        string entry = _logEntryGenerator.Generate(exception, null, logLevel);
+        logWriter.Write(entry, _sinks, logLevel);
+    }
+
+    [StackTraceHidden]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Log(Exception exception, string additionalInfo, LogLevel logLevel = LogLevel.Error) =>
+        Log(exception, additionalInfo, LogWriter.Blocking, logLevel);
+
+    [StackTraceHidden]
+    public void Log(Exception exception, string additionalInfo, ILogWriter logWriter, LogLevel logLevel = LogLevel.Error)
+    {
+        string entry = _logEntryGenerator.Generate(exception, additionalInfo, logLevel);
         logWriter.Write(entry, _sinks, logLevel);
     }
 

@@ -35,7 +35,11 @@ public interface ILog
 
     static abstract void WriteException(Exception exception, LogLevel logLevel = LogLevel.Error);
 
+    static abstract void WriteException(Exception exception, string additionalInfo, LogLevel logLevel = LogLevel.Error);
+
     static abstract void WriteException(Exception exception, ILogWriter logWriter, LogLevel logLevel = LogLevel.Error);
+
+    static abstract void WriteException(Exception exception, string additionalInfo, ILogWriter logWriter, LogLevel logLevel = LogLevel.Error);
 
     static abstract void WriteEvent(string message);
 

@@ -43,6 +43,7 @@ internal class LogFileSink : ILogSink
     /// Logs a message to the file.
     /// </summary>
     /// <param name="entry">Message to log.</param>
+    /// <param name="logLevel">The <see cref="LogLevel"/> of the message.</param>
     public void Log(string entry, LogLevel logLevel)
     {
         lock (_fileLock)

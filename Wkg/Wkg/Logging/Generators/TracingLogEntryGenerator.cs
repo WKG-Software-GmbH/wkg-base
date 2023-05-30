@@ -10,9 +10,9 @@ namespace Wkg.Logging.Generators;
 
 public class TracingLogEntryGenerator : ILogEntryGenerator<TracingLogEntryGenerator>
 {
+    protected static readonly ThreadLocal<StringBuilder> _stringBuilder = new(() => new StringBuilder(512), false);
     protected readonly CompiledLoggerConfiguration _config;
     protected readonly ConcurrentDictionary<MethodBase, string> _targetSiteLookup = new();
-    protected readonly ThreadLocal<StringBuilder> _stringBuilder = new(() => new StringBuilder(256), false);
 
     protected TracingLogEntryGenerator(CompiledLoggerConfiguration config) =>
         _config = config;
@@ -33,22 +33,29 @@ public class TracingLogEntryGenerator : ILogEntryGenerator<TracingLogEntryGenera
     }
 
     [StackTraceHidden]
-    public virtual string Generate(Exception exception, LogLevel level)
+    public virtual string Generate(Exception exception, string? additionalInfo, LogLevel level)
     {
-        string stackTrace;
-        if (exception.StackTrace == null)
+        StringBuilder builder = AddTargetSite(GenerateHeader(level, null, out MethodBase? method), method)
+            .Append(exception.GetType().Name)
+            .Append(": ");
+        if (additionalInfo is not null)
         {
-            stackTrace = string.Empty;
+            builder.Append("info: \'")
+                .Append(additionalInfo)
+                .Append("\' ");
+        }
+        builder.Append("original: \'")
+            .Append(exception.Message)
+            .Append("\' at: ");
+        if (exception.StackTrace is not null)
+        {
+            builder.Append('\n').Append(exception.StackTrace);
         }
         else
         {
-            stackTrace = $"\n{exception.StackTrace}";
+            builder.Append("stacktrace unavailable");
         }
-        StringBuilder builder = AddTargetSite(GenerateHeader(level, null, out MethodBase? method), method)
-            .Append(exception.GetType().Name).Append(": \'")
-            .Append(exception.Message)
-            .Append("\' at: ")
-            .Append(stackTrace);
+            
         string entry = builder.ToString();
         builder.Clear();
         return entry;
@@ -59,7 +66,7 @@ public class TracingLogEntryGenerator : ILogEntryGenerator<TracingLogEntryGenera
     {
         StringBuilder builder = GenerateHeader(LogLevel.Event, assemblyName, out MethodBase? method)
             .Append('(')
-            .Append(className ?? method?.DeclaringType?.Name ?? "UNKNOWN")
+            .Append(className ?? method?.DeclaringType?.Name ?? "<UnknownType>")
             .Append("::")
             .Append(instanceName)
             .Append(") ==> ")
@@ -89,7 +96,8 @@ public class TracingLogEntryGenerator : ILogEntryGenerator<TracingLogEntryGenera
             }
             catch (NotSupportedException ex)
             {
-                builder.Append($"{nameof(NotSupportedException)} -> ").Append(ex.Message);
+                builder.Append($"{nameof(NotSupportedException)} -> ")
+                    .Append(ex.Message);
             }
         }
     }

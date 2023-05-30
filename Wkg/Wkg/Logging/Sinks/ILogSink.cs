@@ -9,5 +9,6 @@ public interface ILogSink
     /// Logs an event.
     /// </summary>
     /// <param name="logEntry">The message to be logged.</param>
+    /// <param name="logLevel">The <see cref="LogLevel"/> of the message.</param>
     void Log(string logEntry, LogLevel logLevel);
 }

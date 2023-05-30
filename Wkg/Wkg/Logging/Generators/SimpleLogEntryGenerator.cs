@@ -1,43 +1,106 @@
-﻿using Wkg.Logging.Configuration;
+﻿using System.Text;
+using Wkg.Logging.Configuration;
 
 namespace Wkg.Logging.Generators;
 
-public class SimpleLogEntryGenerator : ILogEntryGenerator<SimpleLogEntryGenerator>
+public sealed class SimpleLogEntryGenerator : ILogEntryGenerator<SimpleLogEntryGenerator>
 {
+    private static readonly ThreadLocal<StringBuilder> _stringBuilder = new(() => new StringBuilder(512), false);
     private readonly CompiledLoggerConfiguration _config;
 
-    protected SimpleLogEntryGenerator(CompiledLoggerConfiguration config) => 
+    private SimpleLogEntryGenerator(CompiledLoggerConfiguration config) => 
         _config = config;
 
     public static SimpleLogEntryGenerator Create(CompiledLoggerConfiguration config) => 
         new(config);
 
-    public string Generate(string title, string message, LogLevel level) =>
-        $"{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff} UTC: ({level}) on {CurrentThreadToString()} --> {title}: \'{message}\'";
+    /// <inheritdoc/>
+    public string Generate(string title, string message, LogLevel level)
+    {
+        // 2023-05-30 14:35:42.185 UTC: (Info) on Thread_0x123 --> Output: 'This is a log message';
+        StringBuilder builder = _stringBuilder.Value!;
+        builder.Clear();
+        AddPrefix(builder, level);
+        builder.Append(" on ");
+        AddThreadInfo(builder);
+        builder.Append(" --> ")
+            .Append(title)
+            .Append(": \'")
+            .Append(message)
+            .Append('\'');
+        return builder.ToString();
+    }
 
-    public string Generate(Exception exception, LogLevel level) => 
-        $"{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff} UTC: ({level}) {exception.GetType().Name} on {CurrentThreadToString()} --> \'{exception.Message}\' at: \n{exception.StackTrace}";
+    /// <inheritdoc/>
+    public string Generate(Exception exception, string? additionalInfo, LogLevel level)
+    {
+        // 2023 - 05 - 30 14:35:42.185 UTC: (Error) SomeException on Thread_0x123 --> info: 'while trying to do a thing' original: 'Exception message' at:
+        //    StackTrace line 1
+        //    StackTrace line 2
+        //    StackTrace line 3
+        StringBuilder builder = _stringBuilder.Value!;
+        builder.Clear();
+        AddPrefix(builder, level);
+        builder.Append(' ')
+            .Append(exception.GetType().Name)
+            .Append(" on ");
+        AddThreadInfo(builder);
+        builder.Append(" --> ");
+        if (additionalInfo is not null)
+        {
+            builder.Append("info: \'")
+                .Append(additionalInfo)
+                .Append("\' ");
+        }
+        builder.Append("original: \'")
+            .Append(exception.Message)
+            .Append("\' at: \n")
+            .Append(exception.StackTrace);
+        return builder.ToString();
+    }
 
+    /// <inheritdoc/>
     public string Generate<TEventArgs>(string? assemblyName, string? className, string instanceName, string eventName, TEventArgs eventArgs)
     {
+        // 2023-05-30 14:35:42.185 UTC: (Event) on Thread_0x123 --> (MyAssembly) (MyClass::MyButtonInstance) ==> OnClick(eventArgs)
+        StringBuilder builder = _stringBuilder.Value!;
+        builder.Clear();
+        AddPrefix(builder, LogLevel.Event);
+        builder.Append(" on ");
+        AddThreadInfo(builder);
+        builder.Append(" --> (");
         if (assemblyName is not null && className is not null)
         {
-            return $"{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff} UTC: (Event) on {CurrentThreadToString()} --> ({assemblyName}) ({className}::{instanceName}) ==> {eventName}({eventArgs})";
+            builder.Append(assemblyName)
+                .Append(") (")
+                .Append(className)
+                .Append("::");
         }
-        else
+        builder.Append(instanceName)
+            .Append(") ==> ")
+            .Append(eventName)
+            .Append('(')
+            .Append(eventArgs)
+            .Append(')');
+        return builder.ToString();
+    }
+
+    // Thread_0x1c8 (Main Thread)
+    private void AddThreadInfo(StringBuilder builder)
+    {
+        int threadId = Environment.CurrentManagedThreadId;
+        builder.Append("Thread_0x")
+            .Append(threadId.ToString("x"));
+        if (threadId == _config.MainThreadId)
         {
-            return $"{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff} UTC: (Event) on {CurrentThreadToString()} --> ({instanceName}) ==> {eventName}({eventArgs})";
+            builder.Append(" (Main Thread)");
         }
     }
 
-    protected virtual string CurrentThreadToString()
-    {
-        int threadId = Environment.CurrentManagedThreadId;
-        string threadName = $"Thread_0x{threadId:x}";
-        if (threadId == _config.MainThreadId)
-        {
-            return $"{threadName} (Main Thread)";
-        }
-        return threadName;
-    }
+    // 2023-05-30 14:35:42.185 UTC: (Warning)
+    private static void AddPrefix(StringBuilder builder, LogLevel level) => builder
+        .Append(DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff"))
+        .Append(" UTC: (")
+        .Append(level)
+        .Append(')');
 }

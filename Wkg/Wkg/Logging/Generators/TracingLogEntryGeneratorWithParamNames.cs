@@ -10,7 +10,7 @@ public class TracingLogEntryGeneratorWithParamNames : TracingLogEntryGenerator, 
     {
     }
 
-    public static TracingLogEntryGeneratorWithParamNames Create(CompiledLoggerConfiguration config) =>
+    public static new TracingLogEntryGeneratorWithParamNames Create(CompiledLoggerConfiguration config) =>
         new(config);
 
     protected override string GetTargetSite(MethodBase method)
@@ -20,7 +20,11 @@ public class TracingLogEntryGeneratorWithParamNames : TracingLogEntryGenerator, 
             string type = method.DeclaringType?.Name ?? "<UnknownType>";
             ParameterInfo[] parameters = method.GetParameters();
             StringBuilder builder = new();
-            builder.Append('(').Append(type).Append("::").Append(method.Name).Append('(');
+            builder.Append('(')
+                .Append(type)
+                .Append("::")
+                .Append(method.Name)
+                .Append('(');
             bool flag = false;
             foreach (ParameterInfo parameter in parameters)
             {

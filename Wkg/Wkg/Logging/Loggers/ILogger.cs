@@ -10,7 +10,11 @@ public interface ILogger
 
     void Log(Exception exception, LogLevel logLevel = LogLevel.Error);
 
+    void Log(Exception exception, string additionalInfo, LogLevel logLevel = LogLevel.Error);
+
     void Log(Exception exception, ILogWriter logWriter, LogLevel logLevel = LogLevel.Error);
+
+    void Log(Exception exception, string additionalInfo, ILogWriter logWriter, LogLevel logLevel = LogLevel.Error);
 
     void Log<TEventArgs>(string instanceName, string eventName, TEventArgs eventArgs, string? assemblyName = null, string? className = null);
 

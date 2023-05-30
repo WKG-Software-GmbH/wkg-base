@@ -6,7 +6,7 @@ public interface ILogEntryGenerator
 {
     string Generate(string title, string message, LogLevel level);
 
-    string Generate(Exception exception, LogLevel level);
+    string Generate(Exception exception, string? additionalInfo, LogLevel level);
 
     string Generate<TEventArgs>(string? assemblyName, string? className, string instanceName, string eventName, TEventArgs eventArgs);
 }

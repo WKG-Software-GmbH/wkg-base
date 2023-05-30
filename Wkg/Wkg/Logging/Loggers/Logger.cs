@@ -11,23 +11,25 @@ public class Logger : ILogger
 {
     private readonly ILogEntryGenerator _logEntryGenerator;
     private readonly ConcurrentSinkCollection _sinks;
+    private readonly CompiledLoggerConfiguration _config;
 
-    private Logger(ILogEntryGenerator logEntryGenerator, ConcurrentSinkCollection sinks)
+    private Logger(CompiledLoggerConfiguration config)
     {
-        _logEntryGenerator = logEntryGenerator;
-        _sinks = sinks;
+        _config = config;
+        _sinks = config.LoggingSinks;
+        _logEntryGenerator = config.GeneratorFactory(config);
     }
 
     public static ILogger Create(LoggerConfiguration config)
     {
         CompiledLoggerConfiguration compiledConfig = config.Compile();
-        return new Logger(compiledConfig.GeneratorFactory(compiledConfig), compiledConfig.LoggingSinks);
+        return new Logger(compiledConfig);
     }
 
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Log(string message, LogLevel logLevel = LogLevel.Debug) =>
-        Log(message, LogWriter.Background, logLevel);
+        Log(message, _config.DefaultLogWriter, logLevel);
 
     [StackTraceHidden]
     public void Log(string message, ILogWriter logWriter, LogLevel logLevel = LogLevel.Debug)
@@ -63,7 +65,7 @@ public class Logger : ILogger
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Log<TEventArgs>(string instanceName, string eventName, TEventArgs eventArgs, string? assemblyName = null, string? className = null) =>
-        Log(instanceName, eventName, eventArgs, LogWriter.Background, assemblyName, className);
+        Log(instanceName, eventName, eventArgs, _config.DefaultLogWriter, assemblyName, className);
 
     [StackTraceHidden]
     public void Log<TEventArgs>(string instanceName, string eventName, TEventArgs eventArgs, ILogWriter logWriter, string? assemblyName = null, string? className = null)

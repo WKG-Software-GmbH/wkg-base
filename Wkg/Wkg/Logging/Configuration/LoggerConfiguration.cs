@@ -1,5 +1,6 @@
 ﻿using Wkg.Logging.Generators;
 using Wkg.Logging.Sinks;
+using Wkg.Logging.Writers;
 
 namespace Wkg.Logging.Configuration;
 
@@ -8,12 +9,13 @@ public partial class LoggerConfiguration
     private readonly List<ILogSink> _logSinks = new();
     private int _mainThreadId = 0;
     private Func<CompiledLoggerConfiguration, ILogEntryGenerator> _generatorFactory = TracingLogEntryGenerator.Create;
+    private ILogWriter _defaultWriter = LogWriter.Blocking;
 
     private LoggerConfiguration()
     {
     }
 
-    internal CompiledLoggerConfiguration Compile() => new(new ConcurrentSinkCollection(_logSinks.ToArray()), _mainThreadId, _generatorFactory);
+    internal CompiledLoggerConfiguration Compile() => new(new ConcurrentSinkCollection(_logSinks.ToArray()), _mainThreadId, _defaultWriter, _generatorFactory);
 
     public static partial LoggerConfiguration Create() => new();
 
@@ -25,6 +27,12 @@ public partial class LoggerConfiguration
 
     public partial LoggerConfiguration AddSink<T>() where T : ILogSink, new() =>
         AddSink(new T());
+
+    public partial LoggerConfiguration UseDefaultLogWriter(ILogWriter logWriter)
+    {
+        _defaultWriter = logWriter;
+        return this;
+    }
 
     public LoggerConfiguration UseEntryGenerator<TGenerator>() where TGenerator : class, ILogEntryGenerator<TGenerator>
     {

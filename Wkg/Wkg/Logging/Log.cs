@@ -18,9 +18,9 @@ public class Log : ILog
     public static void UseLogger(ILogger logger)
     {
         CurrentLogger = logger;
-        CurrentLogger.Log(new string('=', 60), LogLevel.Info);
-        CurrentLogger.Log($"{new string(' ', 20)}Logger initialized!", LogLevel.Info);
-        CurrentLogger.Log(new string('=', 60), LogLevel.Info);
+        CurrentLogger.Log(new string('=', 60), LogWriter.Blocking, LogLevel.Info);
+        CurrentLogger.Log($"{new string(' ', 20)}Logger initialized!", LogWriter.Blocking, LogLevel.Info);
+        CurrentLogger.Log(new string('=', 60), LogWriter.Blocking, LogLevel.Info);
     }
 
     [StackTraceHidden]

@@ -125,8 +125,8 @@ public class TracingLogEntryGenerator : ILogEntryGenerator<TracingLogEntryGenera
 
         StringBuilder builder = _stringBuilder.Value!;
         builder.Clear();
-        return builder.Append("UTC ").Append(DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff"))
-            .Append(' ')
+        return builder.Append(DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff"))
+            .Append(" (UTC) ")
             .Append(textAssemblyName)
             .Append(": [")
             .Append(textLogLevel)

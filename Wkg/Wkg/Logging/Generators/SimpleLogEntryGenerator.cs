@@ -17,7 +17,7 @@ public sealed class SimpleLogEntryGenerator : ILogEntryGenerator<SimpleLogEntryG
     /// <inheritdoc/>
     public string Generate(string title, string message, LogLevel level)
     {
-        // 2023-05-30 14:35:42.185 UTC: (Info) on Thread_0x123 --> Output: 'This is a log message';
+        // 2023-05-30 14:35:42.185 (UTC) Info on Thread_0x123 --> Output: 'This is a log message';
         StringBuilder builder = _stringBuilder.Value!;
         builder.Clear();
         AddPrefix(builder, level);
@@ -34,14 +34,14 @@ public sealed class SimpleLogEntryGenerator : ILogEntryGenerator<SimpleLogEntryG
     /// <inheritdoc/>
     public string Generate(Exception exception, string? additionalInfo, LogLevel level)
     {
-        // 2023 - 05 - 30 14:35:42.185 UTC: (Error) SomeException on Thread_0x123 --> info: 'while trying to do a thing' original: 'Exception message' at:
+        // 2023-05-30 14:35:42.185 (UTC) Error: SomeException on Thread_0x123 --> info: 'while trying to do a thing' original: 'Exception message' at:
         //    StackTrace line 1
         //    StackTrace line 2
         //    StackTrace line 3
         StringBuilder builder = _stringBuilder.Value!;
         builder.Clear();
         AddPrefix(builder, level);
-        builder.Append(' ')
+        builder.Append(": ")
             .Append(exception.GetType().Name)
             .Append(" on ");
         AddThreadInfo(builder);
@@ -62,7 +62,7 @@ public sealed class SimpleLogEntryGenerator : ILogEntryGenerator<SimpleLogEntryG
     /// <inheritdoc/>
     public string Generate<TEventArgs>(string? assemblyName, string? className, string instanceName, string eventName, TEventArgs eventArgs)
     {
-        // 2023-05-30 14:35:42.185 UTC: (Event) on Thread_0x123 --> (MyAssembly) (MyClass::MyButtonInstance) ==> OnClick(eventArgs)
+        // 2023-05-30 14:35:42.185 (UTC) Event on Thread_0x123 --> (MyAssembly) (MyClass::MyButtonInstance) ==> OnClick(eventArgs)
         StringBuilder builder = _stringBuilder.Value!;
         builder.Clear();
         AddPrefix(builder, LogLevel.Event);
@@ -97,10 +97,9 @@ public sealed class SimpleLogEntryGenerator : ILogEntryGenerator<SimpleLogEntryG
         }
     }
 
-    // 2023-05-30 14:35:42.185 UTC: (Warning)
+    // 2023-05-30 14:35:42.185 (UTC) Warning
     private static void AddPrefix(StringBuilder builder, LogLevel level) => builder
         .Append(DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff"))
-        .Append(" UTC: (")
-        .Append(level)
-        .Append(')');
+        .Append(" (UTC) ")
+        .Append(level);
 }

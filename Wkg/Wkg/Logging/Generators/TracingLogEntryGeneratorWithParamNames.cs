@@ -4,15 +4,27 @@ using Wkg.Logging.Configuration;
 
 namespace Wkg.Logging.Generators;
 
+/// <summary>
+/// A veriant of the <see cref="TracingLogEntryGenerator"/> that includes parameter names in the target site, generating log entries in the following format:
+/// <code>
+/// 2023-05-31 14:14:24.626 (UTC) Wkg: [Info->Thread_0x1(MAIN THREAD)] (MyClass::MyMethod(String[] arguments, Boolean sendHelp)) ==> Output: 'Hello world! :)'
+/// </code>
+/// </summary>
+/// <remarks>
+/// This class requires reflective enumeration of target site information and stack unwinding, resulting in a performance penalty for extensive logging.
+/// It is recommended to use this class only in development environments.
+/// </remarks>
 public class TracingLogEntryGeneratorWithParamNames : TracingLogEntryGenerator, ILogEntryGenerator<TracingLogEntryGeneratorWithParamNames>
 {
     private TracingLogEntryGeneratorWithParamNames(CompiledLoggerConfiguration config) : base(config)
     {
     }
 
+    /// <inheritdoc/>
     public static new TracingLogEntryGeneratorWithParamNames Create(CompiledLoggerConfiguration config) =>
         new(config);
 
+    /// <inheritdoc/>
     protected override string GetTargetSite(MethodBase method)
     {
         if (!_targetSiteLookup.TryGetValue(method, out string? site))

@@ -8,18 +8,45 @@ using Wkg.Logging.Intrinsics.CallStack;
 
 namespace Wkg.Logging.Generators;
 
+/// <summary>
+/// A log entry generator that generates log entries in the format of:
+/// <code>
+/// 2023-05-31 14:14:24.626 (UTC) Wkg: [Info->Thread_0x1(MAIN THREAD)] (MyClass::MyMethod(String[], Boolean)) ==> Output: 'Hello world! :)'
+/// </code>
+/// </summary>
+/// <remarks>
+/// This class requires reflective enumeration of target site information and stack unwinding, resulting in a performance penalty for extensive logging.
+/// It is recommended to use this class only in development environments.
+/// </remarks>
 public class TracingLogEntryGenerator : ILogEntryGenerator<TracingLogEntryGenerator>
 {
+    /// <summary>
+    /// A thread-local <see cref="StringBuilder"/> cache to avoid unnecessary allocations
+    /// </summary>
     protected static readonly ThreadLocal<StringBuilder> _stringBuilder = new(() => new StringBuilder(512), false);
+
+    /// <summary>
+    /// The <see cref="CompiledLoggerConfiguration"/> used to create this <see cref="TracingLogEntryGenerator"/>
+    /// </summary>
     protected readonly CompiledLoggerConfiguration _config;
+
+    /// <summary>
+    /// A lookup table and reflection cache for target site information.
+    /// </summary>
     protected readonly ConcurrentDictionary<MethodBase, string> _targetSiteLookup = new();
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="TracingLogEntryGenerator"/> class.
+    /// </summary>
+    /// <param name="config">The <see cref="CompiledLoggerConfiguration"/> used to create this <see cref="TracingLogEntryGenerator"/></param>
     protected TracingLogEntryGenerator(CompiledLoggerConfiguration config) =>
         _config = config;
 
+    /// <inheritdoc/>
     public static TracingLogEntryGenerator Create(CompiledLoggerConfiguration config) =>
         new(config);
 
+    /// <inheritdoc/>
     [StackTraceHidden]
     public virtual string Generate(string title, string message, LogLevel level)
     {
@@ -32,6 +59,7 @@ public class TracingLogEntryGenerator : ILogEntryGenerator<TracingLogEntryGenera
         return entry;
     }
 
+    /// <inheritdoc/>
     [StackTraceHidden]
     public virtual string Generate(Exception exception, string? additionalInfo, LogLevel level)
     {
@@ -61,6 +89,7 @@ public class TracingLogEntryGenerator : ILogEntryGenerator<TracingLogEntryGenera
         return entry;
     }
 
+    /// <inheritdoc/>
     [StackTraceHidden]
     public virtual string Generate<TEventArgs>(string? assemblyName, string? className, string instanceName, string eventName, TEventArgs eventArgs)
     {
@@ -79,6 +108,12 @@ public class TracingLogEntryGenerator : ILogEntryGenerator<TracingLogEntryGenera
         return entry;
     }
 
+    /// <summary>
+    /// Adds the <paramref name="args"/> to the <paramref name="builder"/> in a human-readable (JSON) format.
+    /// </summary>
+    /// <typeparam name="TEventArgs">The type of the event args.</typeparam>
+    /// <param name="args">The event args to add.</param>
+    /// <param name="builder">The <see cref="StringBuilder"/> to add the <paramref name="args"/> to.</param>
     protected virtual void AddEventArgs<TEventArgs>(TEventArgs args, StringBuilder builder)
     {
         const string nullString = "null";
@@ -102,6 +137,13 @@ public class TracingLogEntryGenerator : ILogEntryGenerator<TracingLogEntryGenera
         }
     }
 
+    /// <summary>
+    /// Generates the log entry header.
+    /// </summary>
+    /// <param name="level">The <see cref="LogLevel"/> of the log entry.</param>
+    /// <param name="textAssemblyName">The name of the assembly that is logging (if known). If <see langword="null"/>, the assembly name will be determined using reflection.</param>
+    /// <param name="method">(Output) The <see cref="MethodBase"/> of the method that is logging.</param>
+    /// <returns>A <see cref="StringBuilder"/> containing the log entry header.</returns>
     [StackTraceHidden]
     protected virtual StringBuilder GenerateHeader(LogLevel level, string? textAssemblyName, out MethodBase? method)
     {
@@ -136,6 +178,11 @@ public class TracingLogEntryGenerator : ILogEntryGenerator<TracingLogEntryGenera
             .Append("] ");
     }
 
+    /// <summary>
+    /// Adds the target site to the <paramref name="builder"/>.
+    /// </summary>
+    /// <param name="builder">The <see cref="StringBuilder"/> to add the target site to.</param>
+    /// <param name="method">The <see cref="MethodBase"/> of the method that is logging.</param>
     protected virtual StringBuilder AddTargetSite(StringBuilder builder, MethodBase? method)
     {
         string textTargetSite = method is null ? "(<UnknownType>)" : GetTargetSite(method);
@@ -144,6 +191,11 @@ public class TracingLogEntryGenerator : ILogEntryGenerator<TracingLogEntryGenera
             .Append(" ==> ");
     }
 
+    /// <summary>
+    /// Gets the target site of the <paramref name="method"/> either from the cache or by generating it.
+    /// </summary>
+    /// <param name="method">The <see cref="MethodBase"/> of the method that is logging.</param>
+    /// <returns>The target site of the <paramref name="method"/>.</returns>
     protected virtual string GetTargetSite(MethodBase method)
     {
         if (!_targetSiteLookup.TryGetValue(method, out string? site))

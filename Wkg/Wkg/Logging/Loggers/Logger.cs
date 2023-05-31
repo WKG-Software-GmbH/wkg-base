@@ -7,6 +7,9 @@ using Wkg.Logging.Writers;
 
 namespace Wkg.Logging.Loggers;
 
+/// <summary>
+/// A default implementation of <see cref="ILogger"/> that can write log entries to multiple <see cref="ILogSink"/>s.
+/// </summary>
 public class Logger : ILogger
 {
     private readonly ILogEntryGenerator _logEntryGenerator;
@@ -20,17 +23,23 @@ public class Logger : ILogger
         _logEntryGenerator = config.GeneratorFactory(config);
     }
 
+    /// <summary>
+    /// Creates a new <see cref="ILogger"/> instance using the specified <see cref="LoggerConfiguration"/>.
+    /// </summary>
+    /// <param name="config">The <see cref="LoggerConfiguration"/> to use.</param>
     public static ILogger Create(LoggerConfiguration config)
     {
         CompiledLoggerConfiguration compiledConfig = config.Compile();
         return new Logger(compiledConfig);
     }
 
+    /// <inheritdoc/>
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Log(string message, LogLevel logLevel = LogLevel.Debug) =>
         Log(message, _config.DefaultLogWriter, logLevel);
 
+    /// <inheritdoc/>
     [StackTraceHidden]
     public void Log(string message, ILogWriter logWriter, LogLevel logLevel = LogLevel.Debug)
     {
@@ -38,11 +47,13 @@ public class Logger : ILogger
         logWriter.Write(entry, _sinks, logLevel);
     }
 
+    /// <inheritdoc/>
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Log(Exception exception, LogLevel logLevel = LogLevel.Error) =>
         Log(exception, LogWriter.Blocking, logLevel);
 
+    /// <inheritdoc/>
     [StackTraceHidden]
     public void Log(Exception exception, ILogWriter logWriter, LogLevel logLevel = LogLevel.Error)
     {
@@ -50,11 +61,13 @@ public class Logger : ILogger
         logWriter.Write(entry, _sinks, logLevel);
     }
 
+    /// <inheritdoc/>
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Log(Exception exception, string additionalInfo, LogLevel logLevel = LogLevel.Error) =>
         Log(exception, additionalInfo, LogWriter.Blocking, logLevel);
 
+    /// <inheritdoc/>
     [StackTraceHidden]
     public void Log(Exception exception, string additionalInfo, ILogWriter logWriter, LogLevel logLevel = LogLevel.Error)
     {
@@ -62,11 +75,13 @@ public class Logger : ILogger
         logWriter.Write(entry, _sinks, logLevel);
     }
 
+    /// <inheritdoc/>
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Log<TEventArgs>(string instanceName, string eventName, TEventArgs eventArgs, string? assemblyName = null, string? className = null) =>
         Log(instanceName, eventName, eventArgs, _config.DefaultLogWriter, assemblyName, className);
 
+    /// <inheritdoc/>
     [StackTraceHidden]
     public void Log<TEventArgs>(string instanceName, string eventName, TEventArgs eventArgs, ILogWriter logWriter, string? assemblyName = null, string? className = null)
     {

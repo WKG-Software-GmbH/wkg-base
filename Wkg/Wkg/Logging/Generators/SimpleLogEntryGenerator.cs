@@ -3,14 +3,25 @@ using Wkg.Logging.Configuration;
 
 namespace Wkg.Logging.Generators;
 
+/// <summary>
+/// A simple and lightweight <see cref="ILogEntryGenerator"/> implementation that generates log entries in the following format:
+/// <code>
+/// 2023-05-30 14:35:42.185 (UTC) Info on Thread_0x123 --> Output: 'This is a log message';
+/// </code>
+/// </summary>
+/// <remarks>
+/// This class does not require reflective enumeration of target site information or stack unwinding, making it a good candidate for use in production environments.
+/// </remarks>
 public sealed class SimpleLogEntryGenerator : ILogEntryGenerator<SimpleLogEntryGenerator>
 {
+    // thread-local StringBuilder cache to avoid unnecessary allocations
     private static readonly ThreadLocal<StringBuilder> _stringBuilder = new(() => new StringBuilder(512), false);
     private readonly CompiledLoggerConfiguration _config;
 
     private SimpleLogEntryGenerator(CompiledLoggerConfiguration config) => 
         _config = config;
 
+    /// <inheritdoc/>
     public static SimpleLogEntryGenerator Create(CompiledLoggerConfiguration config) => 
         new(config);
 

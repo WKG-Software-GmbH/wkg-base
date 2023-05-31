@@ -34,7 +34,7 @@ public partial class LoggerConfiguration
         return this;
     }
 
-    public LoggerConfiguration UseEntryGenerator<TGenerator>() where TGenerator : class, ILogEntryGenerator<TGenerator>
+    public partial LoggerConfiguration UseEntryGenerator<TGenerator>() where TGenerator : class, ILogEntryGenerator<TGenerator>
     {
         _generatorFactory = TGenerator.Create;
         return this;

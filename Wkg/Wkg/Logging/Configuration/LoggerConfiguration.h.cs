@@ -1,10 +1,12 @@
-﻿using Wkg.Logging.Sinks;
+﻿using Wkg.Logging.Generators;
+using Wkg.Logging.Loggers;
+using Wkg.Logging.Sinks;
 using Wkg.Logging.Writers;
 
 namespace Wkg.Logging.Configuration;
 
 /// <summary>
-/// Represents a <see cref="Log"/> configuration.
+/// Represents a configuration builder for an <see cref="ILogger"/> instance.
 /// </summary>
 public partial class LoggerConfiguration
 {
@@ -15,11 +17,18 @@ public partial class LoggerConfiguration
     public static partial LoggerConfiguration Create();
 
     /// <summary>
-    /// Specifies that the provided <paramref name="sink"/> should be used by the <see cref="Log"/>.
+    /// Specifies that the provided <paramref name="sink"/> should be used by the <see cref="ILogger"/>.
     /// </summary>
-    /// <param name="sink">The <see cref="ILogSink"/> to be used by the <see cref="Log"/>.</param>
+    /// <param name="sink">The <see cref="ILogSink"/> to be used by the <see cref="ILogger"/>.</param>
     /// <returns>This <see cref="LoggerConfiguration"/> instance to enable fluent configuration.</returns>
     public partial LoggerConfiguration AddSink(ILogSink sink);
+
+    /// <summary>
+    /// Specifies that the provided <typeparamref name="TGenerator"/> should be used by the <see cref="ILogger"/> as the default <see cref="ILogEntryGenerator"/>.
+    /// </summary>
+    /// <typeparam name="TGenerator">The type of the <see cref="ILogEntryGenerator"/> to be used.</typeparam>
+    /// <returns>This <see cref="LoggerConfiguration"/> instance to enable fluent configuration.</returns>
+    public partial LoggerConfiguration UseEntryGenerator<TGenerator>() where TGenerator : class, ILogEntryGenerator<TGenerator>;
 
     /// <summary>
     /// <inheritdoc cref="AddSink"/>
@@ -29,14 +38,14 @@ public partial class LoggerConfiguration
     public partial LoggerConfiguration AddSink<T>() where T : ILogSink, new();
 
     /// <summary>
-    /// Specifies that the provided <paramref name="logWriter"/> should be used by the <see cref="Log"/> as the default writer.
+    /// Specifies that the provided <paramref name="logWriter"/> should be used by the <see cref="ILogger"/> as the default writer.
     /// </summary>
-    /// <param name="logWriter">The <see cref="ILogWriter"/> to be used by the <see cref="Log"/> as the default writer.</param>
+    /// <param name="logWriter">The <see cref="ILogWriter"/> to be used by the <see cref="ILogger"/> as the default writer.</param>
     /// <returns>This <see cref="LoggerConfiguration"/> instance to enable fluent configuration.</returns>
     public partial LoggerConfiguration UseDefaultLogWriter(ILogWriter logWriter);
 
     /// <summary>
-    /// Specifies that the <see cref="Log"/> should log to a log file with the provided <paramref name="logFileName"/>.
+    /// Specifies that the <see cref="ILogger"/> should log to a log file with the provided <paramref name="logFileName"/>.
     /// </summary>
     /// <param name="logFileName">The name of the file to log to.</param>
     /// <returns>An instance of <see cref="LogFileConfigurationBuilder"/> to configure the log file.</returns>

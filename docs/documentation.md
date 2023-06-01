@@ -4,29 +4,34 @@
 
 - [`Wkg` Documentation](#wkg-documentation)
   - [Components](#components)
-    - [`Collections` Namespace](#collections-namespace)
+    - [`Wkg.Collections` Namespace](#wkgcollections-namespace)
       - [`CyclicQueue` and `CyclicStack`](#cyclicqueue-and-cyclicstack)
-    - [VolatileArray](#volatilearray)
-    - [ResizableBuffer](#resizablebuffer)
+      - [VolatileArray](#volatilearray)
+      - [ResizableBuffer](#resizablebuffer)
       - [Important Notices ❗](#important-notices-)
       - [Examples](#examples)
-    - [`Data.Validation` Namespace](#datavalidation-namespace)
+    - [`Wkg.Data.Validation` Namespace](#wkgdatavalidation-namespace)
       - [Examples](#examples-1)
-    - [`Extensions` Namespace](#extensions-namespace)
+    - [`Wkg.Extensions` Namespace](#wkgextensions-namespace)
       - [`GuidExtensions` Class](#guidextensions-class)
         - [Examples](#examples-2)
       - [`NullableValueTypeExtensions` Class](#nullablevaluetypeextensions-class)
       - [`ObjectExtensions` Class](#objectextensions-class)
-    - [`Unmanaged` Namespace](#unmanaged-namespace)
+    - [`Wkg.Logging` Namespace](#wkglogging-namespace)
+      - [Interface Overview](#interface-overview)
+      - [Default `Logger` Implementation](#default-logger-implementation)
+      - [Configuration](#configuration)
+      - [Extending Logging](#extending-logging)
+    - [`Wkg.Unmanaged` Namespace](#wkgunmanaged-namespace)
       - [Memory Management](#memory-management)
         - [The `MemoryManager` Class](#the-memorymanager-class)
-          - [Configuration](#configuration)
+          - [Configuration](#configuration-1)
           - [Allocation Tracking](#allocation-tracking)
           - [MemoryManager APIs](#memorymanager-apis)
         - [Important Notices ❗](#important-notices--1)
       - [`TypeReinterpreter` Class](#typereinterpreter-class)
-    - [`Reflection` Namespace](#reflection-namespace)
-    - [`SyntacticSugar` Class](#syntacticsugar-class)
+    - [`Wkg.Reflection` Namespace](#wkgreflection-namespace)
+    - [`Wkg.SyntacticSugar` Class](#wkgsyntacticsugar-class)
       - [`Pass()` Method](#pass-method)
         - [Examples](#examples-3)
       - [Switch Expression Helpers](#switch-expression-helpers)
@@ -34,7 +39,7 @@
 
 ## Components
 
-### `Collections` Namespace
+### `Wkg.Collections` Namespace
 
 The `Collections` namespace provides both general purpose as well as very specific and performance-oriented generic collections to be used internally or by dependant applications.
 
@@ -44,11 +49,11 @@ The `CyclicQueue<T>` and `CyclicStack<T>` are FIFO and LIFO data structures impl
 
 The inherent nature of the underlying ring buffer allows these data structures to override the oldest elements if a given threshold is reached and more elements are added. Other than that they have the same functionality as a normal `Stack` or `Queue`. Use-cases may include instances where only the most recent elements are of interest, e.g. for caching, logging, or other purposes.
 
-### VolatileArray
+#### VolatileArray
 
 As its name implies the volatile array can be used in multithreaded environments where multiple concurrent threads have to be able access the same array. Note that this doesn't make it thread-safe on its own. All it does is disabling certain memory optimizations and re-orderings during volatile reads and writes using memory barriers and therefore doesn't rule out the potential for race conditions (for more info see [`volatile` (C# Reference)](https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/volatile)).
 
-### ResizableBuffer
+#### ResizableBuffer
 
 The `unsafe struct ResizableBuffer<T> : IDisposable where T : unmanaged` is a highly performant collection operating on a continuous block of **unmanaged** memory. This enables us to increase the performance of our apps by writing (managed) allocation free code in places where `stackalloc` becomes less efficient for large allocation. Especially when handling chunked network streams this is an advantage as the only other option would be to use managed arrays that will have to be garbage-collected afterwards. The `ResizableBuffer<T>` supports both indexing as well as the `Add(Span<T>)` operation to append the contents of a `Span<T>` to the end of the used space in the buffer.
 When the size of the allocated memory is exceeded a new block will automatically be allocated using the current [`MemoryManager.Realloc(void*, int)`](#memory-manager) implementation. 
@@ -79,7 +84,7 @@ private static string ReadResponseStreamHelper(Stream responseStream)
 
 Using a stack allocated `Span<byte>` allows reading chunk by chunk from the network stream appending each chunk to the end of the `ResizableBuffer<byte>`. After all bytes have been read into unmanaged memory another `Span<byte>` is created using the underlying block of unmanaged memory. Finally the span is passed to `Encoding.UTF8.GetString()` which creates a managed C# string in one go without additional allocations. Using a `using` declaration for the `ResizableBuffer<byte>` ensures that all allocated resources will be freed after they fall out of scope.
 
-### `Data.Validation` Namespace
+### `Wkg.Data.Validation` Namespace
 
 The `Data.Validation` namespace provides an API to be used for data and input validation. The core component of this namespace is the static `DataValidationService` class which exposes common regex patterns for input validation through a set of static validation methods. The regex patterns used for validation are well-known and widely used and were mostly adopted from the [.NET Framework 4.8 source code](https://referencesource.microsoft.com/#System.ComponentModel.DataAnnotations/DataAnnotations).
 
@@ -94,7 +99,7 @@ if (!isValidEmail)
 }
 ```
 
-### `Extensions` Namespace
+### `Wkg.Extensions` Namespace
 
 The `Extensions` namespace provides a set of common extension methods for various types.
 
@@ -167,7 +172,92 @@ The `ObjectExtensions` class provides the `To<T>()` extension method which can b
 myObject.To<IMyInterface>().MyInterfaceMethod();
 ```
 
-### `Unmanaged` Namespace 
+### `Wkg.Logging` Namespace
+
+The `Logging` namespace contains utilities used for debugging and logging during development and in production.
+
+#### Interface Overview
+
+| Interface | Description |
+| --- | --- |
+`ILog` | A collection of static methods representing the global entry point for logging messages and events to a configured `ILogger`.
+`ILogger` | Represents a logger that can be used to log messages at different `LogLevels` and events. A logger can be configured to log to one or more `ILogSink`s and there can be multiple loggers used in parallel. One of these loggers may be used by an implementation of `ILog` to act as a global entry point for logging messages and events.
+`ILogSink` | Represents a sink that can be used to log messages and events to a specific target. A sink may write to a file, the console, the debug output, a remote server or any other target. A sink may be used by one or more `ILogger`s.
+`ILogWriter` | An `ILogWriter` specifies *how* a message or event is written to the `ILogSink`s. It may write the message directly to the sink, or schedule it for writing in the background on a different thread. It may also write every message as soon as it is received or opt to buffer messages and write them in batches. Some common implementations of `ILogWriter` are provided via the static `LogWriter` class.
+`ILogEntryGenerator` | An `ILogEntryGenerator` specifies how the data written to the sinks is formatted. It may format the data as plain text, JSON, XML or any other format. It may also enumerate additional data to be written to the sinks, such as the current timestamp, the thread ID, the process ID, and can even use reflection and call stack unwinding to gather information about the caller.
+
+#### Default `Logger` Implementation
+
+The default implementation of `ILogger` is the `Logger` class. It is the most simple implementation of `ILogger` and is capable of logging messages and events to one or more `ILogSink`s. Custom implementations of `ILogger` may be used to add additional functionality, such as filtering messages and events based on their `LogLevel`.
+
+#### Configuration
+
+Logging can be configured and customized using the `LoggerConfiguration` builder class. The following example demonstrates how to configure a logger to log to the console and the debug output:
+
+```csharp
+ILogger logger = Logger.Create(LoggerConfiguration.Create()
+    .AddSink<ConsoleSink>()                         // write to the console
+    .UseDefaultLogWriter(LogWriter.Blocking)        // write messages directly to the sinks, potentially blocking the current thread
+    .UseEntryGenerator<SimpleLogEntryGenerator>()); // a simple log entry generator that adds some useful extra information
+
+logger.Log("Hello World!", LogLevel.Info);
+// 2023-05-30 14:35:42.185 (UTC) Info on Thread_0x1 --> Output: 'Hello World!';
+
+// or register the logger as the global logger using the default ILog implementation "Log"
+Log.UseLogger(logger);
+Log.WriteInfo("Hello World!");
+```
+
+A more complex example that demonstrates how to configure a logger to log to the debug console, a file, the console using colors to highlight different log levels, and how to use a log entry generator more suitable for debugging:
+
+```csharp
+ILogger logger = Logger.Create(LoggerConfiguration.Create()
+    .AddSink<ColoredConsoleSink>()                  // write to the console using colors
+    .AddSink<DebugSink>()                           // write to the debug output
+    .UseLogFile("log.txt")                          // write to a file
+        .WithMaxFileSize(1024 * 1024 * 10)          // truncate after 10 MB
+        .BuildToConfig()
+    .UseDefaultLogWriter(LogWriter.Background)      // write to sinks in the background
+    .UseEntryGenerator<TracingLogEntryGenerator>()  // enumerate additional data from the call stack
+    .RegisterMainThread(Thread.CurrentThread));     // the configured log entry generator adds "(MAIN THREAD)" for this thread
+
+logger.Log("Hello World!", LogLevel.Info);
+// 2023-05-31 14:14:24.626 (UTC) MyAssembly: [Info->Thread_0x1(MAIN THREAD)] (Program::Main(String[])) ==> Output: 'Hello World!'
+```
+
+Custom `ILogSink`s, `ILogWriter`s and `ILogEntryGenerator`s can be registered using the `AddSink<T>()`, `UseDefaultLogWriter(ILogWriter)` and `UseEntryGenerator<T>()` methods respectively. The `UseLogFile()` method can be used to configure a file sink and the `RegisterMainThread()` method can be used to register the main thread to be used by the configured log entry generator.
+
+#### Extending Logging
+
+For the most part adding a new component which defines custom behavior is as simple as implementing the appropriate interface and registering it using the appropriate method. However, in some cases it may be necessary to extend the logging system itself. For example, to acommodate for more extensive sink configuration, the system could be extended to allow for sub-builders to be used to configure sinks, similar to the `UseLogFile()` method, but maybe in a more generic way. To do this, a new 
+
+```csharp
+TSinkBuilder ConfigureSink<TSink, TSinkBuilder>() 
+    where TSink : class, ILogSink 
+    where TSinkBuilder : class, ILogSinkBuilder<TSink, TSinkBuilder>;
+```
+
+method could be added with new interfaces similar to the following:
+    
+```csharp
+// the actual builder interface that would be implemented and extended by the sink builder classes
+public interface ILogSinkBuilder<TSink> where TSink : ILogSink
+{
+    LoggerConfiguration BuildAndAdd();
+}
+
+// a static abstract factory interface that would be implemented by the concrete sink builder classes
+public interface ILogSinkBuilder<TSink, TSinkBuilder> 
+    where TSink : class, ILogSink 
+    where TSinkBuilder : class, ILogSinkBuilder<TSink, TSinkBuilder>
+{
+    static abstract TSinkBuilder CreateBuilder(LoggerConfiguration configuration);
+}
+```
+
+Feel free to open merge requests 🙂
+
+### `Wkg.Unmanaged` Namespace 
 
 The `Unmanaged` namespace provides easy access to unmanaged memory and exposes `Malloc()`, `Calloc<T>()`, `ReAlloc()` and `Free()` from `libc` while also providing optional allocation tracking to prevent memory leaks in production code.
 
@@ -220,7 +310,7 @@ bool foo = true;
 byte bar = ReinterpretCast<bool, byte>(foo);
 ```
 
-### `Reflection` Namespace
+### `Wkg.Reflection` Namespace
 
 The `Reflection` namespace provides easy access to common reflective operations, primarily for interacting with generic types. It contains the following classes:
 
@@ -230,7 +320,7 @@ The `Reflection` namespace provides easy access to common reflective operations,
 - `BackingFieldResolver` - Provides methods for resolving backing fields of properties.
 - `UnsafeReflection` - A factory class for creating concrete `MethodInfo` instances for the generic `Unsafe.As<...>()` methods. This is primarily used for dynamic code generation, such as IL-emission, or when building performance-oriented `Expression` trees. 
 
-### `SyntacticSugar` Class
+### `Wkg.SyntacticSugar` Class
 
 The `SyntacticSugar` class aims to increase the conciseness and maintainability of C# code, rather than providing new functionality.
 

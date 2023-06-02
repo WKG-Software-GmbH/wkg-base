@@ -128,7 +128,7 @@ public static class ExpressionExtensions
     /// <param name="memberAccessExpression">The member access expression.</param>
     /// <param name="member">(Output) The <see cref="MemberInfo"/> of the innermost expression, e.g. <c>Property2</c> in <c>x => x.Property1.Property2</c></param>
     /// <returns><see langword="true"/> if the expression was successfully matched; otherwise, <see langword="false"/>.</returns>
-    public static bool TryMatchDirectMemberAccess(this Expression memberAccessExpression, out MemberInfo? member)
+    public static bool TryMatchDirectMemberAccess(this Expression memberAccessExpression, [NotNullWhen(true)] out MemberInfo? member)
     {
         Expression? unwrappedExpression = RemoveTypeAs(RemoveConvert(memberAccessExpression));
         if (unwrappedExpression is MemberExpression memberExpression)

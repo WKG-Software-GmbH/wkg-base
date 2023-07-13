@@ -263,7 +263,7 @@ The `Unmanaged` namespace provides easy access to unmanaged memory and exposes `
 
 #### Memory Management
 
-> :information_source: This namespace is ***heavily*** influenced by the [PrySec Memory Management implementation](https://github.com/PrySec/PrySec/tree/master/PrySec.Core/Memory/MemoryManagement) (it's basically a fork with some minor changes). Future versions of this namespace may benefit from occasional synchronization with the PrySec implementation.
+> :information_source: This namespace is ***heavily*** influenced by the [PrySec Memory Management implementation](https://github.com/PrySec/PrySec/tree/master/PrySec.Core/Memory/MemoryManagement) I wrote some time ago (it's basically a fork with some minor changes). Future versions of this namespace may benefit from occasional synchronization with the PrySec implementation.
 
 ##### The `MemoryManager` Class
 

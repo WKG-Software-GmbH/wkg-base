@@ -263,6 +263,8 @@ The `Unmanaged` namespace provides easy access to unmanaged memory and exposes `
 
 #### Memory Management
 
+> :information_source: This namespace is ***heavily*** influenced by the [PrySec Memory Management implementation](https://github.com/PrySec/PrySec/tree/master/PrySec.Core/Memory/MemoryManagement) (it's basically a fork with some minor changes). Future versions of this namespace may benefit from occasional synchronization with the PrySec implementation.
+
 ##### The `MemoryManager` Class
 
 The `MemoryManager` class represents the core component of the `Unmanaged` namespace and is used for perfromance oriented unmanaged (manual) memory management where using managed memory would cause too much pressure on the garbage collector.
@@ -314,10 +316,11 @@ byte bar = ReinterpretCast<bool, byte>(foo);
 
 The `Reflection` namespace provides easy access to common reflective operations, primarily for interacting with generic types. It contains the following classes:
 
+- `BackingFieldResolver` - Provides methods for resolving backing fields of properties.
+- `Bindings` - Provides common binding flags for use with reflection.
+- `ExpressionExtensions` - Provides extension methods for Expression trees. These extensions are heavily influenced by the internals of Entity Framework Core and are primarily used for reflective inspection of member access expressions in fluent configuration APIs. We moved these extensions to this library in order to provide a stable/reliable version of this internal EF Core API for use in our own libraries.
 - `TypeExtensions` - Provides extension methods for the `Type` class. Primarily used for enumerating generic type arguments or checking whether a type implements or extends a generic type with specific generic type arguments.
 - `TypeArray` - A factory class for creating `Type[]` arrays using the `TypeArray.Of<T1, T2, ...>()` method, which is more concise than the usual `new Type[] { typeof(T1), typeof(T2), ... }` syntax.
-- `Bindings` - Provides common binding flags for use with reflection.
-- `BackingFieldResolver` - Provides methods for resolving backing fields of properties.
 - `UnsafeReflection` - A factory class for creating concrete `MethodInfo` instances for the generic `Unsafe.As<...>()` methods. This is primarily used for dynamic code generation, such as IL-emission, or when building performance-oriented `Expression` trees. 
 
 ### `Wkg.SyntacticSugar` Class

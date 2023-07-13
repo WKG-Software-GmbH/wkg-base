@@ -26,7 +26,7 @@ Then, install the package by adding the following package reference to your proj
 </ItemGroup>
 ```
 
-> **Note**
+> :warning:
 > Replace `X.X.X` with the latest stable version available on the [nuget feed](https://baget.wkg.lan/packages/wkg/latest).
 
 ## Usage

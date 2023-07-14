@@ -8,7 +8,6 @@
       - [`CyclicQueue` and `CyclicStack`](#cyclicqueue-and-cyclicstack)
       - [VolatileArray](#volatilearray)
       - [ResizableBuffer](#resizablebuffer)
-      - [Important Notices ❗](#important-notices-)
       - [Examples](#examples)
     - [`Wkg.Data.Validation` Namespace](#wkgdatavalidation-namespace)
       - [Examples](#examples-1)
@@ -28,7 +27,6 @@
           - [Configuration](#configuration-1)
           - [Allocation Tracking](#allocation-tracking)
           - [MemoryManager APIs](#memorymanager-apis)
-        - [Important Notices ❗](#important-notices--1)
       - [`TypeReinterpreter` Class](#typereinterpreter-class)
     - [`Wkg.Reflection` Namespace](#wkgreflection-namespace)
     - [`Wkg.SyntacticSugar` Class](#wkgsyntacticsugar-class)
@@ -58,10 +56,11 @@ As its name implies the volatile array can be used in multithreaded environments
 The `unsafe struct ResizableBuffer<T> : IDisposable where T : unmanaged` is a highly performant collection operating on a continuous block of **unmanaged** memory. This enables us to increase the performance of our apps by writing (managed) allocation free code in places where `stackalloc` becomes less efficient for large allocation. Especially when handling chunked network streams this is an advantage as the only other option would be to use managed arrays that will have to be garbage-collected afterwards. The `ResizableBuffer<T>` supports both indexing as well as the `Add(Span<T>)` operation to append the contents of a `Span<T>` to the end of the used space in the buffer.
 When the size of the allocated memory is exceeded a new block will automatically be allocated using the current [`MemoryManager.Realloc(void*, int)`](#memory-manager) implementation. 
 
-#### Important Notices ❗
+> :warning: **Warning** 
+> As `ResizableBuffer<T>` is a struct ensure not to create unintentional copies as this may lead to dangling pointers if either the original or the copy is disposed. Therefore instances **must** be passed by reference (`ref`, `in`) or not at all.
 
-- As `ResizableBuffer<T>` is a struct ensure not to create unintentional copies as this may lead to dangling pointers if either the original or the copy is disposed. Therefore instances **must** be passed by reference (`ref`, `in`) or not at all.
-- Ensure instances are properly disposed before falling out of scope. Otherwise unmanaged memory will be leaked.
+> :x: **Caution**
+> Ensure instances are properly disposed before falling out of scope. Otherwise unmanaged memory will be leaked.
 
 #### Examples
 
@@ -255,7 +254,8 @@ public interface ILogSinkBuilder<TSink, TSinkBuilder>
 }
 ```
 
-Feel free to open merge requests 🙂
+> :bulb: **Tip**
+> Feel free to open merge requests :slightly_smiling_face:
 
 ### `Wkg.Unmanaged` Namespace 
 
@@ -263,7 +263,8 @@ The `Unmanaged` namespace provides easy access to unmanaged memory and exposes `
 
 #### Memory Management
 
-> :information_source: This namespace is ***heavily*** influenced by the [PrySec Memory Management implementation](https://github.com/PrySec/PrySec/tree/master/PrySec.Core/Memory/MemoryManagement) I wrote some time ago (it's basically a fork with some minor changes). Future versions of this namespace may benefit from occasional synchronization with the PrySec implementation.
+> :information_source: **Note**
+> This namespace is ***heavily*** influenced by the [PrySec Memory Management implementation](https://github.com/PrySec/PrySec/tree/master/PrySec.Core/Memory/MemoryManagement) I wrote some time ago (it's basically a fork with some minor changes). Future versions of this namespace may benefit from occasional synchronization with the PrySec implementation.
 
 ##### The `MemoryManager` Class
 
@@ -297,9 +298,8 @@ The `MemoryManager` class provides the following APIs:
 - Allocation Tracking API - If allocation tracking is enabled the `MemoryManager` provides APIs to retrieve an `AllocationSnapshot` containing the total number of unmanaged bytes allocated by the memory manager as well as a list of target sites and stacktraces where these bytes were allocated. Additionally, external allocations may be registered for tracking using `MemoryManager.TryRegisterExternalAllocation()` and `MemoryManager.TryUnregisterExternalAllocation()`.
 - Memory Operations API - Additional common memory operations from `libc` are exposed via `Memset()`, `Memcpy()`, and `ZeroMemory()`.
 
-##### Important Notices ❗
-
-- Changing the memory manager implementation after it has been used may result in undefined behavior.
+> :x: **Caution**
+> Changing the memory manager implementation after it has been used may result in undefined behavior.
 
 #### `TypeReinterpreter` Class
 
@@ -424,4 +424,5 @@ In above example, the `__` Double-Discard Object is used to indicate that the sw
 At the same time, `Do()` is used to wrap the different void-operations and to satisfy the return type requirement of the switch expression.
 The return value of the switch expression is explicitly discarded by assigning it to `_` (the [discard operator](https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/functional/discards)).
 
-The combination of these two features allows for switch expressions to be used as dispatchers for void-operations, which can significantly reduce the amount of boilerplate code required to implement such dispatchers.
+> :bulb: **Tip**
+> The combination of `__` and `Do()` allows for switch expressions to be used as dispatchers for void-operations, which can significantly reduce the amount of boilerplate code required to implement such dispatchers.

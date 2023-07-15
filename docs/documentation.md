@@ -266,7 +266,7 @@ public interface ILogSinkBuilder<TSink, TSinkBuilder>
 }
 ```
 
-> :bulb: **Tip**
+> :100: **Feature Request**
 > Feel free to open merge requests :slightly_smiling_face:
 
 ### `Wkg.Unmanaged` Namespace 

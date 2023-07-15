@@ -171,6 +171,18 @@ The `ObjectExtensions` class provides the `To<T>()` extension method which can b
 myObject.To<IMyInterface>().MyInterfaceMethod();
 ```
 
+A similar extension method is provided by the `ObjectExtensions` class for soft-casting an object to a specific type. This is useful when the type of an object is not known at compile-time and must be determined at runtime. The `As<T>()` extension method can be used to simplify the following expression:
+
+```csharp
+(myObject as IMyInterface)?.MyInterfaceMethod();
+```
+
+to the following:
+
+```csharp
+myObject.As<IMyInterface>()?.MyInterfaceMethod();
+```
+
 ### `Wkg.Logging` Namespace
 
 The `Logging` namespace contains utilities used for debugging and logging during development and in production.

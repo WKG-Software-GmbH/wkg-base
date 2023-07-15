@@ -24,4 +24,18 @@ public static class ObjectExtensions
     /// <exception cref="InvalidCastException">The specified <paramref name="obj"/> cannot be cast to the specified <typeparamref name="TInterface"/>.</exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static TInterface To<TInterface>(this object obj) => (TInterface)obj;
+
+    /// <summary>
+    /// Soft casts the specified <paramref name="obj"/> to the specified <typeparamref name="TInterface"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This method is designed to be used in cases where non-public interface members are accessed and replaces the need for excessive brackets when casting.
+    /// </para>
+    /// </remarks>
+    /// <typeparam name="TInterface">The type to cast the specified <paramref name="obj"/> to.</typeparam>
+    /// <param name="obj">The object to cast.</param>
+    /// <returns>The specified <paramref name="obj"/> cast to the specified <typeparamref name="TInterface"/> if the cast is valid; otherwise, <c>null</c>.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static TInterface? As<TInterface>(this object obj) where TInterface : class => obj as TInterface;
 }

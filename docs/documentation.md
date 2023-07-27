@@ -183,6 +183,18 @@ to the following:
 myObject.As<IMyInterface>()?.MyInterfaceMethod();
 ```
 
+Another inconvenience when working with chained method calls is having to wrap null-coalescing expressions in parentheses. For example, the following expression:
+
+```csharp
+(myObject.As<MyObject>() ?? new MyObject()).MyInterfaceMethod();
+```
+
+can be simplified using the `Coalesce<T>()` extension method to the following:
+
+```csharp
+myObject.As<MyObject>().Coalesce(new MyObject()).MyInterfaceMethod();
+```
+
 ### `Wkg.Logging` Namespace
 
 The `Logging` namespace contains utilities used for debugging and logging during development and in production.

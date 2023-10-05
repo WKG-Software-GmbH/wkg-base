@@ -16,7 +16,11 @@ namespace Wkg.Logging.Generators;
 /// </remarks>
 public class TracingLogEntryGeneratorWithParamNames : TracingLogEntryGenerator, ILogEntryGenerator<TracingLogEntryGeneratorWithParamNames>
 {
-    private TracingLogEntryGeneratorWithParamNames(CompiledLoggerConfiguration config) : base(config)
+    /// <summary>
+    /// Initializes a new instance of the <see cref="TracingLogEntryGeneratorWithParamNames"/> class.
+    /// </summary>
+    /// <param name="config">The <see cref="CompiledLoggerConfiguration"/> used to create this <see cref="TracingLogEntryGeneratorWithParamNames"/></param>
+    protected TracingLogEntryGeneratorWithParamNames(CompiledLoggerConfiguration config) : base(config)
     {
     }
 

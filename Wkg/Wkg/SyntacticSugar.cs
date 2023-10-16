@@ -10,7 +10,10 @@ public static class SyntacticSugar
     /// <summary>
     /// A dummy object that can be used as a placeholder for empty switch expressions. 
     /// </summary>
-    public static readonly object? __ = null;
+    /// <remarks>
+    /// Always returns <see langword="null"/>.
+    /// </remarks>
+    public static object? __ => null;
 
     /// <summary>
     /// Executes the provided <paramref name="action"/> and returns an empty dummy value. Useful for using <see langword="void"/> methods in switch expressions.

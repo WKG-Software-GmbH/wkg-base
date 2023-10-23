@@ -13,7 +13,7 @@ Log.UseLogger(Logger.Create(LoggerConfiguration.Create()
     .RegisterMainThread(Thread.CurrentThread)
     .UseDefaultLogWriter(LogWriter.Blocking)));
 
-TaskScheduler scheduler = new BaseTaskScheduler(2);
+TaskScheduler scheduler = new ConstrainedTaskScheduler(2);
 
 TaskFactory factory = new(scheduler);
 

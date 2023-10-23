@@ -1,12 +1,10 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
-using System.Runtime.CompilerServices;
 using Wkg.Collections.Concurrent;
-using Wkg.Logging;
 
 namespace Wkg.Threading;
 
-public class BaseTaskScheduler : TaskScheduler
+public class ConstrainedTaskScheduler : TaskScheduler
 {
     // TODO: hide these two fields behind an interface implementing different scheduling strategies
     // they should be encapsulated in a class that implements the scheduling strategy
@@ -20,7 +18,7 @@ public class BaseTaskScheduler : TaskScheduler
     [ThreadStatic]
     private static bool _currentThreadIsProcessingItems;
 
-    public BaseTaskScheduler(int maxDegreeOfParallelism)
+    public ConstrainedTaskScheduler(int maxDegreeOfParallelism)
     {
         if (maxDegreeOfParallelism < 1)
         {
@@ -34,16 +32,11 @@ public class BaseTaskScheduler : TaskScheduler
 
     /// <inheritdoc/>
     // use snapshot enumeration of the queue
-    protected override IEnumerable<Task>? GetScheduledTasks()
-    {
-        Log.WriteDiagnostic("GetScheduledTasks");
-        return _tasks.AsEnumerable();
-    }
+    protected override IEnumerable<Task>? GetScheduledTasks() => _tasks.AsEnumerable();
 
     /// <inheritdoc/>
     protected override void QueueTask(Task task)
     {
-        Log.WriteDiagnostic($"QueueTask: {task.Id}");
         if (!_scheduledTasks.Add(task))
         {
             throw new InvalidOperationException("Task was already scheduled.");
@@ -81,7 +74,6 @@ public class BaseTaskScheduler : TaskScheduler
                 // this still means that we could benefit from another worker, so we'll try again
                 // worst case is that we'll start a worker that will find out that it's useless because somone else already did the work.
                 // in that case, the worker will end itself, and everything will be fine
-                Log.WriteWarning($"QueueTask: {task.Id} (worker count changed, spinning)");
                 spinner.SpinOnce();
             }
             else
@@ -95,33 +87,27 @@ public class BaseTaskScheduler : TaskScheduler
     /// <inheritdoc/>
     protected override bool TryExecuteTaskInline(Task task, bool taskWasPreviouslyQueued)
     {
-        Log.WriteDiagnostic($"TryExecuteTaskInline: {task.Id} (taskWasPreviouslyQueued: {taskWasPreviouslyQueued}). Inline execution attempted.");
         if (!_currentThreadIsProcessingItems)
         {
             // we are not a worker thread, so we are not allowed to execute tasks inline
-            Log.WriteDiagnostic($"TryExecuteTaskInline: {task.Id} (not a worker). Inline execution denied.");
             return false;
         }
         if (taskWasPreviouslyQueued && !_scheduledTasks.TryRemove(task))
         {
             // the task was already scheduled, but it was cancelled or already executed
-            Log.WriteDiagnostic($"TryExecuteTaskInline: {task.Id} (already executing). Inline execution denied.");
             return false;
         }
         // we are a worker thread, so we are allowed to execute tasks inline
-        Log.WriteDiagnostic($"TryExecuteTaskInline: {task.Id} (executing).");
         return TryExecuteTask(task);
     }
 
     private void WorkerLoop(object? state)
     {
-        Log.WriteDiagnostic($"WorkerLoop: initializing.");
         _currentThreadIsProcessingItems = true;
         try
         {
             while (TryDequeueOrExitSafely(out Task? task))
             {
-                Log.WriteDiagnostic($"WorkerLoop: {task.Id} (executing).");
                 TryExecuteTask(task);
             }
         }
@@ -164,7 +150,6 @@ public class BaseTaskScheduler : TaskScheduler
             if (taskCount == 0)
             {
                 // no more tasks, exit
-                Log.WriteDiagnostic($"WorkerLoop: no more tasks, exiting.");
                 return false;
             }
             // failure case: someone else scheduled a task, possible before we decremented the worker count, so we could lose a worker here
@@ -176,7 +161,6 @@ public class BaseTaskScheduler : TaskScheduler
                 if (newWorkerCount > workerCountAfterExit)
                 {
                     // it's fine. They already scheduled a replacement worker, so we can exit
-                    Log.WriteDiagnostic($"WorkerLoop: replacement worker scheduled, exiting.");
                     return false;
                 }
                 // we either successfully restored the worker count, or we lost more than one worker
@@ -192,7 +176,6 @@ public class BaseTaskScheduler : TaskScheduler
                 if (originalWorkerCount > _maxDegreeOfParallelism)
                 {
                     // give up and exit
-                    Log.WriteDiagnostic($"WorkerLoop: max degree of parallelism reached during restore, exiting.");
                     return false;
                 }
                 // continue attempts to stay alive
@@ -206,11 +189,8 @@ public class BaseTaskScheduler : TaskScheduler
     }
 
     /// <inheritdoc/>
-    protected override bool TryDequeue(Task task)
-    {
-        Log.WriteDiagnostic($"TryDequeue: {task.Id} (soft delete).");
+    protected override bool TryDequeue(Task task) =>
         // soft delete the task from the scheduler queue
         // once the task is processed by a worker, it will be discarded and not executed
-        return _scheduledTasks.TryRemove(task);
-    }
+        _scheduledTasks.TryRemove(task);
 }

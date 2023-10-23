@@ -20,13 +20,13 @@ public class ConcurrentSinkCollection : ILogSink
         Sinks = sinks;
 
     /// <inheritdoc/>
-    public void Log(string logEntry, LogLevel logLevel)
+    public void Log(ref LogEntry logEntry)
     {
         lock (_lock)
         {
             foreach (ILogSink sink in Sinks)
             {
-                sink.Log(logEntry, logLevel);
+                sink.Log(ref logEntry);
             }
         }
     }

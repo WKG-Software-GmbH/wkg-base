@@ -8,6 +8,6 @@ namespace Wkg.Logging.Writers;
 public class BlockingLogWriter : ILogWriter
 {
     /// <inheritdoc/>
-    public void Write(string logEntry, ILogSink sink, LogLevel logLevel) =>
-        sink.Log(logEntry, logLevel);
+    public void Write(ref LogEntry logEntry, ILogSink sink) => 
+        sink.Log(ref logEntry);
 }

@@ -39,39 +39,41 @@ public class SimpleLogEntryGenerator : ILogEntryGenerator<SimpleLogEntryGenerato
         new(config);
 
     /// <inheritdoc/>
-    public virtual string Generate(string title, string message, LogLevel level)
+    public virtual void Generate(ref LogEntry entry, string title, string message)
     {
         // 2023-05-30 14:35:42.185 (UTC) Info on Thread_0x123 --> Output: 'This is a log message';
         StringBuilder builder = _stringBuilder.Value!;
         builder.Clear();
-        AddPrefix(builder, level);
+        AddPrefix(ref entry, builder);
         builder.Append(" on ");
-        AddThreadInfo(builder);
+        AddThreadInfo(ref entry, builder);
         builder.Append(" --> ")
             .Append(title)
             .Append(": \'")
             .Append(message)
             .Append('\'');
-        return builder.ToString();
+        entry.LogMessage = builder.ToString();
     }
 
     /// <inheritdoc/>
-    public virtual string Generate(Exception exception, string? additionalInfo, LogLevel level)
+    public virtual void Generate(ref LogEntry entry, Exception exception, string? additionalInfo)
     {
         // 2023-05-30 14:35:42.185 (UTC) Error: SomeException on Thread_0x123 --> info: 'while trying to do a thing' original: 'Exception message' at:
         //    StackTrace line 1
         //    StackTrace line 2
         //    StackTrace line 3
+        entry.Exception = exception;
         StringBuilder builder = _stringBuilder.Value!;
         builder.Clear();
-        AddPrefix(builder, level);
+        AddPrefix(ref entry, builder);
         builder.Append(": ")
             .Append(exception.GetType().Name)
             .Append(" on ");
-        AddThreadInfo(builder);
+        AddThreadInfo(ref entry, builder);
         builder.Append(" --> ");
         if (additionalInfo is not null)
         {
+            entry.AdditionalInfo = additionalInfo;
             builder.Append("info: \'")
                 .Append(additionalInfo)
                 .Append("\' ");
@@ -80,33 +82,38 @@ public class SimpleLogEntryGenerator : ILogEntryGenerator<SimpleLogEntryGenerato
             .Append(exception.Message)
             .Append("\' at: \n")
             .Append(exception.StackTrace);
-        return builder.ToString();
+        entry.LogMessage = builder.ToString();
     }
 
     /// <inheritdoc/>
-    public virtual string Generate<TEventArgs>(string? assemblyName, string? className, string instanceName, string eventName, TEventArgs eventArgs)
+    public virtual void Generate<TEventArgs>(ref LogEntry entry, string? assemblyName, string? className, string instanceName, string eventName, TEventArgs eventArgs)
     {
         // 2023-05-30 14:35:42.185 (UTC) Event on Thread_0x123 --> (MyAssembly) (MyClass::MyButtonInstance) ==> OnClick(MyEventType: eventArgs)
         StringBuilder builder = _stringBuilder.Value!;
         builder.Clear();
-        AddPrefix(builder, LogLevel.Event);
+        AddPrefix(ref entry, builder);
         builder.Append(" on ");
-        AddThreadInfo(builder);
+        AddThreadInfo(ref entry, builder);
         builder.Append(" --> (");
         if (assemblyName is not null && className is not null)
         {
+            entry.AssemblyName = assemblyName;
+            entry.ClassName = className;
             builder.Append(assemblyName)
                 .Append(") (")
                 .Append(className)
                 .Append("::");
         }
+        entry.InstanceName = instanceName;
+        entry.EventName = eventName;
         builder.Append(instanceName)
             .Append(") ==> ")
             .Append(eventName)
             .Append('(');
+        entry.EventArgs = eventArgs;
         AddEventArgs(eventArgs, builder);
         builder.Append(')');
-        return builder.ToString();
+        entry.LogMessage = builder.ToString();
     }
 
     /// <summary>
@@ -129,20 +136,23 @@ public class SimpleLogEntryGenerator : ILogEntryGenerator<SimpleLogEntryGenerato
     /// Thread_0x1c8 (Main Thread)
     /// </code>
     /// </remarks>
+    /// <param name="entry">The <see cref="LogEntry"/> to add the thread info to.</param>
     /// <param name="builder">The <see cref="StringBuilder"/> to add the thread info to.</param>
-    protected virtual void AddThreadInfo(StringBuilder builder)
+    protected virtual void AddThreadInfo(ref LogEntry entry, StringBuilder builder)
     {
         int threadId = Environment.CurrentManagedThreadId;
+        entry.ThreadId = threadId;
         builder.Append("Thread_0x")
             .Append(threadId.ToString("x"));
         if (threadId == _config.MainThreadId)
         {
+            entry.IsMainThread = true;
             builder.Append(" (Main Thread)");
         }
     }
 
     /// <summary>
-    /// Adds the log prefix to the <paramref name="builder"/> for the specified <paramref name="level"/>.
+    /// Adds the log prefix to the <paramref name="builder"/> and the <paramref name="entry"/>.
     /// </summary>
     /// <remarks>
     /// By default, the log prefix is added in the following format:
@@ -150,10 +160,14 @@ public class SimpleLogEntryGenerator : ILogEntryGenerator<SimpleLogEntryGenerato
     /// 2023-05-30 14:35:42.185 (UTC) Warning
     /// </code>
     /// </remarks>
+    /// <param name="entry">The <see cref="LogEntry"/> to add the prefix to.</param>
     /// <param name="builder">The <see cref="StringBuilder"/> to add the prefix to.</param>
-    /// <param name="level">The <see cref="LogLevel"/> to add the prefix for.</param>
-    protected virtual void AddPrefix(StringBuilder builder, LogLevel level) => builder
-        .Append(DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff"))
-        .Append(" (UTC) ")
-        .Append(level);
+    protected virtual void AddPrefix(ref LogEntry entry, StringBuilder builder)
+    {
+        entry.TimestampUtc = DateTime.UtcNow;
+        builder
+            .Append(entry.TimestampUtc.ToString("yyyy-MM-dd HH:mm:ss.fff"))
+            .Append(" (UTC) ")
+            .Append(entry.LogLevel);
+    }
 }

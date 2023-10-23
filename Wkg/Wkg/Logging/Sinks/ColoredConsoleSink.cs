@@ -8,11 +8,11 @@ public class ColoredConsoleSink : ILogSink
     private static readonly object _lock = new();
 
     /// <inheritdoc/>
-    public void Log(string logEntry, LogLevel logLevel)
+    public void Log(ref LogEntry logEntry)
     {
         lock (_lock)
         {
-            Console.ForegroundColor = ColorFor(logLevel);
+            Console.ForegroundColor = ColorFor(logEntry.LogLevel);
             Console.WriteLine(logEntry);
             Console.ResetColor();
         }

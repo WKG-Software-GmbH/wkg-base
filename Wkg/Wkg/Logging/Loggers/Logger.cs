@@ -43,8 +43,11 @@ public class Logger : ILogger
     [StackTraceHidden]
     public void Log(string message, ILogWriter logWriter, LogLevel logLevel = LogLevel.Debug)
     {
-        string entry = _logEntryGenerator.Generate("Output", message, logLevel);
-        logWriter.Write(entry, _sinks, logLevel);
+        LogEntry entry = default;
+        entry.LogLevel = logLevel;
+        entry.Type = LogEntryType.Message;
+        _logEntryGenerator.Generate(ref entry, "Output", message);
+        logWriter.Write(ref entry, _sinks);
     }
 
     /// <inheritdoc/>
@@ -57,8 +60,11 @@ public class Logger : ILogger
     [StackTraceHidden]
     public void Log(Exception exception, ILogWriter logWriter, LogLevel logLevel = LogLevel.Error)
     {
-        string entry = _logEntryGenerator.Generate(exception, null, logLevel);
-        logWriter.Write(entry, _sinks, logLevel);
+        LogEntry entry = default;
+        entry.LogLevel = logLevel;
+        entry.Type = LogEntryType.Exception;
+        _logEntryGenerator.Generate(ref entry, exception, null);
+        logWriter.Write(ref entry, _sinks);
     }
 
     /// <inheritdoc/>
@@ -71,8 +77,11 @@ public class Logger : ILogger
     [StackTraceHidden]
     public void Log(Exception exception, string additionalInfo, ILogWriter logWriter, LogLevel logLevel = LogLevel.Error)
     {
-        string entry = _logEntryGenerator.Generate(exception, additionalInfo, logLevel);
-        logWriter.Write(entry, _sinks, logLevel);
+        LogEntry entry = default;
+        entry.LogLevel = logLevel;
+        entry.Type = LogEntryType.Exception;
+        _logEntryGenerator.Generate(ref entry, exception, additionalInfo);
+        logWriter.Write(ref entry, _sinks);
     }
 
     /// <inheritdoc/>
@@ -85,7 +94,10 @@ public class Logger : ILogger
     [StackTraceHidden]
     public void Log<TEventArgs>(string instanceName, string eventName, TEventArgs eventArgs, ILogWriter logWriter, string? assemblyName = null, string? className = null)
     {
-        string entry = _logEntryGenerator.Generate(assemblyName, className, instanceName, eventName, eventArgs);
-        logWriter.Write(entry, _sinks, LogLevel.Event);
+        LogEntry entry = default;
+        entry.LogLevel = LogLevel.Event;
+        entry.Type = LogEntryType.Event;
+        _logEntryGenerator.Generate(ref entry, assemblyName, className, instanceName, eventName, eventArgs);
+        logWriter.Write(ref entry, _sinks);
     }
 }

@@ -48,26 +48,27 @@ public class TracingLogEntryGenerator : ILogEntryGenerator<TracingLogEntryGenera
 
     /// <inheritdoc/>
     [StackTraceHidden]
-    public virtual string Generate(string title, string message, LogLevel level)
+    public virtual void Generate(ref LogEntry entry, string title, string message)
     {
-        StringBuilder builder = AddTargetSite(GenerateHeader(level, null, out MethodBase? method), method)
+        StringBuilder builder = AddTargetSite(ref entry, GenerateHeader(ref entry, null, out MethodBase? method), method)
             .Append(title).Append(": \'")
             .Append(message)
             .Append('\'');
-        string entry = builder.ToString();
+        entry.LogMessage = builder.ToString();
         builder.Clear();
-        return entry;
     }
 
     /// <inheritdoc/>
     [StackTraceHidden]
-    public virtual string Generate(Exception exception, string? additionalInfo, LogLevel level)
+    public virtual void Generate(ref LogEntry entry, Exception exception, string? additionalInfo)
     {
-        StringBuilder builder = AddTargetSite(GenerateHeader(level, null, out MethodBase? method), method)
+        StringBuilder builder = AddTargetSite(ref entry, GenerateHeader(ref entry, null, out MethodBase? method), method)
             .Append(exception.GetType().Name)
             .Append(": ");
+        entry.Exception = exception;
         if (additionalInfo is not null)
         {
+            entry.AdditionalInfo = additionalInfo;
             builder.Append("info: \'")
                 .Append(additionalInfo)
                 .Append("\' ");
@@ -84,28 +85,34 @@ public class TracingLogEntryGenerator : ILogEntryGenerator<TracingLogEntryGenera
             builder.Append("stacktrace unavailable");
         }
             
-        string entry = builder.ToString();
+        entry.LogMessage = builder.ToString();
         builder.Clear();
-        return entry;
     }
 
     /// <inheritdoc/>
     [StackTraceHidden]
-    public virtual string Generate<TEventArgs>(string? assemblyName, string? className, string instanceName, string eventName, TEventArgs eventArgs)
+    public virtual void Generate<TEventArgs>(ref LogEntry entry, string? assemblyName, string? className, string instanceName, string eventName, TEventArgs eventArgs)
     {
-        StringBuilder builder = GenerateHeader(LogLevel.Event, assemblyName, out MethodBase? method)
-            .Append('(')
-            .Append(className ?? method?.DeclaringType?.Name ?? "<UnknownType>")
+        StringBuilder builder = GenerateHeader(ref entry, assemblyName, out MethodBase? method)
+            .Append('(');
+        className ??= method?.DeclaringType?.Name ?? "<UnknownType>";
+        entry.ClassName = className;
+        builder
+            .Append(className)
             .Append("::")
             .Append(instanceName)
             .Append(") ==> ")
             .Append(eventName)
             .Append(": ");
+
+        entry.InstanceName = instanceName;
+        entry.EventName = eventName;
+        entry.EventArgs = eventArgs;
+
         AddEventArgs(eventArgs, builder);
 
-        string entry = builder.ToString();
+        entry.LogMessage = builder.ToString();
         builder.Clear();
-        return entry;
     }
 
     /// <summary>
@@ -140,12 +147,12 @@ public class TracingLogEntryGenerator : ILogEntryGenerator<TracingLogEntryGenera
     /// <summary>
     /// Generates the log entry header.
     /// </summary>
-    /// <param name="level">The <see cref="LogLevel"/> of the log entry.</param>
+    /// <param name="entry">The <see cref="LogEntry"/> to write the log entry to.</param>
     /// <param name="textAssemblyName">The name of the assembly that is logging (if known). If <see langword="null"/>, the assembly name will be determined using reflection.</param>
     /// <param name="method">(Output) The <see cref="MethodBase"/> of the method that is logging.</param>
     /// <returns>A <see cref="StringBuilder"/> containing the log entry header.</returns>
     [StackTraceHidden]
-    protected virtual StringBuilder GenerateHeader(LogLevel level, string? textAssemblyName, out MethodBase? method)
+    protected virtual StringBuilder GenerateHeader(ref LogEntry entry, string? textAssemblyName, out MethodBase? method)
     {
         method = null;
         if (textAssemblyName is null)
@@ -155,25 +162,32 @@ public class TracingLogEntryGenerator : ILogEntryGenerator<TracingLogEntryGenera
             method = stack.GetFirstNonHiddenCaller();
             textAssemblyName = method?.DeclaringType?.Assembly.GetName().Name ?? "<UnknownAssembly>";
         }
+        entry.AssemblyName = textAssemblyName;
 
-        string textLogLevel = level switch
+        string textLogLevel = entry.LogLevel switch
         {
-            LogLevel.Error or LogLevel.Fatal => level.ToString().ToUpper(),
-            _ => level.ToString()
+            LogLevel.Error or LogLevel.Fatal => entry.LogLevel.ToString().ToUpper(),
+            _ => entry.LogLevel.ToString()
         };
-        string mainThreadTag = Environment.CurrentManagedThreadId == _config.MainThreadId
-            ? "(MAIN THREAD)"
-            : string.Empty;
+        string mainThreadTag = string.Empty;
+        int threadId = Environment.CurrentManagedThreadId;
+        entry.ThreadId = threadId;
+        if (threadId == _config.MainThreadId)
+        {
+            mainThreadTag = "(MAIN THREAD)";
+            entry.IsMainThread = true;
+        }
 
         StringBuilder builder = _stringBuilder.Value!;
         builder.Clear();
-        return builder.Append(DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff"))
+        entry.TimestampUtc = DateTime.UtcNow;
+        return builder.Append(entry.TimestampUtc.ToString("yyyy-MM-dd HH:mm:ss.fff"))
             .Append(" (UTC) ")
             .Append(textAssemblyName)
             .Append(": [")
             .Append(textLogLevel)
             .Append("->Thread_0x")
-            .Append(Environment.CurrentManagedThreadId.ToString("x"))
+            .Append(threadId.ToString("x"))
             .Append(mainThreadTag)
             .Append("] ");
     }
@@ -181,11 +195,13 @@ public class TracingLogEntryGenerator : ILogEntryGenerator<TracingLogEntryGenera
     /// <summary>
     /// Adds the target site to the <paramref name="builder"/>.
     /// </summary>
+    /// <param name="entry">The <see cref="LogEntry"/> to add the target site to.</param>
     /// <param name="builder">The <see cref="StringBuilder"/> to add the target site to.</param>
     /// <param name="method">The <see cref="MethodBase"/> of the method that is logging.</param>
-    protected virtual StringBuilder AddTargetSite(StringBuilder builder, MethodBase? method)
+    protected virtual StringBuilder AddTargetSite(ref LogEntry entry, StringBuilder builder, MethodBase? method)
     {
         string textTargetSite = method is null ? "(<UnknownType>)" : GetTargetSite(method);
+        entry.TargetSite = textTargetSite;
         return builder
             .Append(textTargetSite)
             .Append(" ==> ");

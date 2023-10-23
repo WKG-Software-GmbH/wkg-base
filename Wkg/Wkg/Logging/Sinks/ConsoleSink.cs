@@ -9,7 +9,6 @@ public class ConsoleSink : ILogSink
     /// Logs the specified message.
     /// </summary>
     /// <param name="logEntry">The message to be logged.</param>
-    /// <param name="logLevel">The <see cref="LogLevel"/> of the message.</param>
-    public void Log(string logEntry, LogLevel logLevel) =>
-        Console.WriteLine(logEntry);
+    public void Log(ref LogEntry logEntry) =>
+        Console.WriteLine(logEntry.LogMessage);
 }

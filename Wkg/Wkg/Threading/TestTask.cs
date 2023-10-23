@@ -10,41 +10,40 @@ namespace Wkg.Threading;
 [AsyncMethodBuilder(typeof(MyTaskMethodBuilder<>))]
 class MyTask<T>
 {
-    public Awaiter<T> GetAwaiter();
+    public Awaiter<T> GetAwaiter() => new();
 }
 
 class Awaiter<T> : ICriticalNotifyCompletion
 {
     public bool IsCompleted { get; }
-    public T GetResult();
-    public void OnCompleted(Action completion);
+    public T GetResult() => throw new NotImplementedException();
+    public void OnCompleted(Action completion) { }
     public void UnsafeOnCompleted(Action continuation) => throw new NotImplementedException();
 }
 
 struct MyTaskMethodBuilder<T>
 {
-    private AsyncTaskMethodBuilder<T> _inner;
-
-    public static MyTaskMethodBuilder<T> Create();
+    public static MyTaskMethodBuilder<T> Create() => default;
 
     public void Start<TStateMachine>(ref TStateMachine stateMachine)
-        where TStateMachine : IAsyncStateMachine;
+        where TStateMachine : IAsyncStateMachine => stateMachine.MoveNext();
 
-    public void SetStateMachine(IAsyncStateMachine stateMachine);
+    public void SetStateMachine(IAsyncStateMachine stateMachine) { }
 
-    public void SetException(Exception exception);
+    public void SetException(Exception exception) { }
 
-    public void SetResult(T result);
+    public void SetResult(T result) { }
 
     public void AwaitOnCompleted<TAwaiter, TStateMachine>(
         ref TAwaiter awaiter, ref TStateMachine stateMachine)
         where TAwaiter : INotifyCompletion
-        where TStateMachine : IAsyncStateMachine;
+        where TStateMachine : IAsyncStateMachine
+    { }
 
     public void AwaitUnsafeOnCompleted<TAwaiter, TStateMachine>(
         ref TAwaiter awaiter, ref TStateMachine stateMachine)
         where TAwaiter : ICriticalNotifyCompletion
-        where TStateMachine : IAsyncStateMachine;
+        where TStateMachine : IAsyncStateMachine { }
 
     public MyTask<T> Task { get; }
 }

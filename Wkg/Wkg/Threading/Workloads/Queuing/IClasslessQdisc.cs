@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
-namespace Wkg.Threading.Workloads;
+namespace Wkg.Threading.Workloads.Queuing;
 
 internal interface IQdisc
 {

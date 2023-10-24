@@ -1,7 +1,8 @@
 ﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using Wkg.Threading.Workloads.Queuing;
 
-namespace Wkg.Threading.Workloads;
+namespace Wkg.Threading.Workloads.Internals;
 
 internal class WorkloadScheduler
 {
@@ -68,9 +69,9 @@ internal class WorkloadScheduler
     }
 
     private void WorkerLoop(object? state)
-    {   
+    {
         bool previousExecutionFailed = false;
-        while (TryDequeueOrExitSafely(previousExecutionFailed, out Workload ? workload))
+        while (TryDequeueOrExitSafely(previousExecutionFailed, out Workload? workload))
         {
             previousExecutionFailed = workload.TryRunSynchronously();
             Debug.Assert(workload.IsCompleted);

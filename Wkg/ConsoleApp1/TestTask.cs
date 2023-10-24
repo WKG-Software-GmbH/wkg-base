@@ -5,7 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Wkg.Threading;
+namespace ConsoleApp1;
 
 [AsyncMethodBuilder(typeof(MyTaskMethodBuilder<>))]
 class MyTask<T>
@@ -43,7 +43,8 @@ struct MyTaskMethodBuilder<T>
     public void AwaitUnsafeOnCompleted<TAwaiter, TStateMachine>(
         ref TAwaiter awaiter, ref TStateMachine stateMachine)
         where TAwaiter : ICriticalNotifyCompletion
-        where TStateMachine : IAsyncStateMachine { }
+        where TStateMachine : IAsyncStateMachine
+    { }
 
     public MyTask<T> Task { get; }
 }

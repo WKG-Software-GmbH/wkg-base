@@ -5,7 +5,6 @@ using Wkg.Logging.Configuration;
 using Wkg.Logging.Generators;
 using Wkg.Logging.Loggers;
 using Wkg.Logging.Writers;
-using Wkg.Threading;
 
 Log.UseLogger(Logger.Create(LoggerConfiguration.Create()
     .AddSink<ColoredThreadBasedConsoleSink>()

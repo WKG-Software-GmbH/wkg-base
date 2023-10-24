@@ -2,7 +2,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Wkg.Collections.Concurrent;
 
-namespace Wkg.Threading;
+namespace ConsoleApp1;
 
 public class ConstrainedTaskScheduler : TaskScheduler
 {

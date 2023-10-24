@@ -1,5 +1,6 @@
 ﻿using Wkg.Logging;
 using Wkg.Logging.Writers;
+using Wkg.Threading.Workloads.Scheduling;
 
 namespace Wkg.Threading.Workloads;
 
@@ -85,10 +86,8 @@ public class Workload
                 }
                 else
                 {
-                    // log this occurrence as it should never happen
-                    WorkloadSchedulingException exception = new($"Workload is in an invalid state. This is a bug. Status was '{Status}' after execution.");
-                    Log.WriteException(exception, LogWriter.Blocking);
-                    _task = new ValueTask<WorkloadResult>(WorkloadResult.CreateFaulted(exception));
+                    // this should never happen
+                    goto FAILURE;
                 }
             }
             catch (OperationCanceledException)
@@ -103,12 +102,13 @@ public class Workload
             }
             return true;
         }
+    FAILURE:
         // not all qdiscs may support removal of canceled workloads)
         WorkloadStatus status;
         if ((status = Volatile.Read(ref _status)) != WorkloadStatus.Canceled)
         {
             // log this occurrence as it should never happen
-            WorkloadSchedulingException exception = new($"Workload is in an invalid state. This is a bug. Status was '{status}' before execution attempt.");
+            WorkloadSchedulingException exception = new($"Workload is in an invalid state. This is a bug. Status was '{status}' during execution attempt.");
             Log.WriteException(exception, LogWriter.Blocking);
             // notify the caller that the workload could not be executed
             // they might be awaiting the workload, so we need to set the result if it's not already set

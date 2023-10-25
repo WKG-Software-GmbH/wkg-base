@@ -10,6 +10,10 @@ using static TypeReinterpreter;
 /// <summary>
 /// Represents the status of a workload.
 /// </summary>
+// we use a simple unsafe reinterpret_cast to convert between the uint and the enum
+// which makes conversions a zero-cost operation
+// so DO NOT change the field offset or the size of the struct!!!
+// otherwise, there WILL be segmentation faults!
 [StructLayout(LayoutKind.Explicit, Size = sizeof(uint))]
 [DebuggerDisplay("{ToString()}")]
 public readonly struct WorkloadStatus
@@ -23,6 +27,10 @@ public readonly struct WorkloadStatus
     private const uint CANCELED_VALUE = 0x20u;
     private const uint CANCELLATION_REQUESTED_VALUE = 0x40u;
 
+    // we use a simple unsafe reinterpret_cast to convert between the uint and the enum
+    // which makes conversions a zero-cost operation
+    // so DO NOT change the field offset or the size of the struct!!!
+    // otherwise, there WILL be segmentation faults!
     [FieldOffset(0)]
     private readonly uint _value;
 
@@ -66,8 +74,6 @@ public readonly struct WorkloadStatus
     /// </summary>
     public static WorkloadStatus CancellationRequested => CANCELLATION_REQUESTED_VALUE;
 
-    internal static WorkloadStatus InternalCompletionMask => RAN_TO_COMPLETION_VALUE | FAULTED_VALUE | CANCELED_VALUE;
-
     /// <summary>
     /// Reinterprets the specified <paramref name="status"/> as a <see cref="uint"/>.
     /// </summary>
@@ -101,5 +107,38 @@ public readonly struct WorkloadStatus
     /// </summary>
     /// <param name="flags">The flag combination of <see cref="WorkloadStatus"/> to check against.</param>
     /// <returns><see langword="true"/> if at least one of the specified <paramref name="flags"/> is set in the current <see cref="WorkloadStatus"/>; otherwise, <see langword="false"/>.</returns>
+    // force inlining to allow the JIT to do constant folding
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool IsOneOf(WorkloadStatus flags) => (_value & flags) != 0;
+
+    internal static class CommonFlags
+    {
+        // we must use the raw values here in order to allow the JIT to do constant folding
+        // otherwise, there would be a lot of unnecessary call instructions. 
+        // so don't touch these values unless you know what you're doing :P
+
+        /// <summary>
+        /// The workload has finished execution and reached a terminal state.
+        /// </summary>
+        /// <remarks>
+        /// <code>RanToCompletion | Faulted | Canceled</code>
+        /// </remarks>
+        public static WorkloadStatus Completed => RAN_TO_COMPLETION_VALUE | FAULTED_VALUE | CANCELED_VALUE;
+
+        /// <summary>
+        /// Workload completion will be considered successful if the action delegate returns in this state.
+        /// </summary>
+        /// <remarks>
+        /// <code>Running | CancellationRequested</code>
+        /// </remarks>
+        public static WorkloadStatus WillCompleteSuccessfully => RUNNING_VALUE | CANCELLATION_REQUESTED_VALUE;
+
+        /// <summary>
+        /// The workload is valid, but has not been executed yet.
+        /// </summary>
+        /// <remarks>
+        /// <code>Created | Scheduled</code>
+        /// </remarks>
+        public static WorkloadStatus PreExecution => CREATED_VALUE | SCHEDULED_VALUE;
+    }
 }

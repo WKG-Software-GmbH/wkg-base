@@ -1,4 +1,7 @@
-﻿namespace Wkg.Threading.Workloads;
+﻿using Wkg.Internals.Diagnostic;
+using Wkg.Logging.Writers;
+
+namespace Wkg.Threading.Workloads;
 
 public readonly struct CancellationFlag
 {
@@ -28,5 +31,9 @@ public readonly struct CancellationFlag
 
     public static CancellationFlag None => new(_neverCancelledWorkload);
 
-    public bool MarkCanceled() => _workload.InternalTryMarkAborted();
+    public bool MarkCanceled()
+    {
+        DebugLog.WriteDiagnostic($"{_workload}: Marking workload as canceled.", LogWriter.Blocking);
+        return _workload.InternalTryMarkAborted();
+    }
 }

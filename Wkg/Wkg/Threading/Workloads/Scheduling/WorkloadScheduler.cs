@@ -1,10 +1,12 @@
 ﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using Wkg.Internals.Diagnostic;
+using Wkg.Logging.Writers;
 using Wkg.Threading.Workloads.Queuing;
 
 namespace Wkg.Threading.Workloads.Internals;
 
-internal class WorkloadScheduler
+internal class WorkloadScheduler : INotifyWorkScheduled
 {
     private readonly IQdisc _rootQdisc;
     private readonly int _maximumConcurrencyLevel;
@@ -14,30 +16,32 @@ internal class WorkloadScheduler
     {
         if (maximumConcurrencyLevel < 1)
         {
+            DebugLog.WriteWarning($"The maximum degree of parallelism must be greater than zero. The specified value was {maximumConcurrencyLevel}.", LogWriter.Blocking);
             throw new ArgumentOutOfRangeException(nameof(maximumConcurrencyLevel), maximumConcurrencyLevel, "The maximum degree of parallelism must be greater than zero.");
         }
         _rootQdisc = rootQdisc;
         _maximumConcurrencyLevel = maximumConcurrencyLevel;
+        DebugLog.WriteInfo($"Created workload scheduler with root qdisc {_rootQdisc} and maximum concurrency level {_maximumConcurrencyLevel}.", LogWriter.Blocking);
     }
 
     public int MaximumConcurrencyLevel => _maximumConcurrencyLevel;
 
-    /// <summary>
-    /// Notifies the scheduler that there is work to be done.
-    /// </summary>
-    internal void InternalNotify()
+    void INotifyWorkScheduled.OnWorkScheduled()
     {
-        SpinWait spinner = default;
+        DebugLog.WriteDiagnostic("Workload scheduler was poked.", LogWriter.Blocking);
 
+        SpinWait spinner = default;
         while (true)
         {
             int workerCount = Volatile.Read(ref _currentDegreeOfParallelism);
             if (workerCount < _maximumConcurrencyLevel)
             {
+                DebugLog.WriteDiagnostic($"Attempting to start a new worker: {workerCount} < {_maximumConcurrencyLevel}.", LogWriter.Blocking);
                 // we have room for another worker, so we'll start one
                 int actualWorkerCount = Interlocked.CompareExchange(ref _currentDegreeOfParallelism, workerCount + 1, workerCount);
                 if (actualWorkerCount == workerCount)
                 {
+                    DebugLog.WriteDiagnostic($"Successfully started a new worker: {workerCount} -> {actualWorkerCount}.", LogWriter.Blocking);
                     // we successfully started a worker, so we can exit
                     ThreadPool.QueueUserWorkItem(WorkerLoop, null);
                     return;
@@ -50,6 +54,7 @@ internal class WorkloadScheduler
                     // however, we just added a task, so we know that there are tasks
                     // we also know that that the worker will re-sample the queue, so we trust that the worker knows what it's doing
                     // we can exit
+                    DebugLog.WriteDiagnostic($"Lost a worker: {workerCount} -> {actualWorkerCount}.", LogWriter.Blocking);
                     return;
                 }
                 // we gained a worker.
@@ -58,11 +63,13 @@ internal class WorkloadScheduler
                 // this still means that we could benefit from another worker, so we'll try again
                 // worst case is that we'll start a worker that will find out that it's useless because somone else already did the work.
                 // in that case, the worker will end itself, and everything will be fine
+                DebugLog.WriteDiagnostic($"Gained a worker: {workerCount} -> {actualWorkerCount}. Spinning for retry.", LogWriter.Blocking);
                 spinner.SpinOnce();
             }
             else
             {
                 // we're at the max degree of parallelism, so we can exit
+                DebugLog.WriteDiagnostic($"Reached maximum concurrency level: {workerCount} >= {_maximumConcurrencyLevel}.", LogWriter.Blocking);
                 return;
             }
         }
@@ -70,12 +77,14 @@ internal class WorkloadScheduler
 
     private void WorkerLoop(object? state)
     {
+        DebugLog.WriteInfo("Worker started.", LogWriter.Blocking);
         bool previousExecutionFailed = false;
         while (TryDequeueOrExitSafely(previousExecutionFailed, out Workload? workload))
         {
             previousExecutionFailed = workload.TryRunSynchronously();
             Debug.Assert(workload.IsCompleted);
         }
+        DebugLog.WriteInfo("Worker exited.", LogWriter.Blocking);
     }
 
     /// <summary>
@@ -89,12 +98,14 @@ internal class WorkloadScheduler
     /// </remarks>
     private bool TryDequeueOrExitSafely(bool previousExecutionFailed, [NotNullWhen(true)] out Workload? workload)
     {
+        DebugLog.WriteDiagnostic("Worker is attempting to dequeue a workload.", LogWriter.Blocking);
         SpinWait spinner = default;
         // spin loop against scheduling threads
         while (true)
         {
             if (_rootQdisc.TryDequeue(previousExecutionFailed, out workload))
             {
+                DebugLog.WriteDiagnostic($"Worker successfully dequeued workload {workload}.", LogWriter.Blocking);
                 // we successfully dequeued a task, return with success
                 return true;
             }
@@ -105,6 +116,7 @@ internal class WorkloadScheduler
             if (_rootQdisc.IsEmpty)
             {
                 // no more tasks, exit
+                DebugLog.WriteDiagnostic($"Worker found no more tasks, exiting.", LogWriter.Blocking);
                 return false;
             }
             // failure case: someone else scheduled a task, possible before we decremented the worker count, so we could lose a worker here
@@ -116,12 +128,14 @@ internal class WorkloadScheduler
                 if (newWorkerCount > workerCountAfterExit)
                 {
                     // it's fine. They already scheduled a replacement worker, so we can exit
+                    DebugLog.WriteDiagnostic($"Worker exiting after replacement worker was scheduled.", LogWriter.Blocking);
                     return false;
                 }
                 // we either successfully restored the worker count, or we lost more than one worker
                 if (newWorkerCount == originalWorkerCount)
                 {
                     // we successfully restored the worker count, so we can break out of the restore loop and continue the outer dequeue loop
+                    DebugLog.WriteDiagnostic($"Worker successfully restored worker count to {originalWorkerCount}. Continuing dequeue loop.", LogWriter.Blocking);
                     break;
                 }
                 // some other worker beat us to restoring the worker count, so we need to try again
@@ -131,14 +145,17 @@ internal class WorkloadScheduler
                 if (originalWorkerCount > _maximumConcurrencyLevel)
                 {
                     // give up and exit
+                    DebugLog.WriteDiagnostic($"Worker exiting after encountering maximum concurrency level {_maximumConcurrencyLevel} during restore attempt.", LogWriter.Blocking);
                     return false;
                 }
                 // continue attempts to stay alive
                 // worst thing that could happen is that we have been replaced by the next iteration,
                 // or that we manage to restore, stay alive, but then find out that we're useless (no tasks)
                 // in any case, we'll either continure with well-defined state, or we'll exit
+                DebugLog.WriteDiagnostic($"Worker spinning for retry during restore attempt.", LogWriter.Blocking);
                 spinner.SpinOnce();
             }
+            DebugLog.WriteDiagnostic($"Worker spinning for retry while attempting to dequeue workload.", LogWriter.Blocking);
             spinner.SpinOnce();
         }
     }

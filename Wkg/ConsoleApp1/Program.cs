@@ -1,39 +1,83 @@
 ﻿// See https://aka.ms/new-console-template for more information
-using ConsoleApp1;
 using Wkg.Logging;
 using Wkg.Logging.Configuration;
 using Wkg.Logging.Generators;
 using Wkg.Logging.Loggers;
+using Wkg.Logging.Sinks;
 using Wkg.Logging.Writers;
+using Wkg.Threading.Workloads;
+using Wkg.Threading.Workloads.Internals;
+using Wkg.Threading.Workloads.Queuing;
 
 Log.UseLogger(Logger.Create(LoggerConfiguration.Create()
-    .AddSink<ColoredThreadBasedConsoleSink>()
-    .UseEntryGenerator<SimpleLogEntryGenerator>()
+    //.AddSink<ColoredThreadBasedConsoleSink>()
+    .AddSink<ColoredConsoleSink>()
+    .UseEntryGenerator<TracingLogEntryGenerator>()
     .RegisterMainThread(Thread.CurrentThread)
     .UseDefaultLogWriter(LogWriter.Blocking)));
 
-TaskScheduler scheduler = new ConstrainedTaskScheduler(2);
+FifoQdisc root = new();
+WorkloadScheduler baseScheduler = new(root, maximumConcurrencyLevel: 1);
+root.InternalInitialize(baseScheduler);
+WorkloadFactory factory = new(root);
 
-TaskFactory factory = new(scheduler);
+const int WORKLOAD_COUNT = 10;
+Workload[] workloads = new Workload[WORKLOAD_COUNT];
 
-const int TASK_COUNT = 10;
-Task[] tasks = new Task[TASK_COUNT];
+TaskCompletionSource tcs = new();
 
-for (int i = 0; i < TASK_COUNT; i++)
+for (int i = 0; i < WORKLOAD_COUNT; i++)
 {
-    tasks[i] = factory.StartNew(DoStuffAsync, TaskCreationOptions.AttachedToParent);
+    if (i == 3)
+    {
+        // self-canceling workload (gotta test cancelling a running workload)
+        workloads[i] = factory.Schedule(cancellationFlag =>
+        {
+            Log.WriteInfo("Cancelling myself :P");
+            for (int i = 0; i < 10; i++)
+            {
+                cancellationFlag.ThrowIfCancellationRequested();
+                if (i == 5)
+                {
+                    workloads[3].TryCancel();
+                }
+            }
+            Log.WriteWarning("I should not have gotten here.");
+        });
+        continue;
+    }
+    if (i == 5)
+    {
+        workloads[i] = factory.Schedule(_ => workloads[6].TryCancel());
+        continue;
+    }
+    workloads[i] = factory.Schedule(DoStuff);
 }
 
-Log.WriteInfo("Waiting for tasks to complete...");
-await Task.WhenAll(tasks);
-Log.WriteInfo("All tasks completed.");
-await Task.Delay(60 * 60 * 1000);
-
-static async Task DoStuffAsync()
+factory.Schedule(_ =>
 {
-    await Task.Delay(250);
-    Log.WriteDiagnostic($"Task {Task.CurrentId} started on thread {Environment.CurrentManagedThreadId}.");
-    await Task.Delay(500);
-    await Task.Delay(250);
-    Log.WriteDiagnostic($"Task {Task.CurrentId} completed on thread {Environment.CurrentManagedThreadId}.");
+    Log.WriteDebug("Attempting to cancel completed workload.");
+    bool result = workloads[0].TryCancel();
+    Log.WriteDebug($"Result: {result}");
+});
+
+factory.Schedule(_ =>
+{
+    Log.WriteInfo("Signaling completion.");
+    tcs.SetResult();
+});
+
+await tcs.Task;
+Log.WriteInfo("main thread exiting.");
+await Task.Delay(1000);
+
+static void DoStuff(CancellationFlag cancellationFlag)
+{
+    Log.WriteInfo("Doing stuff...");
+    for (int i = 0; i < 10; i++)
+    {
+        cancellationFlag.ThrowIfCancellationRequested();
+        Thread.Sleep(100);
+    }
+    Log.WriteInfo("Done doing stuff.");
 }

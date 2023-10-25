@@ -2,8 +2,10 @@
 
 namespace Wkg.Threading.Workloads.Queuing;
 
-internal interface IQdisc
+public interface IQdisc
 {
+    void InternalInitialize(INotifyWorkScheduled parentScheduler);
+
     /// <summary>
     /// Determines whether any workloads are available for processing in this or any child qdisc.
     /// </summary>
@@ -23,15 +25,20 @@ internal interface IQdisc
     /// </remarks>
     bool TryDequeue(bool backTrack, [NotNullWhen(true)] out Workload? workload);
 
+    /// <summary>
+    /// Attempts to remove the specified workload from this qdisc.
+    /// </summary>
+    /// <param name="workload">The workload to remove.</param>
+    /// <returns><see langword="true"/> if the workload was removed; <see langword="false"/> if the workload could not be found or the qdisc does not support removal of workloads.</returns>
     bool TryRemove(Workload workload);
 }
 
-internal interface IClasslessQdisc : IQdisc
+public interface IClasslessQdisc : IQdisc
 {
     void Enqueue(Workload workload);
 }
 
-internal interface IClassfulQdisc : IClasslessQdisc
+public interface IClassfulQdisc : IClasslessQdisc, INotifyWorkScheduled
 {
     void AddChild(IClasslessQdisc child);
 

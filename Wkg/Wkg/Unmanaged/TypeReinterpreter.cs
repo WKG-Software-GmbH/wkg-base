@@ -32,7 +32,7 @@ public static class TypeReinterpreter
         Unsafe.As<T>(from);
 
     /// <summary>
-    /// Reinterprets the specified <paramref name="from"/> unmanaged value type as the specified <typeparamref name="TTo"/> unmanaged value type.
+    /// Reinterprets the provided <typeparamref name="TFrom"/> as a <typeparamref name="TTo"/>.
     /// </summary>
     /// <typeparam name="TFrom">The source unmanaged value type to reinterpret cast from.</typeparam>
     /// <typeparam name="TTo">The target unmanaged value type to reinterpret cast to.</typeparam>

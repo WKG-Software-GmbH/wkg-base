@@ -17,6 +17,7 @@ public class Workload
     private ValueTask<WorkloadResult>? _task;
     private IQdisc? _qdisc;
     private static readonly IQdisc _qdiscCompletionSentinel = new QdiscCompletionSentinel();
+    private object? _state;
 
     private Workload(Action<CancellationFlag> action, WorkloadStatus status)
     {
@@ -77,7 +78,7 @@ public class Workload
                     return true;
                 }
                 // attempt to remove the workload from the qdisc
-                if (qdisc.TryRemove(this))
+                if (qdisc.TryRemoveInternal(this))
                 {
                     // we successfully removed the workload from the qdisc, we're done
                     // detach from the qdisc (only after we successfully removed the workload from it)
@@ -238,13 +239,16 @@ public class Workload
 file class QdiscCompletionSentinel : IQdisc
 {
     private const string _message = "Internal error: Qdisc completion sentinel should never be accessed. This is a bug. Please report this issue.";
-    bool IQdisc.IsEmpty => ThrowHelper();
-    bool IQdisc.TryDequeue(bool backTrack, [NotNullWhen(true)] out Workload? workload) => (workload = null) == null && ThrowHelper();
-    bool IQdisc.TryRemove(Workload workload) => ThrowHelper();
-    void IQdisc.InternalInitialize(INotifyWorkScheduled parentScheduler) => ThrowHelper();
+    bool IQdisc.IsEmpty => ThrowHelper<bool>();
+    int IQdisc.Count => ThrowHelper<int>();
+    bool IQdisc.TryDequeueInternal(bool backTrack, [NotNullWhen(true)] out Workload? workload) => (workload = null) == null && ThrowHelper<bool>();
+    bool IQdisc.TryRemoveInternal(Workload workload) => ThrowHelper<bool>();
+    void IQdisc.InternalInitialize(INotifyWorkScheduled parentScheduler) => ThrowHelper<bool>();
+    void IQdisc.Complete() => ThrowHelper<bool>();
 
     [DoesNotReturn]
-    private static bool ThrowHelper() => throw new WorkloadSchedulingException(_message);
+    [StackTraceHidden]
+    private static T ThrowHelper<T>() => throw new WorkloadSchedulingException(_message);
 }
 
 file static class WorkloadIdGenerator

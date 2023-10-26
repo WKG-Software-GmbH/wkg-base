@@ -4,15 +4,31 @@ namespace Wkg.Threading.Workloads.Queuing;
 
 public interface IQdisc
 {
-    void InternalInitialize(INotifyWorkScheduled parentScheduler);
+    internal void InternalInitialize(INotifyWorkScheduled parentScheduler);
+
+    /// <summary>
+    /// Completes the qdisc, preventing any further workloads from being enqueued.
+    /// </summary>
+    internal void Complete();
 
     /// <summary>
     /// Determines whether any workloads are available for processing in this or any child qdisc.
     /// </summary>
     /// <remarks>
-    /// Implementations must ensure that this property is thread-safe.
+    /// If this property returns <see langword="true"/>, the underlying qdisc must be really be empty (strong guarantee).<br></br>
+    /// If this property returns <see langword="false"/>, the underlying qdisc may or may not be empty (weak guarantee).<br></br>
+    /// This means that scheduling attempts are blocked during evaluation, but dequeue operations may still be performed.
     /// </remarks>
     bool IsEmpty { get; }
+
+    /// <summary>
+    /// Gets the total number of workloads in this qdisc and all child qdiscs.
+    /// </summary>
+    /// <remarks>
+    /// This property guarantees that the value returned is greater than or equal to the actual number of workloads in this qdisc and all child qdiscs (weak guarantee).<br></br>
+    /// This means that scheduling attempts are blocked during evaluation, but dequeue operations may still be performed.
+    /// </remarks>
+    int Count { get; }
 
     /// <summary>
     /// Attempts to dequeue a workload from this qdisc.
@@ -23,24 +39,24 @@ public interface IQdisc
     /// <remarks>
     /// The <paramref name="backTrack"/> parameter is set to <see langword="true"/> when execution of the previously dequeued workload was skipped due to cancellation, or any other valid reason to repeat the previous dequeue operation. For example, if a stale workload was dequeued and skipped in a round-robin qdisc, the next dequeue operation should repeat the same dequeue operation and assume the previous dequeue operation never happened. This is to ensure fairness in cases where workloads *should* have been removed from the qdisc previously due to cancellation, but could not be removed due to the qdisc not supporting removal of workloads. In such cases, the qdisc should repeat the dequeue operation until it finds a valid workload to execute.
     /// </remarks>
-    bool TryDequeue(bool backTrack, [NotNullWhen(true)] out Workload? workload);
+    internal bool TryDequeueInternal(bool backTrack, [NotNullWhen(true)] out Workload? workload);
 
     /// <summary>
     /// Attempts to remove the specified workload from this qdisc.
     /// </summary>
     /// <param name="workload">The workload to remove.</param>
     /// <returns><see langword="true"/> if the workload was removed; <see langword="false"/> if the workload could not be found or the qdisc does not support removal of workloads.</returns>
-    bool TryRemove(Workload workload);
+    internal bool TryRemoveInternal(Workload workload);
 }
 
-public interface IClasslessQdisc : IQdisc
+/// <summary>
+/// A qdisc that can be uniquely identified by a handle.
+/// </summary>
+/// <typeparam name="THandle">The type of the handle.</typeparam>
+public interface IQdisc<THandle> : IQdisc where THandle : unmanaged
 {
-    void Enqueue(Workload workload);
-}
-
-public interface IClassfulQdisc : IClasslessQdisc, INotifyWorkScheduled
-{
-    void AddChild(IClasslessQdisc child);
-
-    void RemoveChild(IClasslessQdisc child);
+    /// <summary>
+    /// A handle uniquely identifying this qdisc.
+    /// </summary>
+    public ref readonly THandle Handle { get; }
 }

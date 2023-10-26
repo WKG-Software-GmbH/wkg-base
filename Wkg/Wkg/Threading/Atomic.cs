@@ -10,6 +10,67 @@ namespace Wkg.Threading;
 /// </remarks>
 public static class Atomic
 {
+    #region IncrementModulo
+
+    /// <summary>
+    /// Atomically increments the value stored in the specified location and wraps it around to zero if it exceeds the specified modulo value.
+    /// </summary>
+    /// <param name="location">A reference to the integer value to increment.</param>
+    /// <param name="modulo">The modulo value. If the incremented value exceeds this modulo, it wraps around to zero.</param>
+    /// <returns>The original value stored in <paramref name="location"/> before incrementing.</returns>
+    public static int IncrementModulo(ref int location, int modulo)
+    {
+        int original, newValue;
+        do
+        {
+            original = Volatile.Read(ref location);
+            newValue = (original + 1) % modulo;
+        }
+        while (Interlocked.CompareExchange(ref location, newValue, original) != original);
+        return original;
+    }
+
+    /// <inheritdoc cref="IncrementModulo(ref int, int)"/>"
+    public static uint IncrementModulo(ref uint location, uint modulo)
+    {
+        uint original, newValue;
+        do
+        {
+            original = Volatile.Read(ref location);
+            newValue = (original + 1) % modulo;
+        }
+        while (Interlocked.CompareExchange(ref location, newValue, original) != original);
+        return original;
+    }
+
+    /// <inheritdoc cref="IncrementModulo(ref int, int)"/>"
+    public static long IncrementModulo(ref long location, long modulo)
+    {
+        long original, newValue;
+        do
+        {
+            original = Volatile.Read(ref location);
+            newValue = (original + 1) % modulo;
+        }
+        while (Interlocked.CompareExchange(ref location, newValue, original) != original);
+        return original;
+    }
+
+    /// <inheritdoc cref="IncrementModulo(ref int, int)"/>"
+    public static ulong IncrementModulo(ref ulong location, ulong modulo)
+    {
+        ulong original, newValue;
+        do
+        {
+            original = Volatile.Read(ref location);
+            newValue = (original + 1) % modulo;
+        }
+        while (Interlocked.CompareExchange(ref location, newValue, original) != original);
+        return original;
+    }
+
+    #endregion
+
     #region TestAllFlagsExchange
 
     /// <summary>

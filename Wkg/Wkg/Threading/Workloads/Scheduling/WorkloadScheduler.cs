@@ -81,7 +81,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
         bool previousExecutionFailed = false;
         while (TryDequeueOrExitSafely(previousExecutionFailed, out Workload? workload))
         {
-            previousExecutionFailed = workload.TryRunSynchronously();
+            previousExecutionFailed = !workload.TryRunSynchronously();
             Debug.Assert(workload.IsCompleted);
         }
         DebugLog.WriteInfo("Worker exited.", LogWriter.Blocking);
@@ -103,7 +103,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
         // spin loop against scheduling threads
         while (true)
         {
-            if (_rootQdisc.TryDequeue(previousExecutionFailed, out workload))
+            if (_rootQdisc.TryDequeueInternal(previousExecutionFailed, out workload))
             {
                 DebugLog.WriteDiagnostic($"Worker successfully dequeued workload {workload}.", LogWriter.Blocking);
                 // we successfully dequeued a task, return with success

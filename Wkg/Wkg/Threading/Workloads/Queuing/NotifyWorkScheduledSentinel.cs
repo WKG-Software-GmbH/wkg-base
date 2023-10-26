@@ -9,7 +9,9 @@ public class NotifyWorkScheduledSentinel : INotifyWorkScheduled
 {
     private NotifyWorkScheduledSentinel() => Pass();
 
-    public static readonly NotifyWorkScheduledSentinel Instance = new();
+    public static readonly NotifyWorkScheduledSentinel Uninitialized = new();
+
+    public static readonly NotifyWorkScheduledSentinel Completed = new();
 
     [DoesNotReturn]
     void INotifyWorkScheduled.OnWorkScheduled()

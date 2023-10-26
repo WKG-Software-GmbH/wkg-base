@@ -47,6 +47,11 @@ public interface IQdisc
     /// <param name="workload">The workload to remove.</param>
     /// <returns><see langword="true"/> if the workload was removed; <see langword="false"/> if the workload could not be found or the qdisc does not support removal of workloads.</returns>
     internal bool TryRemoveInternal(Workload workload);
+
+    // TODO: add a clear method to remove all workloads from the qdisc and be able to reschedule them (e.g. when a child qdisc is removed)
+    // TODO: we probably need Peek() and TryPeek() methods to support priority queues (should probably be fine, if only the parent priority queue is allowed to dequeue)
+    // we would probably have to do some locking in that priority queue, though, to ensure that another thread doesn't dequeue the workload after we peeked it and before we dequeue it
+    // we'll also need to check in on the workload._state then to store priority information in there
 }
 
 /// <summary>

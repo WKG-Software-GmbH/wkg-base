@@ -1,5 +1,6 @@
 ﻿using System.Text;
 using Wkg.Logging.Configuration;
+using Wkg.Text;
 
 namespace Wkg.Logging.Generators;
 
@@ -17,10 +18,7 @@ namespace Wkg.Logging.Generators;
 /// </remarks>
 public class SimpleLogEntryGenerator : ILogEntryGenerator<SimpleLogEntryGenerator>
 {
-    /// <summary>
-    /// A thread-local <see cref="StringBuilder"/> cache to avoid unnecessary allocations
-    /// </summary>
-    protected static readonly ThreadLocal<StringBuilder> _stringBuilder = new(() => new StringBuilder(512), false);
+    private const int DEFAULT_STRING_BUILDER_CAPACITY = 512;
 
     /// <summary>
     /// The <see cref="CompiledLoggerConfiguration"/> used to create this <see cref="SimpleLogEntryGenerator"/>
@@ -42,8 +40,8 @@ public class SimpleLogEntryGenerator : ILogEntryGenerator<SimpleLogEntryGenerato
     public virtual void Generate(ref LogEntry entry, string title, string message)
     {
         // 2023-05-30 14:35:42.185 (UTC) Info on Thread_0x123 --> Output: 'This is a log message';
-        StringBuilder builder = _stringBuilder.Value!;
-        builder.Clear();
+        StringBuilder builder = StringBuilderPool.Shared.Rent(DEFAULT_STRING_BUILDER_CAPACITY);
+
         AddPrefix(ref entry, builder);
         builder.Append(" on ");
         AddThreadInfo(ref entry, builder);
@@ -53,6 +51,8 @@ public class SimpleLogEntryGenerator : ILogEntryGenerator<SimpleLogEntryGenerato
             .Append(message)
             .Append('\'');
         entry.LogMessage = builder.ToString();
+
+        StringBuilderPool.Shared.Return(builder);
     }
 
     /// <inheritdoc/>
@@ -62,9 +62,11 @@ public class SimpleLogEntryGenerator : ILogEntryGenerator<SimpleLogEntryGenerato
         //    StackTrace line 1
         //    StackTrace line 2
         //    StackTrace line 3
+
+        // stack traces can be very long, so we request a larger capacity
+        StringBuilder builder = StringBuilderPool.Shared.Rent(minimumCapacity: 8192);
+
         entry.Exception = exception;
-        StringBuilder builder = _stringBuilder.Value!;
-        builder.Clear();
         AddPrefix(ref entry, builder);
         builder.Append(": ")
             .Append(exception.GetType().Name)
@@ -83,14 +85,16 @@ public class SimpleLogEntryGenerator : ILogEntryGenerator<SimpleLogEntryGenerato
             .Append("\' at: \n")
             .Append(exception.StackTrace);
         entry.LogMessage = builder.ToString();
+
+        StringBuilderPool.Shared.Return(builder);
     }
 
     /// <inheritdoc/>
     public virtual void Generate<TEventArgs>(ref LogEntry entry, string? assemblyName, string? className, string instanceName, string eventName, TEventArgs eventArgs)
     {
         // 2023-05-30 14:35:42.185 (UTC) Event on Thread_0x123 --> (MyAssembly) (MyClass::MyButtonInstance) ==> OnClick(MyEventType: eventArgs)
-        StringBuilder builder = _stringBuilder.Value!;
-        builder.Clear();
+        StringBuilder builder = StringBuilderPool.Shared.Rent(DEFAULT_STRING_BUILDER_CAPACITY);
+
         AddPrefix(ref entry, builder);
         builder.Append(" on ");
         AddThreadInfo(ref entry, builder);
@@ -114,6 +118,8 @@ public class SimpleLogEntryGenerator : ILogEntryGenerator<SimpleLogEntryGenerato
         AddEventArgs(eventArgs, builder);
         builder.Append(')');
         entry.LogMessage = builder.ToString();
+
+        StringBuilderPool.Shared.Return(builder);
     }
 
     /// <summary>

@@ -1,6 +1,8 @@
 ﻿using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Text;
+using Wkg.Text;
 using Wkg.Unmanaged;
 
 namespace Wkg.Threading.Workloads;
@@ -18,6 +20,8 @@ using static TypeReinterpreter;
 [DebuggerDisplay("{ToString()}")]
 public readonly struct WorkloadStatus
 {
+    // lower 16 bits are used for public flags
+    // upper 16 bits are used for internal flags
     private const uint INVALID_VALUE = 0x00u;
     private const uint CREATED_VALUE = 0x01u;
     private const uint SCHEDULED_VALUE = 0x02u;
@@ -26,6 +30,8 @@ public readonly struct WorkloadStatus
     private const uint FAULTED_VALUE = 0x10u;
     private const uint CANCELED_VALUE = 0x20u;
     private const uint CANCELLATION_REQUESTED_VALUE = 0x40u;
+    // internal flags
+    private const uint INTERNAL_POOLED_VALUE = 0x10000u;
 
     // we use a simple unsafe reinterpret_cast to convert between the uint and the enum
     // which makes conversions a zero-cost operation
@@ -75,6 +81,11 @@ public readonly struct WorkloadStatus
     public static WorkloadStatus CancellationRequested => CANCELLATION_REQUESTED_VALUE;
 
     /// <summary>
+    /// The workload has been pooled and is not tracked by a scheduler.
+    /// </summary>
+    internal static WorkloadStatus Pooled => INTERNAL_POOLED_VALUE;
+
+    /// <summary>
     /// Reinterprets the specified <paramref name="status"/> as a <see cref="uint"/>.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -88,8 +99,7 @@ public readonly struct WorkloadStatus
     public static implicit operator WorkloadStatus(uint value) =>
         ReinterpretCast<uint, WorkloadStatus>(value);
 
-    /// <inheritdoc/>
-    public override string ToString() => _value switch
+    private static string GetFlagName(WorkloadStatus flag) => (uint)flag switch
     {
         INVALID_VALUE => nameof(Invalid),
         CREATED_VALUE => nameof(Created),
@@ -99,8 +109,32 @@ public readonly struct WorkloadStatus
         FAULTED_VALUE => nameof(Faulted),
         CANCELED_VALUE => nameof(Canceled),
         CANCELLATION_REQUESTED_VALUE => nameof(CancellationRequested),
-        _ => $"Unknown ({_value})"
+        INTERNAL_POOLED_VALUE => nameof(Pooled),
+        _ => "Unknown"
     };
+
+    /// <inheritdoc/>
+    public override string ToString()
+    {
+        // rent a string builder big enough to hold most flag combinations
+        StringBuilder builder = StringBuilderPool.Shared.Rent(256);
+        // go over every flag and append it to the string builder
+        for (int i = 0; i < 32; i++)
+        {
+            WorkloadStatus flag = ReinterpretCast<uint, WorkloadStatus>(1u << i);
+            if (IsOneOf(flag))
+            {
+                if (builder.Length > 0)
+                {
+                    builder.Append(" | ");
+                }
+                builder.Append(GetFlagName(flag));
+            }
+        }
+        string result = builder.ToString();
+        StringBuilderPool.Shared.Return(builder);
+        return result;
+    }
 
     /// <summary>
     /// Determines at least one of the specified <paramref name="flags"/> is set in the current <see cref="WorkloadStatus"/>.

@@ -44,7 +44,7 @@ public abstract class Qdisc<THandle> : IQdisc<THandle> where THandle : unmanaged
         DebugLog.WriteDiagnostic($"Initializing qdisc {GetType().Name} ({Handle}) with parent scheduler {parentScheduler}.", LogWriter.Blocking);
         if (!ReferenceEquals(Interlocked.CompareExchange(ref _parentScheduler, parentScheduler, NotifyWorkScheduledSentinel.Uninitialized), NotifyWorkScheduledSentinel.Uninitialized))
         {
-            WorkloadSchedulingException exception = new("A workload scheduler was already set for this qdisc. This is a bug in the qdisc implementation.");
+            WorkloadSchedulingException exception = WorkloadSchedulingException.CreateVirtual("A workload scheduler was already set for this qdisc. This is a bug in the qdisc implementation.");
             DebugLog.WriteException(exception, LogWriter.Blocking);
             throw exception;
         }
@@ -66,7 +66,7 @@ public abstract class Qdisc<THandle> : IQdisc<THandle> where THandle : unmanaged
         DebugLog.WriteDiagnostic($"Completing qdisc {GetType().Name} ({Handle}).", LogWriter.Blocking);
         if (ReferenceEquals(Interlocked.Exchange(ref _parentScheduler, NotifyWorkScheduledSentinel.Completed), NotifyWorkScheduledSentinel.Uninitialized))
         {
-            WorkloadSchedulingException exception = new("This qdisc was already completed. This is a bug in the qdisc implementation.");
+            WorkloadSchedulingException exception = WorkloadSchedulingException.CreateVirtual("This qdisc was already completed. This is a bug in the qdisc implementation.");
             DebugLog.WriteException(exception, LogWriter.Blocking);
             throw exception;
         }

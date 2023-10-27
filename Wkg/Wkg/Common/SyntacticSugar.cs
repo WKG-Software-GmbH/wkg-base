@@ -1,6 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 
-namespace Wkg;
+namespace Wkg.Common;
 
 /// <summary>
 /// Contains some syntactic sugar :)

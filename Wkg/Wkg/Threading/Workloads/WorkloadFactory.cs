@@ -1,5 +1,6 @@
 ﻿using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
+using Wkg.Threading.Workloads.Queuing.Classful;
 using Wkg.Threading.Workloads.Queuing.Classifiers;
 using Wkg.Threading.Workloads.Queuing.Classless;
 using Wkg.Threading.Workloads.Scheduling;
@@ -25,7 +26,7 @@ public class WorkloadFactory<THandle> where THandle : unmanaged
         return workload;
     }
 
-    public Workload Schedule<TState>(TState state, Action<CancellationFlag> action)
+    public Workload Schedule<TState>(TState state, Action<CancellationFlag> action) where TState : class
     {
         DebugLog.WriteDiagnostic("Scheduling new workload.", LogWriter.Blocking);
         Workload workload = Workload.Create(action);
@@ -39,6 +40,25 @@ public class WorkloadFactory<THandle> where THandle : unmanaged
         else
         {
             throw new WorkloadSchedulingException("The root qdisc does not support classification.");
+        }
+        return workload;
+    }
+
+    public Workload Schedule(in THandle handle, Action<CancellationFlag> action)
+    {
+        DebugLog.WriteDiagnostic("Scheduling new workload.", LogWriter.Blocking);
+        Workload workload = Workload.Create(action);
+        if (_root.Handle.Equals(handle))
+        {
+            _root.Enqueue(workload);
+        }
+        else if (_root is IClassfulQdisc<THandle> classful && classful.TryFindChild(in handle, out IClasslessQdisc<THandle>? child))
+        {
+            child.Enqueue(workload);
+        }
+        else
+        {
+            throw new WorkloadSchedulingException($"The workload could not be scheduled: no child qdisc with handle {handle} was found.");
         }
         return workload;
     }

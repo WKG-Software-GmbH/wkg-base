@@ -139,7 +139,7 @@ public class Workload
             return ReferenceEquals(Interlocked.CompareExchange(ref _qdisc, current, qdisc), current);
         }
         // this is weird. also yes, the construction of the exception message is not entirely thread-safe. sue me.
-        WorkloadSchedulingException exception = new($"Workload is in an invalid state. This is a bug. Status was '{Status}' during binding attempt.");
+        WorkloadSchedulingException exception = WorkloadSchedulingException.CreateVirtual($"Workload is in an invalid state. This is a bug. Status was '{Status}' during binding attempt.");
         // can't throw on scheduler thread, so we'll just log it. The logger can throw if it wants to.
         DebugLog.WriteException(exception, LogWriter.Blocking);
         return false;
@@ -172,6 +172,7 @@ public class Workload
             UnbindQdiscUnsafe();
             try
             {
+                // execute the workload
                 _action(new CancellationFlag(this));
                 // if cancellation was requested, but the workload didn't honor it,
                 // then we'll just ignore it and treat it as a successful completion

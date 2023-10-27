@@ -12,6 +12,7 @@ using Wkg.Threading.Workloads.Internals;
 using Wkg.Threading.Workloads.Queuing;
 using Wkg.Threading.Workloads.Queuing.Classifiers.Qdiscs;
 using Wkg.Threading.Workloads.Queuing.Classless.Qdiscs;
+using Wkg.Threading.Workloads.Scheduling;
 
 Log.UseLogger(Logger.Create(LoggerConfiguration.Create()
     //.AddSink<ColoredThreadBasedConsoleSink>()

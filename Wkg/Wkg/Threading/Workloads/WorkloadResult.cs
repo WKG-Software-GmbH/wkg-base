@@ -6,7 +6,7 @@ public readonly struct WorkloadResult
 
     public readonly WorkloadStatus CompletionStatus { get; }
 
-    private WorkloadResult(Exception? exception, WorkloadStatus completionStatus)
+    internal WorkloadResult(Exception? exception, WorkloadStatus completionStatus)
     {
         Exception = exception;
         CompletionStatus = completionStatus;
@@ -20,6 +20,18 @@ public readonly struct WorkloadResult
 
     internal static WorkloadResult CreateCompleted() =>
         new(null, WorkloadStatus.RanToCompletion);
+
+    internal static WorkloadResult<TResult> CreateFaulted<TResult>(Exception exception) =>
+        new(exception, WorkloadStatus.Faulted, default);
+
+    internal static WorkloadResult<TResult> CreateCanceled<TResult>() =>
+        new(null, WorkloadStatus.Canceled, default);
+
+    internal static WorkloadResult<TResult> CreateCanceled<TResult>(TResult result) =>
+        new(null, WorkloadStatus.Canceled, result);
+
+    internal static WorkloadResult<TResult> CreateCompleted<TResult>(TResult result) =>
+        new(null, WorkloadStatus.RanToCompletion, result);
 
     public readonly bool IsSuccess => CompletionStatus == WorkloadStatus.RanToCompletion;
 

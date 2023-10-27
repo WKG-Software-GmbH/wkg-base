@@ -3,6 +3,9 @@
 /// <summary>
 /// An <see cref="ILogSink"/> that writes log entries to the console using colors to indicate the <see cref="LogLevel"/>.
 /// </summary>
+/// <remarks>
+/// <see langword="WARNING"/>: This sink is incompatible with other sinks that log to the console.
+/// </remarks>
 public class ColoredConsoleSink : ILogSink
 {
     private static readonly object _lock = new();

@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
-namespace Wkg.Extensions.Common;
+namespace Wkg.Common.Extensions;
 
 /// <summary>
 /// Contains extension methods for <see cref="Nullable{T}"/> value types.
@@ -26,5 +26,5 @@ public static class NullableValueTypeExtensions
     /// <returns><see langword="true"/> if the <see cref="Nullable{T}"/> is not <see langword="null"/> and if its <see cref="Nullable{T}.Value"/> property is not set to the <see langword="default"/> value of value type <typeparamref name="T"/>; otherwise, <see langword="false"/>.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool HasDefinedValue<T>([NotNullWhen(true)] this T? t) where T : struct =>
-        !IsNullOrDefault(t);
+        !t.IsNullOrDefault();
 }

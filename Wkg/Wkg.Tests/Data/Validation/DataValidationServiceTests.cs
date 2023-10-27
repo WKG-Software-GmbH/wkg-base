@@ -1,6 +1,5 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Wkg.Tests;
-using static System.Net.WebRequestMethods;
 
 namespace Wkg.Data.Validation.Tests;
 

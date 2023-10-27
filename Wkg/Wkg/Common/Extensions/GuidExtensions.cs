@@ -1,7 +1,7 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Text;
 
-namespace Wkg.Extensions.Common;
+namespace Wkg.Common.Extensions;
 
 /// <summary>
 /// Contains extension methods for the <see cref="Guid"/> struct.
@@ -35,10 +35,10 @@ public static class GuidExtensions
             int isOddMask = -(i & 1);
 
             // 0xF...F if i / 2 is < 2 and 0x0...0 if i / 2 is >= 2
-            int less2Mask = ((i >> 1) - 2) >> 31;
+            int less2Mask = (i >> 1) - 2 >> 31;
 
             // 0xF...F if i / 2 is > 5 and 0x0...0 if i / 2 is <= 5
-            int greater5Mask = ~(((i >> 1) - 6) >> 31);
+            int greater5Mask = ~((i >> 1) - 6 >> 31);
 
             // 0xF...F if i is even and 2 <= i / 2 <= 5 otherwise 0x0...0
             int skipIndexMask = ~(isOddMask | less2Mask | greater5Mask);
@@ -46,8 +46,8 @@ public static class GuidExtensions
             // skipIndexMask will be 0xFFFFFFFF for indices 4, 6, 8 and 10 and 0x00000000 for all other indices
             // --> skip those indices
             skip += 1 & skipIndexMask;
-            result[(2 * i) + skip] = ToHexCharBranchless(buffer[i] >>> 0x4);
-            result[(2 * i) + skip + 1] = ToHexCharBranchless(buffer[i] & 0x0F);
+            result[2 * i + skip] = ToHexCharBranchless(buffer[i] >>> 0x4);
+            result[2 * i + skip + 1] = ToHexCharBranchless(buffer[i] & 0x0F);
         }
 
         // add dashes
@@ -61,5 +61,5 @@ public static class GuidExtensions
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static byte ToHexCharBranchless(int b) =>
         // b + 0x30 for [0-9] if 0 <= b <= 9 and b + 0x30 + 0x27 for [a-f] if 10 <= b <= 15
-        (byte)(b + 0x30 + (0x27 & ~((b - 0xA) >> 31)));
+        (byte)(b + 0x30 + (0x27 & ~(b - 0xA >> 31)));
 }

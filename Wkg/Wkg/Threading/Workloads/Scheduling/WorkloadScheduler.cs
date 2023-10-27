@@ -41,7 +41,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
                 int actualWorkerCount = Interlocked.CompareExchange(ref _currentDegreeOfParallelism, workerCount + 1, workerCount);
                 if (actualWorkerCount == workerCount)
                 {
-                    DebugLog.WriteDiagnostic($"Successfully started a new worker: {workerCount} -> {actualWorkerCount}.", LogWriter.Blocking);
+                    DebugLog.WriteDiagnostic($"Successfully started a new worker: {workerCount} -> {actualWorkerCount + 1}.", LogWriter.Blocking);
                     // we successfully started a worker, so we can exit
                     ThreadPool.QueueUserWorkItem(WorkerLoop, null);
                     return;
@@ -79,7 +79,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
     {
         DebugLog.WriteInfo("Worker started.", LogWriter.Blocking);
         bool previousExecutionFailed = false;
-        while (TryDequeueOrExitSafely(previousExecutionFailed, out Workload? workload))
+        while (TryDequeueOrExitSafely(previousExecutionFailed, out AbstractWorkloadBase? workload))
         {
             previousExecutionFailed = !workload.TryRunSynchronously();
             Debug.Assert(workload.IsCompleted);
@@ -96,7 +96,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
     /// <remarks>
     /// If this method returns <see langword="false"/>, the worker must exit in order to respect the max degree of parallelism.
     /// </remarks>
-    private bool TryDequeueOrExitSafely(bool previousExecutionFailed, [NotNullWhen(true)] out Workload? workload)
+    private bool TryDequeueOrExitSafely(bool previousExecutionFailed, [NotNullWhen(true)] out AbstractWorkloadBase? workload)
     {
         DebugLog.WriteDiagnostic("Worker is attempting to dequeue a workload.", LogWriter.Blocking);
         SpinWait spinner = default;

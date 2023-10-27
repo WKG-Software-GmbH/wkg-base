@@ -1,7 +1,7 @@
-﻿using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using Wkg.Extensions.Common;
+using Wkg.Common.Extensions;
+using Wkg.Common.ThrowHelpers;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
 using Wkg.Threading.Workloads.Queuing.Classful;
@@ -11,7 +11,7 @@ using Wkg.Threading.Workloads.Queuing.Classless.Qdiscs;
 
 namespace Wkg.Threading.Workloads.Queuing.Classifiers.Qdiscs;
 
-internal class RoundRobinQdisc<THandle, TState> : Qdisc<THandle>, IClassifyingQdisc<THandle, TState>
+internal class RoundRobinQdisc<THandle, TState> : Qdisc<THandle>, IClassifyingQdisc<THandle, TState, RoundRobinQdisc<THandle, TState>>
     where THandle : unmanaged
     where TState : class
 {
@@ -30,13 +30,19 @@ internal class RoundRobinQdisc<THandle, TState> : Qdisc<THandle>, IClassifyingQd
     private int _emptyCounter;
     private int _criticalDequeueSectionCounter;
 
-    public RoundRobinQdisc(THandle handle, Predicate<TState> predicate) : base(handle)
+    internal RoundRobinQdisc(THandle handle, Predicate<TState> predicate) : base(handle)
     {
         _localQueue = new FifoQdisc<THandle>(default);
         _localLast = new ThreadLocal<IQdisc?>(trackAllValues: false);
         _children = new IChildClassification<THandle>[] { new NoChildClassification<THandle>(_localQueue) };
         _predicate = predicate;
         _childrenLock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
+    }
+
+    public static RoundRobinQdisc<THandle, TState> Create(THandle handle, Predicate<TState> predicate)
+    {
+        Throw.WorkloadSchedulingException.IfHandleIsDefault(handle);
+        return new RoundRobinQdisc<THandle, TState>(handle, predicate);
     }
 
     protected override void OnInternalInitialize(INotifyWorkScheduled parentScheduler) => 
@@ -73,9 +79,9 @@ internal class RoundRobinQdisc<THandle, TState> : Qdisc<THandle>, IClassifyingQd
 
     // would only need to consider the local queue, since this
     // method is only called on the direct parent of a workload.
-    protected override bool TryRemoveInternal(Workload workload) => false;
+    protected override bool TryRemoveInternal(CancelableWorkload workload) => false;
 
-    protected override bool TryDequeueInternal(bool backTrack, [NotNullWhen(true)] out Workload? workload)
+    protected override bool TryDequeueInternal(bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload)
     {
         // if we have to backtrack, we can do so by dequeuing from the last child qdisc
         // that was dequeued from. If the last child qdisc is empty, we can't backtrack and continue
@@ -103,6 +109,18 @@ internal class RoundRobinQdisc<THandle, TState> : Qdisc<THandle>, IClassifyingQd
             // if everything really is empty, we can return false and the worker will exit
             // also if the children array changes while we're iterating over it, we need to start over and 
             // resample all children for emptiness again
+
+            // TODO: without the following like, we will sometimes miss child qdiscs that are not empty, causing
+            // worker termination and orphaned workloads!
+            // it is a good idea for every dequeue operation to reset this empty counter. If children are really
+            // empty, workers will aggregate here until they are 100% sure that the qdisc is empty.
+            // this obviously sucks for performance, but it's better than orphaned workloads.
+            // we can instead introduce an additional "confirmed empty" flag that is set once after workers have
+            // established that the qdisc is empty. This flag can be reset whenever a new workload is scheduled to 
+            // this qdisc or any of its children. This way, we can avoid the expensive empty check in most cases
+            // and still be sure that we don't miss any workloads.
+            Volatile.Write(ref _emptyCounter, 0);
+
             int emptyCounter;
             IChildClassification<THandle>[] children = Volatile.Read(ref _children);
             do
@@ -184,15 +202,15 @@ internal class RoundRobinQdisc<THandle, TState> : Qdisc<THandle>, IClassifyingQd
         }
     }
 
-    public bool TryEnqueue(object? state, Workload workload)
+    public bool TryEnqueue(object? state, AbstractWorkloadBase workload)
     {
         // recursive classification of child qdiscs only.
         // matching our own predicate is the job of the parent qdisc.
         try
         {
-            DebugLog.WriteDiagnostic($"Trying to enqueue workload {workload} to round robin qdisc {this}.", LogWriter.Blocking);
             // prevent children from being removed while we're iterating over them
             _childrenLock.EnterReadLock();
+            DebugLog.WriteDiagnostic($"Trying to enqueue workload {workload} to round robin qdisc {this}.", LogWriter.Blocking);
 
             IChildClassification<THandle>[] children = Volatile.Read(ref _children);
             for (int i = 0; i < children.Length; i++)
@@ -200,6 +218,9 @@ internal class RoundRobinQdisc<THandle, TState> : Qdisc<THandle>, IClassifyingQd
                 if (children[i].TryEnqueue(state, workload))
                 {
                     DebugLog.WriteDiagnostic($"Enqueued workload {workload} to child qdisc {children[i].Qdisc}.", LogWriter.Blocking);
+                    // TODO: rethink this!
+                    // we found a child qdisc that accepted the workload, reset the empty counter (we have work to do!)
+                    Volatile.Write(ref _emptyCounter, 0);
                     return true;
                 }
             }
@@ -212,7 +233,7 @@ internal class RoundRobinQdisc<THandle, TState> : Qdisc<THandle>, IClassifyingQd
         return false;
     }
 
-    public bool TryEnqueueDirect(object? state, Workload workload)
+    public bool TryEnqueueDirect(object? state, AbstractWorkloadBase workload)
     {
         if (state is TState typedState && _predicate(typedState))
         {
@@ -225,7 +246,14 @@ internal class RoundRobinQdisc<THandle, TState> : Qdisc<THandle>, IClassifyingQd
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Enqueue(Workload workload) => _localQueue.Enqueue(workload);
+    public void Enqueue(AbstractWorkloadBase workload)
+    {
+        // TODO: rethink this!
+        // we are about to enqueue a workload directly to the local queue
+        // reset the empty counter (we have work to do!)
+        Volatile.Write(ref _emptyCounter, 0);
+        _localQueue.Enqueue(workload);
+    }
 
     public bool TryAddChild(IClasslessQdisc<THandle> child)
     {

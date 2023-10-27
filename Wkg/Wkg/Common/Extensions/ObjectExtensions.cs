@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
-namespace Wkg.Extensions.Common;
+namespace Wkg.Common.Extensions;
 
 /// <summary>
 /// Provides extension methods for instances of <see cref="object"/>.
@@ -55,6 +55,6 @@ public static class ObjectExtensions
     /// <returns>The specified <paramref name="value"/> if it is not <see langword="null"/>; otherwise, the specified <paramref name="fallback"/>.</returns>
     [return: NotNullIfNotNull(nameof(fallback))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static TResult? Coalesce<TResult>(this TResult? value, TResult? fallback) where TResult : class => 
+    public static TResult? Coalesce<TResult>(this TResult? value, TResult? fallback) where TResult : class =>
         value ?? fallback;
 }

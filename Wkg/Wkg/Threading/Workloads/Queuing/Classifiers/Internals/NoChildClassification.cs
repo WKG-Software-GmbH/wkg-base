@@ -13,5 +13,5 @@ internal class NoChildClassification<THandle> : IChildClassification<THandle>
     }
 
     // does not support classification, always returns false
-    public bool TryEnqueue(object? state, Workload workload) => false;
+    public bool TryEnqueue(object? state, AbstractWorkloadBase workload) => false;
 }

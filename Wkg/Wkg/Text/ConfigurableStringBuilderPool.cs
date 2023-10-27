@@ -36,18 +36,14 @@ internal sealed class ConfigurableStringBuilderPool : StringBuilderPool
         }
 
         // Create the buckets.
-        int poolId = Id;
         int maxBuckets = Utilities.SelectBucketIndex(maxStringBuilderCapacity);
         Bucket[] buckets = new Bucket[maxBuckets + 1];
         for (int i = 0; i < buckets.Length; i++)
         {
-            buckets[i] = new Bucket(Utilities.GetMaxSizeForBucket(i), maxStringBuildersPerBucket, poolId);
+            buckets[i] = new Bucket(Utilities.GetMaxSizeForBucket(i), maxStringBuildersPerBucket);
         }
         _buckets = buckets;
     }
-
-    /// <summary>Gets an ID for the pool to use with events.</summary>
-    private int Id => GetHashCode();
 
     public override StringBuilder Rent(int minimumCapacity)
     {
@@ -114,7 +110,6 @@ internal sealed class ConfigurableStringBuilderPool : StringBuilderPool
     {
         internal readonly int _builderCapacity;
         private readonly StringBuilder?[] _builders;
-        private readonly int _poolId;
 
         private SpinLock _lock; // do not make this readonly; it's a mutable struct
         private int _index;
@@ -122,12 +117,11 @@ internal sealed class ConfigurableStringBuilderPool : StringBuilderPool
         /// <summary>
         /// Creates the pool with numberOfBuilders builders where each builder is of builderCapacity length.
         /// </summary>
-        internal Bucket(int builderCapacity, int numberOfBuilders, int poolId)
+        internal Bucket(int builderCapacity, int numberOfBuilders)
         {
             _lock = new SpinLock(Debugger.IsAttached); // only enable thread tracking if debugger is attached; it adds non-trivial overheads to Enter/Exit
             _builders = new StringBuilder[numberOfBuilders];
             _builderCapacity = builderCapacity;
-            _poolId = poolId;
         }
 
         /// <summary>Gets an ID for the bucket to use with events.</summary>

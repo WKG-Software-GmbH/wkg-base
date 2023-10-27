@@ -10,6 +10,11 @@ public interface IClassfulQdisc : IQdisc, INotifyWorkScheduled
 public interface IClassfulQdisc<THandle> : IClassfulQdisc, IClasslessQdisc<THandle>
     where THandle : unmanaged
 {
+    /// <summary>
+    /// Attempts to add the child to the qdisc.
+    /// </summary>
+    /// <param name="child">The child to add.</param>
+    /// <returns><see langword="true"/> if the child was added, <see langword="false"/> if the child was already added.</returns>
     bool TryAddChild(IClasslessQdisc<THandle> child);
 
     /// <summary>
@@ -29,4 +34,11 @@ public interface IClassfulQdisc<THandle> : IClassfulQdisc, IClasslessQdisc<THand
     internal bool TryFindChild(in THandle handle, [NotNullWhen(true)] out IClasslessQdisc<THandle>? child);
 
     internal bool ContainsChild(in THandle handle);
+}
+
+public interface IClassfulQdisc<THandle, TQdisc> : IClassfulQdisc<THandle>
+    where THandle : unmanaged
+    where TQdisc : class, IClassfulQdisc<THandle, TQdisc>
+{
+    static abstract TQdisc Create(THandle handle);
 }

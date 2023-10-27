@@ -1,24 +1,31 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
+using Wkg.Common.ThrowHelpers;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
 
 namespace Wkg.Threading.Workloads.Queuing.Classless.Qdiscs;
 
-internal class FifoQdisc<THandle> : Qdisc<THandle>, IClasslessQdisc<THandle> where THandle : unmanaged
+internal class FifoQdisc<THandle> : Qdisc<THandle>, IClasslessQdisc<THandle, FifoQdisc<THandle>> where THandle : unmanaged
 {
-    private readonly ConcurrentQueue<Workload> _queue;
+    private readonly ConcurrentQueue<AbstractWorkloadBase> _queue;
 
-    public FifoQdisc(THandle handle) : base(handle)
+    internal FifoQdisc(THandle handle) : base(handle)
     {
-        _queue = new ConcurrentQueue<Workload>();
+        _queue = new ConcurrentQueue<AbstractWorkloadBase>();
+    }
+
+    public static FifoQdisc<THandle> Create(THandle handle)
+    {
+        Throw.WorkloadSchedulingException.IfHandleIsDefault(handle);
+        return new FifoQdisc<THandle>(handle);
     }
 
     public override bool IsEmpty => _queue.IsEmpty;
 
     public override int Count => _queue.Count;
 
-    public void Enqueue(Workload workload)
+    public void Enqueue(AbstractWorkloadBase workload)
     {
         INotifyWorkScheduled parentScheduler = ParentScheduler;
         _queue.Enqueue(workload);
@@ -32,7 +39,7 @@ internal class FifoQdisc<THandle> : Qdisc<THandle>, IClasslessQdisc<THandle> whe
         }
     }
 
-    protected override bool TryDequeueInternal(bool backTrack, [NotNullWhen(true)] out Workload? workload) => _queue.TryDequeue(out workload);
+    protected override bool TryDequeueInternal(bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload) => _queue.TryDequeue(out workload);
 
-    protected override bool TryRemoveInternal(Workload workload) => false;
+    protected override bool TryRemoveInternal(CancelableWorkload workload) => false;
 }

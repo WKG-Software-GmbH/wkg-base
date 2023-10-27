@@ -16,7 +16,7 @@ internal class ChildClassification<THandle, TState> : IChildClassification<THand
         _predicate = predicate;
     }
 
-    public bool TryEnqueue(object? state, Workload workload)
+    public bool TryEnqueue(object? state, AbstractWorkloadBase workload)
     {
         // supports classification, but only if the predicate matches
         if (state is TState typedState && _predicate(typedState))

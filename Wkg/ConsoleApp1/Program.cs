@@ -1,6 +1,4 @@
 ﻿// See https://aka.ms/new-console-template for more information
-using ConsoleApp1;
-using Wkg.Extensions.Common;
 using Wkg.Logging;
 using Wkg.Logging.Configuration;
 using Wkg.Logging.Generators;
@@ -8,30 +6,42 @@ using Wkg.Logging.Loggers;
 using Wkg.Logging.Sinks;
 using Wkg.Logging.Writers;
 using Wkg.Threading.Workloads;
-using Wkg.Threading.Workloads.Internals;
-using Wkg.Threading.Workloads.Queuing;
+using Wkg.Threading.Workloads.Configuration;
+using Wkg.Threading.Workloads.Factories;
 using Wkg.Threading.Workloads.Queuing.Classifiers.Qdiscs;
 using Wkg.Threading.Workloads.Queuing.Classless.Qdiscs;
-using Wkg.Threading.Workloads.Scheduling;
 
 Log.UseLogger(Logger.Create(LoggerConfiguration.Create()
-    //.AddSink<ColoredThreadBasedConsoleSink>()
-    .AddSink<ColoredConsoleSink>()
+    .AddSink<ColoredThreadBasedConsoleSink>()
+    //.AddSink<ColoredConsoleSink>()
     .UseEntryGenerator<TracingLogEntryGenerator>()
     .RegisterMainThread(Thread.CurrentThread)
     .UseDefaultLogWriter(LogWriter.Blocking)));
 
-RoundRobinQdisc<QdiscType, State> root = new(QdiscType.RoundRobin, state => state.QdiscType == QdiscType.RoundRobin);
-WorkloadScheduler baseScheduler = new(root, maximumConcurrencyLevel: 2);
-root.To<IQdisc>().InternalInitialize(baseScheduler);
-FifoQdisc<QdiscType> fifo = new(QdiscType.Fifo);
-LifoQdisc<QdiscType> lifo = new(QdiscType.Lifo);
-root.TryAddChild(fifo, state => state.QdiscType == QdiscType.Fifo);
-root.TryAddChild(lifo, state => state.QdiscType == QdiscType.Lifo);
-WorkloadFactory<QdiscType> factory = new(root);
+ClassifyingWorkloadFactory<int> factory = new QdiscBuilder<int>()
+    .WithMaximumConcurrency(8)
+    .WithClassifyingRoot<RoundRobinQdisc<int, State>, State>(1, state => state.QdiscType == QdiscType.RoundRobin)
+        .WithClasslessChild<FifoQdisc<int>>(2, state => state.QdiscType == QdiscType.Fifo).Build()
+        .WithClassifyingChild<RoundRobinQdisc<int, SomeOtherState>, SomeOtherState>(3, otherState => true)
+            .WithClassifyingChild<RoundRobinQdisc<int, SomeOtherState>, SomeOtherState>(10, otherState => true)
+                .WithClassifyingChild<RoundRobinQdisc<int, SomeOtherState>, SomeOtherState>(11, otherState => true)
+                    .WithClassifyingChild<RoundRobinQdisc<int, SomeOtherState>, SomeOtherState>(12, otherState => true)
+                        .WithClassifyingChild<RoundRobinQdisc<int, SomeOtherState>, SomeOtherState>(13, otherState => true)
+                            .WithClasslessChild<LifoQdisc<int>>(14).Build()
+                            .Build()
+                        .Build()
+                    .Build()
+                .Build()
+            .WithClasslessChild<LifoQdisc<int>>(4).Build()
+            .WithClasslessChild<FifoQdisc<int>>(5).Build()
+            .WithClasslessChild<LifoQdisc<int>>(6).Build()
+            .Build()
+        .WithClasslessChild<LifoQdisc<int>>(7, state => state.QdiscType == QdiscType.Lifo).Build()
+        .WithClasslessChild<FifoQdisc<int>>(8).Build()
+        .Build();
 
 const int WORKLOAD_COUNT = 10;
-Workload[] workloads1 = new Workload[WORKLOAD_COUNT];
+CancelableWorkload[] workloads1 = new CancelableWorkload[WORKLOAD_COUNT];
 
 State fifoState = new(QdiscType.Fifo);
 State lifoState = new(QdiscType.Lifo);
@@ -42,9 +52,9 @@ for (int i = 0; i < WORKLOAD_COUNT; i++)
     if (i == 3)
     {
         // self-canceling workload (gotta test cancelling a running workload)
-        workloads1[i] = factory.Schedule(fifoState, cancellationFlag =>
+        workloads1[i] = factory.Classify(fifoState, cancellationFlag =>
         {
-            Log.WriteInfo("Cancelling myself :P");
+            Log.WriteInfo("#1 Cancelling myself :P");
             for (int i = 0; i < 10; i++)
             {
                 cancellationFlag.ThrowIfCancellationRequested();
@@ -59,20 +69,20 @@ for (int i = 0; i < WORKLOAD_COUNT; i++)
     }
     if (i == 5)
     {
-        workloads1[i] = factory.Schedule(fifoState, _ => workloads1[6].TryCancel());
+        workloads1[i] = factory.Classify(fifoState, _ => workloads1[6].TryCancel());
         continue;
     }
-    workloads1[i] = factory.Schedule(fifoState, DoStuff);
+    workloads1[i] = factory.Classify(fifoState, DoStuff);
 }
-Workload[] workloads2 = new Workload[WORKLOAD_COUNT];
+CancelableWorkload[] workloads2 = new CancelableWorkload[WORKLOAD_COUNT];
 for (int i = 0; i < WORKLOAD_COUNT; i++)
 {
     if (i == 3)
     {
         // self-canceling workload (gotta test cancelling a running workload)
-        workloads2[i] = factory.Schedule(lifoState, cancellationFlag =>
+        workloads2[i] = factory.Classify(lifoState, cancellationFlag =>
         {
-            Log.WriteInfo("Cancelling myself :P");
+            Log.WriteInfo("#2 Cancelling myself :P");
             for (int i = 0; i < 10; i++)
             {
                 cancellationFlag.ThrowIfCancellationRequested();
@@ -87,13 +97,13 @@ for (int i = 0; i < WORKLOAD_COUNT; i++)
     }
     if (i == 5)
     {
-        workloads2[i] = factory.Schedule(lifoState, _ => workloads2[6].TryCancel());
+        workloads2[i] = factory.Classify(lifoState, _ => workloads2[4].TryCancel());
         continue;
     }
-    workloads2[i] = factory.Schedule(lifoState, DoStuff);
+    workloads2[i] = factory.Classify(lifoState, DoStuff);
 }
 
-factory.Schedule(fifoState, _ =>
+factory.Classify(fifoState, () =>
 {
     Log.WriteDebug("Attempting to cancel completed workload.");
     bool result = workloads1[0].TryCancel();
@@ -103,24 +113,32 @@ factory.Schedule(fifoState, _ =>
 TaskCompletionSource tcs1 = new();
 TaskCompletionSource tcs2 = new();
 TaskCompletionSource tcs3 = new();
+TaskCompletionSource tcs4 = new();
 
-factory.Schedule(fifoState, _ =>
+factory.Schedule(6, () => Log.WriteEvent("Hello from Nested RR scheduler? I guess? WTF :)"));
+
+factory.Schedule(2, () =>
 {
     Log.WriteEvent("Signaling completion for tcs1.");
     tcs1.SetResult();
 });
-factory.Schedule(lifoState, _ =>
+factory.Schedule(1, () =>
 {
     Log.WriteEvent("Signaling completion for tcs2.");
     tcs2.SetResult();
 });
-factory.Schedule(state, _ =>
+factory.Schedule(8, () =>
 {
     Log.WriteEvent("Signaling completion for tcs3.");
     tcs3.SetResult();
 });
+factory.Schedule(14, () =>
+{
+    Log.WriteEvent("Signaling completion for tcs4.");
+    tcs4.SetResult();
+});
 
-await Task.WhenAll(tcs1.Task, tcs2.Task, tcs3.Task);
+await Task.WhenAll(tcs1.Task, tcs2.Task, tcs3.Task, tcs4.Task);
 Log.WriteInfo("main thread exiting...");
 await Task.Delay(10000);
 
@@ -135,7 +153,7 @@ static void DoStuff(CancellationFlag cancellationFlag)
     Log.WriteInfo("Done doing stuff.");
 }
 
-enum QdiscType
+enum QdiscType : int
 {
     Unspecified,
     Fifo,
@@ -144,3 +162,4 @@ enum QdiscType
 }
 
 record State(QdiscType QdiscType);
+record SomeOtherState();

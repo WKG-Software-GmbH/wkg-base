@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using Wkg.Extensions.Common;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
 using Wkg.Threading.Workloads.Scheduling;
@@ -51,15 +50,15 @@ public abstract class Qdisc<THandle> : IQdisc<THandle> where THandle : unmanaged
         OnInternalInitialize(parentScheduler);
     }
 
-    /// <inheritdoc cref="IQdisc.TryDequeueInternal(bool, out Workload?)"/>"
-    protected abstract bool TryDequeueInternal(bool backTrack, [NotNullWhen(true)] out Workload? workload);
+    /// <inheritdoc cref="IQdisc.TryDequeueInternal(bool, out AbstractWorkloadBase?)"/>"
+    protected abstract bool TryDequeueInternal(bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload);
 
-    /// <inheritdoc cref="IQdisc.TryRemoveInternal(Workload)"/>"
-    protected abstract bool TryRemoveInternal(Workload workload);
+    /// <inheritdoc cref="IQdisc.TryRemoveInternal(CancelableWorkload)"/>"
+    protected abstract bool TryRemoveInternal(CancelableWorkload workload);
 
-    bool IQdisc.TryDequeueInternal(bool backTrack, [NotNullWhen(true)] out Workload? workload) => TryDequeueInternal(backTrack, out workload);
+    bool IQdisc.TryDequeueInternal(bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload) => TryDequeueInternal(backTrack, out workload);
 
-    bool IQdisc.TryRemoveInternal(Workload workload) => TryRemoveInternal(workload);
+    bool IQdisc.TryRemoveInternal(CancelableWorkload workload) => TryRemoveInternal(workload);
 
     void IQdisc.Complete()
     {

@@ -39,14 +39,14 @@ public interface IQdisc
     /// <remarks>
     /// The <paramref name="backTrack"/> parameter is set to <see langword="true"/> when execution of the previously dequeued workload was skipped due to cancellation, or any other valid reason to repeat the previous dequeue operation. For example, if a stale workload was dequeued and skipped in a round-robin qdisc, the next dequeue operation should repeat the same dequeue operation and assume the previous dequeue operation never happened. This is to ensure fairness in cases where workloads *should* have been removed from the qdisc previously due to cancellation, but could not be removed due to the qdisc not supporting removal of workloads. In such cases, the qdisc should repeat the dequeue operation until it finds a valid workload to execute.
     /// </remarks>
-    internal bool TryDequeueInternal(bool backTrack, [NotNullWhen(true)] out Workload? workload);
+    internal bool TryDequeueInternal(bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload);
 
     /// <summary>
     /// Attempts to remove the specified workload from this qdisc.
     /// </summary>
     /// <param name="workload">The workload to remove.</param>
     /// <returns><see langword="true"/> if the workload was removed; <see langword="false"/> if the workload could not be found or the qdisc does not support removal of workloads.</returns>
-    internal bool TryRemoveInternal(Workload workload);
+    internal bool TryRemoveInternal(CancelableWorkload workload);
 
     // TODO: add a clear method to remove all workloads from the qdisc and be able to reschedule them (e.g. when a child qdisc is removed)
     // TODO: we probably need Peek() and TryPeek() methods to support priority queues (should probably be fine, if only the parent priority queue is allowed to dequeue)

@@ -15,7 +15,7 @@ internal class ClassifierChildClassification<THandle, TState> : IChildClassifica
 
     public IClasslessQdisc<THandle> Qdisc => _qdisc;
 
-    public bool TryEnqueue(object? state, Workload workload)
+    public bool TryEnqueue(object? state, AbstractWorkloadBase workload)
     {
         // recursive classification first, then try parent classification
         if (_qdisc.TryEnqueue(state, workload))

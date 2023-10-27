@@ -6,5 +6,5 @@ internal interface IChildClassification<THandle> where THandle : unmanaged
 {
     IClasslessQdisc<THandle> Qdisc { get; }
 
-    bool TryEnqueue(object? state, Workload workload);
+    bool TryEnqueue(object? state, AbstractWorkloadBase workload);
 }

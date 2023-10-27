@@ -16,7 +16,7 @@ public class NotifyWorkScheduledSentinel : INotifyWorkScheduled
     [DoesNotReturn]
     void INotifyWorkScheduled.OnWorkScheduled()
     {
-        WorkloadSchedulingException exception = new("A workload was scheduled, but no workload scheduler was found in the current context. This is a bug in the qdisc implementation.");
+        WorkloadSchedulingException exception = WorkloadSchedulingException.CreateVirtual("A workload was scheduled, but no workload scheduler was found in the current context. This is a bug in the qdisc implementation.");
         DebugLog.WriteException(exception, LogWriter.Blocking);
         throw exception;
     }

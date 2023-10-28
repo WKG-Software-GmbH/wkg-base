@@ -31,8 +31,19 @@ public interface IClassfulQdisc<THandle> : IClassfulQdisc, IClasslessQdisc<THand
     /// <returns><see langword="true"/> if the child was removed, <see langword="false"/> if the child was not found.</returns>
     bool RemoveChild(IClasslessQdisc<THandle> child);
 
+    /// <summary>
+    /// Attempts to find the child with the given handle.
+    /// </summary>
+    /// <param name="handle">The handle of the child to find.</param>
+    /// <param name="child">The child with the given handle, if found.</param>
+    /// <returns><see langword="true"/> if the child was found, <see langword="false"/> if the child was not found.</returns>
     internal bool TryFindChild(in THandle handle, [NotNullWhen(true)] out IClasslessQdisc<THandle>? child);
 
+    /// <summary>
+    /// Checks if the qdisc contains the child with the given handle.
+    /// </summary>
+    /// <param name="handle">The handle of the child to find.</param>
+    /// <returns><see langword="true"/> if the child was found, <see langword="false"/> if the child was not found.</returns>
     internal bool ContainsChild(in THandle handle);
 }
 
@@ -40,5 +51,16 @@ public interface IClassfulQdisc<THandle, TQdisc> : IClassfulQdisc<THandle>
     where THandle : unmanaged
     where TQdisc : class, IClassfulQdisc<THandle, TQdisc>
 {
+    /// <summary>
+    /// Creates a new <typeparamref name="TQdisc"/> instance with the specified <paramref name="handle"/>.
+    /// </summary>
+    /// <param name="handle">The handle uniquely identifying this qdisc. The handle must not be <c><see langword="default"/>(<typeparamref name="THandle"/>)</c> and must not be used by any other qdisc.</param>
+    /// <returns>A new <typeparamref name="TQdisc"/> instance with the specified <paramref name="handle"/>.</returns>
     static abstract TQdisc Create(THandle handle);
+
+    /// <summary>
+    /// Creates a new anonymous <typeparamref name="TQdisc"/> instance. The handle is not used for classification and may be <c><see langword="default"/>(<typeparamref name="THandle"/>)</c>.
+    /// </summary>
+    /// <returns>A new anonymous <typeparamref name="TQdisc"/> instance.</returns>
+    static abstract TQdisc CreateAnonymous();
 }

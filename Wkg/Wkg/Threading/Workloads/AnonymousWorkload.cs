@@ -1,5 +1,7 @@
-﻿using Wkg.Internals.Diagnostic;
+﻿using System;
+using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
+using Wkg.Threading.Workloads.Pooling;
 using Wkg.Threading.Workloads.Queuing;
 using Wkg.Threading.Workloads.Scheduling;
 
@@ -7,10 +9,9 @@ namespace Wkg.Threading.Workloads;
 
 using CommonFlags = WorkloadStatus.CommonFlags;
 
-// TODO: pooling
 internal class AnonymousWorkload : AbstractWorkloadBase
 {
-    private readonly Action _action;
+    protected Action _action;
 
     internal AnonymousWorkload(Action action) : this(WorkloadStatus.Created, action) => Pass();
 
@@ -18,6 +19,8 @@ internal class AnonymousWorkload : AbstractWorkloadBase
     {
         _action = action;
     }
+
+    internal override void InternalMarkAsFinalized() => Pass();
 
     // Only used for cancellation. Anonymous workloads are not bound to a qdisc.
     internal override bool TryInternalBindQdisc(IQdisc qdisc)
@@ -75,5 +78,28 @@ internal class AnonymousWorkload : AbstractWorkloadBase
         // in any case, we couldn't execute the workload due to some scheduling issue
         // returning false will allow the scheduler to back-track and try again from the previous state if possible
         return false;
+    }
+}
+
+internal class PooledAnonomousWorkload : AnonymousWorkload
+{
+    private readonly AnonymousWorkloadPool _pool;
+
+    internal PooledAnonomousWorkload(AnonymousWorkloadPool pool) : base(null!)
+    {
+        _pool = pool;
+    }
+
+    internal override void InternalMarkAsFinalized()
+    {
+        Volatile.Write(ref _action, null!);
+        Volatile.Write(ref _status, WorkloadStatus.Pooled);
+        _pool.Return(this);
+    }
+
+    internal void Initialize(Action action)
+    {
+        Volatile.Write(ref _action, action);
+        Volatile.Write(ref _status, WorkloadStatus.Created);
     }
 }

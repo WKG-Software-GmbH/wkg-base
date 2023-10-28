@@ -6,32 +6,42 @@ using Wkg.Logging.Writers;
 
 namespace Wkg.Threading.Workloads.Queuing.Classless.Qdiscs;
 
-internal class FifoQdisc<THandle> : Qdisc<THandle>, IClasslessQdisc<THandle, FifoQdisc<THandle>> where THandle : unmanaged
+/// <summary>
+/// A qdisc that implements the First-In-First-Out (FIFO) scheduling algorithm.
+/// </summary>
+/// <typeparam name="THandle">The type of the handle.</typeparam>
+public sealed class FifoQdisc<THandle> : Qdisc<THandle>, IClasslessQdisc<THandle, FifoQdisc<THandle>> where THandle : unmanaged
 {
     private readonly ConcurrentQueue<AbstractWorkloadBase> _queue;
 
-    internal FifoQdisc(THandle handle) : base(handle)
+    private FifoQdisc(THandle handle) : base(handle)
     {
         _queue = new ConcurrentQueue<AbstractWorkloadBase>();
     }
 
+    /// <inheritdoc/>
     public static FifoQdisc<THandle> Create(THandle handle)
     {
         Throw.WorkloadSchedulingException.IfHandleIsDefault(handle);
         return new FifoQdisc<THandle>(handle);
     }
 
+    /// <inheritdoc/>
+    public static FifoQdisc<THandle> CreateAnonymous() => new(default);
+
+    /// <inheritdoc/>
     public override bool IsEmpty => _queue.IsEmpty;
 
+    /// <inheritdoc/>
     public override int Count => _queue.Count;
 
-    public void Enqueue(AbstractWorkloadBase workload)
+    /// <inheritdoc/>
+    protected override void EnqueueDirect(AbstractWorkloadBase workload)
     {
-        INotifyWorkScheduled parentScheduler = ParentScheduler;
-        _queue.Enqueue(workload);
-        if (workload.TryInternalBindQdisc(this))
+        if (TryBindWorkload(workload))
         {
-            parentScheduler.OnWorkScheduled();
+            _queue.Enqueue(workload);
+            NotifyWorkScheduled();
         }
         else
         {
@@ -39,7 +49,9 @@ internal class FifoQdisc<THandle> : Qdisc<THandle>, IClasslessQdisc<THandle, Fif
         }
     }
 
+    /// <inheritdoc/>
     protected override bool TryDequeueInternal(bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload) => _queue.TryDequeue(out workload);
 
+    /// <inheritdoc/>
     protected override bool TryRemoveInternal(CancelableWorkload workload) => false;
 }

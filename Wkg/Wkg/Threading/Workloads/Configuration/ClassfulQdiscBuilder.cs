@@ -1,5 +1,6 @@
 ﻿using Wkg.Threading.Workloads.Factories;
 using Wkg.Threading.Workloads.Internals;
+using Wkg.Threading.Workloads.Pooling;
 using Wkg.Threading.Workloads.Queuing.Classful;
 using Wkg.Threading.Workloads.Queuing.Classifiers;
 using Wkg.Threading.Workloads.Queuing.Classless;
@@ -32,7 +33,7 @@ public sealed class ClassfulQdiscBuilder<THandle, TQdisc, TParent> : ClassfulQdi
 
     public TParent Build() => _parent;
 
-    public ClasslessQdiscBuilder<THandle, TChildQdisc, ClassfulQdiscBuilder<THandle, TQdisc, TParent>> WithClasslessChild<TChildQdisc>(THandle childHandle)
+    public ClasslessQdiscBuilder<THandle, TChildQdisc, ClassfulQdiscBuilder<THandle, TQdisc, TParent>> AddClasslessChild<TChildQdisc>(THandle childHandle)
         where TChildQdisc : class, IClasslessQdisc<THandle, TChildQdisc>
     {
         TChildQdisc qdisc = TChildQdisc.Create(childHandle);
@@ -40,7 +41,7 @@ public sealed class ClassfulQdiscBuilder<THandle, TQdisc, TParent> : ClassfulQdi
         return new ClasslessQdiscBuilder<THandle, TChildQdisc, ClassfulQdiscBuilder<THandle, TQdisc, TParent>>(qdisc, this);
     }
 
-    public ClassfulQdiscBuilder<THandle, TChildQdisc, ClassfulQdiscBuilder<THandle, TQdisc, TParent>> WithClassfulChild<TChildQdisc>(THandle childHandle)
+    public ClassfulQdiscBuilder<THandle, TChildQdisc, ClassfulQdiscBuilder<THandle, TQdisc, TParent>> AddClassfulChild<TChildQdisc>(THandle childHandle)
         where TChildQdisc : class, IClassfulQdisc<THandle, TChildQdisc>
     {
         TChildQdisc qdisc = TChildQdisc.Create(childHandle);
@@ -48,7 +49,7 @@ public sealed class ClassfulQdiscBuilder<THandle, TQdisc, TParent> : ClassfulQdi
         return new ClassfulQdiscBuilder<THandle, TChildQdisc, ClassfulQdiscBuilder<THandle, TQdisc, TParent>>(qdisc, this);
     }
 
-    public ClassifyingQdiscBuilder<THandle, TState, TChildQdisc, ClassfulQdiscBuilder<THandle, TQdisc, TParent>> WithClassifyingChild<TChildQdisc, TState>(THandle childHandle, Predicate<TState> childPredicate)
+    public ClassifyingQdiscBuilder<THandle, TState, TChildQdisc, ClassfulQdiscBuilder<THandle, TQdisc, TParent>> AddClassifyingChild<TChildQdisc, TState>(THandle childHandle, Predicate<TState> childPredicate)
         where TChildQdisc : class, IClassifyingQdisc<THandle, TState, TChildQdisc>
         where TState : class
     {
@@ -73,10 +74,15 @@ public sealed class ClassfulQdiscBuilderRoot<THandle, TQdisc> : ClassfulQdiscBui
     {
         WorkloadScheduler scheduler = new(_qdisc, _context.MaximumConcurrency);
         _qdisc.InternalInitialize(scheduler);
-        return new ClassfulWorkloadFactory<THandle>(_qdisc);
+        AnonymousWorkloadPool? pool = null;
+        if (_context.UsePooling)
+        {
+            pool = new AnonymousWorkloadPool(_context.PoolSize);
+        }
+        return new ClassfulWorkloadFactory<THandle>(_qdisc, pool);
     }
 
-    public ClasslessQdiscBuilder<THandle, TChildQdisc, ClassfulQdiscBuilderRoot<THandle, TQdisc>> WithClasslessChild<TChildQdisc>(THandle childHandle)
+    public ClasslessQdiscBuilder<THandle, TChildQdisc, ClassfulQdiscBuilderRoot<THandle, TQdisc>> AddClasslessChild<TChildQdisc>(THandle childHandle)
         where TChildQdisc : class, IClasslessQdisc<THandle, TChildQdisc>
     {
         TChildQdisc qdisc = TChildQdisc.Create(childHandle);
@@ -84,7 +90,7 @@ public sealed class ClassfulQdiscBuilderRoot<THandle, TQdisc> : ClassfulQdiscBui
         return new ClasslessQdiscBuilder<THandle, TChildQdisc, ClassfulQdiscBuilderRoot<THandle, TQdisc>>(qdisc, this);
     }
 
-    public ClassfulQdiscBuilder<THandle, TChildQdisc, ClassfulQdiscBuilderRoot<THandle, TQdisc>> WithClassfulChild<TChildQdisc>(THandle childHandle)
+    public ClassfulQdiscBuilder<THandle, TChildQdisc, ClassfulQdiscBuilderRoot<THandle, TQdisc>> AddClassfulChild<TChildQdisc>(THandle childHandle)
         where TChildQdisc : class, IClassfulQdisc<THandle, TChildQdisc>
     {
         TChildQdisc qdisc = TChildQdisc.Create(childHandle);
@@ -92,7 +98,7 @@ public sealed class ClassfulQdiscBuilderRoot<THandle, TQdisc> : ClassfulQdiscBui
         return new ClassfulQdiscBuilder<THandle, TChildQdisc, ClassfulQdiscBuilderRoot<THandle, TQdisc>>(qdisc, this);
     }
 
-    public ClassifyingQdiscBuilder<THandle, TState, TChildQdisc, ClassfulQdiscBuilderRoot<THandle, TQdisc>> WithClassifyingChild<TChildQdisc, TState>(THandle childHandle, Predicate<TState> childPredicate)
+    public ClassifyingQdiscBuilder<THandle, TState, TChildQdisc, ClassfulQdiscBuilderRoot<THandle, TQdisc>> AddClassifyingChild<TChildQdisc, TState>(THandle childHandle, Predicate<TState> childPredicate)
         where TChildQdisc : class, IClassifyingQdisc<THandle, TState, TChildQdisc>
         where TState : class
     {

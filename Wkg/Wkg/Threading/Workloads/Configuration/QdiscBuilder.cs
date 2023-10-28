@@ -7,30 +7,35 @@ namespace Wkg.Threading.Workloads.Configuration;
 
 public class QdiscBuilder<THandle> where THandle : unmanaged
 {
-    // TODO: configure workload pooling
     private readonly QdiscBuilderContext _context = new();
 
-    public QdiscBuilder<THandle> WithMaximumConcurrency(int maximumConcurrency)
+    public QdiscBuilder<THandle> UseMaximumConcurrency(int maximumConcurrency)
     {
         _context.MaximumConcurrency = maximumConcurrency;
         return this;
     }
 
-    public ClasslessQdiscBuilderRoot<THandle, TQdisc> WithClasslessRoot<TQdisc>(THandle rootHandle) 
+    public QdiscBuilder<THandle> UseAnonymousWorkloadPooling(int poolSize = 64)
+    {
+        _context.PoolSize = poolSize;
+        return this;
+    }
+
+    public ClasslessQdiscBuilderRoot<THandle, TQdisc> UseClasslessRoot<TQdisc>(THandle rootHandle) 
         where TQdisc : class, IClasslessQdisc<THandle, TQdisc>
     {
         TQdisc qdisc = TQdisc.Create(rootHandle);
         return new ClasslessQdiscBuilderRoot<THandle, TQdisc>(qdisc, _context);
     }
 
-    public ClassfulQdiscBuilderRoot<THandle, TQdisc> WithClassfulRoot<TQdisc>(THandle rootHandle) 
+    public ClassfulQdiscBuilderRoot<THandle, TQdisc> UseClassfulRoot<TQdisc>(THandle rootHandle) 
         where TQdisc : class, IClassfulQdisc<THandle, TQdisc>
     {
         TQdisc qdisc = TQdisc.Create(rootHandle);
         return new ClassfulQdiscBuilderRoot<THandle, TQdisc>(qdisc, _context);
     }
 
-    public ClassifyingQdiscBuilderRoot<THandle, TState, TQdisc> WithClassifyingRoot<TQdisc, TState>(THandle rootHandle, Predicate<TState> rootPredicate) 
+    public ClassifyingQdiscBuilderRoot<THandle, TState, TQdisc> UseClassifyingRoot<TQdisc, TState>(THandle rootHandle, Predicate<TState> rootPredicate) 
         where TQdisc : class, IClassifyingQdisc<THandle, TState, TQdisc>
         where TState : class
     {
@@ -42,4 +47,8 @@ public class QdiscBuilder<THandle> where THandle : unmanaged
 internal class QdiscBuilderContext
 {
     public int MaximumConcurrency { get; set; } = 2;
+
+    public int PoolSize { get; set; } = -1;
+
+    public bool UsePooling => PoolSize > 0;
 }

@@ -1,20 +1,22 @@
 ﻿using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
+using Wkg.Threading.Workloads.Pooling;
 using Wkg.Threading.Workloads.Queuing.Classless;
 
 namespace Wkg.Threading.Workloads.Factories;
 
 public abstract class AbstractClasslessWorkloadFactory<THandle> : WorkloadFactory<THandle> where THandle : unmanaged
 {
-    private protected AbstractClasslessWorkloadFactory(IClasslessQdisc<THandle> root) : base(root)
+    private protected AbstractClasslessWorkloadFactory(IClasslessQdisc<THandle> root, AnonymousWorkloadPool? pool) : base(root, pool)
     {
     }
 
     public virtual void Schedule(Action action)
     {
         DebugLog.WriteDiagnostic("Scheduling new anonymous workload.", LogWriter.Blocking);
-        // TODO: pooling
-        AnonymousWorkload workload = new(action);
+        AnonymousWorkload workload = SupportsPooling
+            ? Pool.Rent(action)
+            : new AnonymousWorkload(action);
         ScheduleCore(workload);
     }
 

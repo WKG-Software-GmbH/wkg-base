@@ -1,13 +1,13 @@
-﻿using Wkg.Threading.Workloads.Queuing.Classful;
+﻿using Wkg.Threading.Workloads.Pooling;
+using Wkg.Threading.Workloads.Queuing.Classful;
 
 namespace Wkg.Threading.Workloads.Factories;
 
 public class ClassfulWorkloadFactory<THandle> : AbstractClassfulWorkloadFactory<THandle> where THandle : unmanaged
 {
-    internal protected ClassfulWorkloadFactory(IClassfulQdisc<THandle> root) : base(root)
+    internal ClassfulWorkloadFactory(IClassfulQdisc<THandle> root, AnonymousWorkloadPool? pool) : base(root, pool)
     {
     }
 
-    // we know that the root is classful, so we can safely do this
     public IClassfulQdisc<THandle> Root => ClassfulRoot;
 }

@@ -113,6 +113,8 @@ public abstract class CancelableWorkload : AbstractWorkloadBase
         return false;
     }
 
+    internal override void InternalMarkAsFinalized() => Pass();
+
     private protected abstract bool TryExecuteUnsafeCore(out WorkloadStatus preTerminationStatus);
 
     private protected abstract void SetFaultedResultUnsafe(Exception ex);

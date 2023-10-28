@@ -1,5 +1,6 @@
 ﻿using Wkg.Threading.Workloads.Factories;
 using Wkg.Threading.Workloads.Internals;
+using Wkg.Threading.Workloads.Pooling;
 using Wkg.Threading.Workloads.Queuing.Classless;
 
 namespace Wkg.Threading.Workloads.Configuration;
@@ -46,6 +47,11 @@ public sealed class ClasslessQdiscBuilderRoot<THandle, TQdisc> : ClasslessQdiscB
     {
         WorkloadScheduler scheduler = new(_qdisc, _context.MaximumConcurrency);
         _qdisc.InternalInitialize(scheduler);
-        return new ClasslessWorkloadFactory<THandle>(_qdisc);
+        AnonymousWorkloadPool? pool = null;
+        if (_context.UsePooling)
+        {
+            pool = new AnonymousWorkloadPool(_context.PoolSize);
+        }
+        return new ClasslessWorkloadFactory<THandle>(_qdisc, pool);
     }
 }

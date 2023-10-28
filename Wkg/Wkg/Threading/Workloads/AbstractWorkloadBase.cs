@@ -43,6 +43,11 @@ public abstract class AbstractWorkloadBase
     internal abstract bool TryRunSynchronously();
 
     /// <summary>
+    /// Marks the workload as finalized before it falls out of scope. Allows the workload to be returned to a pool, if applicable.
+    /// </summary>
+    internal abstract void InternalMarkAsFinalized();
+
+    /// <summary>
     /// Attempts to bind the workload to the specified qdisc.
     /// </summary>
     /// <remarks>

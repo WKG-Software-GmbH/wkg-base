@@ -1,6 +1,7 @@
 ﻿using System.Runtime.CompilerServices;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
+using Wkg.Threading.Workloads.Pooling;
 using Wkg.Threading.Workloads.Queuing.Classifiers;
 using Wkg.Threading.Workloads.Queuing.Classless;
 using Wkg.Threading.Workloads.Scheduling;
@@ -10,7 +11,7 @@ namespace Wkg.Threading.Workloads.Factories;
 public abstract class AbstractClassifyingWorkloadFactory<THandle> : AbstractClassfulWorkloadFactory<THandle>
     where THandle : unmanaged
 {
-    private protected AbstractClassifyingWorkloadFactory(IClassifyingQdisc<THandle> root) : base(root)
+    private protected AbstractClassifyingWorkloadFactory(IClassifyingQdisc<THandle> root, AnonymousWorkloadPool? pool) : base(root, pool)
     {
     }
 
@@ -19,8 +20,9 @@ public abstract class AbstractClassifyingWorkloadFactory<THandle> : AbstractClas
     public virtual void Classify<TState>(TState state, Action action) where TState : class
     {
         DebugLog.WriteDiagnostic("Scheduling new anonymous workload.", LogWriter.Blocking);
-        // TODO: pooling
-        AnonymousWorkload workload = new(action);
+        AnonymousWorkload workload = SupportsPooling
+            ? Pool.Rent(action)
+            : new AnonymousWorkload(action);
         ClassifyCore(state, workload);
     }
 

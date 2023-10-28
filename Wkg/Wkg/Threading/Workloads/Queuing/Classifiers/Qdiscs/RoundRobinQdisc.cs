@@ -11,12 +11,17 @@ using Wkg.Threading.Workloads.Queuing.Classless.Qdiscs;
 
 namespace Wkg.Threading.Workloads.Queuing.Classifiers.Qdiscs;
 
-internal class RoundRobinQdisc<THandle, TState> : Qdisc<THandle>, IClassifyingQdisc<THandle, TState, RoundRobinQdisc<THandle, TState>>
+/// <summary>
+/// A classful qdisc that implements the Round Robin scheduling algorithm to dequeue workloads from its children.
+/// </summary>
+/// <typeparam name="THandle">The type of the handle.</typeparam>
+/// <typeparam name="TState">The type of the state.</typeparam>
+public sealed class RoundRobinQdisc<THandle, TState> : ClassifyingQdisc<THandle, TState>, IClassifyingQdisc<THandle, TState, RoundRobinQdisc<THandle, TState>>
     where THandle : unmanaged
     where TState : class
 {
     private readonly ThreadLocal<IQdisc?> _localLast;
-    private readonly FifoQdisc<THandle> _localQueue;
+    private readonly IClasslessQdisc<THandle> _localQueue;
 
     /// <summary>
     /// The children array is immutable by contract, so we can read it without locking.
@@ -30,37 +35,49 @@ internal class RoundRobinQdisc<THandle, TState> : Qdisc<THandle>, IClassifyingQd
     private int _emptyCounter;
     private int _criticalDequeueSectionCounter;
 
-    internal RoundRobinQdisc(THandle handle, Predicate<TState> predicate) : base(handle)
+    private RoundRobinQdisc(THandle handle, Predicate<TState> predicate) : base(handle)
     {
-        _localQueue = new FifoQdisc<THandle>(default);
+        _localQueue = FifoQdisc<THandle>.CreateAnonymous();
         _localLast = new ThreadLocal<IQdisc?>(trackAllValues: false);
         _children = new IChildClassification<THandle>[] { new NoChildClassification<THandle>(_localQueue) };
         _predicate = predicate;
         _childrenLock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
     }
 
+    /// <inheritdoc/>
     public static RoundRobinQdisc<THandle, TState> Create(THandle handle, Predicate<TState> predicate)
     {
         Throw.WorkloadSchedulingException.IfHandleIsDefault(handle);
         return new RoundRobinQdisc<THandle, TState>(handle, predicate);
     }
 
-    protected override void OnInternalInitialize(INotifyWorkScheduled parentScheduler) => 
-        // TODO: probably should allow a public way to do this to make the API extendable
-        _localQueue.To<IQdisc>().InternalInitialize(this);
+    /// <inheritdoc/>
+    public static RoundRobinQdisc<THandle, TState> CreateAnonymous(Predicate<TState> predicate) => 
+        new(default, predicate);
 
+    /// <inheritdoc/>
+    protected override void OnInternalInitialize(INotifyWorkScheduled parentScheduler) =>
+        BindChildQdisc(_localQueue);
+
+    /// <inheritdoc/>
     public override bool IsEmpty => Count == 0;
 
+    /// <inheritdoc/>
     public override int Count
     {
         get
         {
+            // we can take a shortcut here, if we established that all children are empty
+            if (IsKnownEmptyVolatile)
+            {
+                return 0;
+            }
             try
             {
-                // we don't actually write to the children array, but we must ensure that no other thread is removing children
+                // we must ensure that no other thread is removing children
                 // or that new workloads are scheduled to children while we're counting them
                 // dequeue operations are not a problem, since we only need to provide a weakly consistent count!
-                _childrenLock.EnterWriteLock();
+                _childrenLock.EnterReadLock();
                 // get a local snapshot of the children array, other threads may still add new children which we don't care about here
                 IChildClassification<THandle>[] children = Volatile.Read(ref _children);
                 int count = 0;
@@ -72,17 +89,47 @@ internal class RoundRobinQdisc<THandle, TState> : Qdisc<THandle>, IClassifyingQd
             }
             finally
             {
-                _childrenLock.ExitWriteLock();
+                _childrenLock.ExitReadLock();
             }
         }
     }
 
+    private bool IsKnownEmptyVolatile
+    {
+        get
+        {
+            IChildClassification<THandle>[] children1, children2;
+            int emptyCounter;
+            while (true)
+            {
+                children1 = Volatile.Read(ref _children);
+                emptyCounter = Volatile.Read(ref _emptyCounter);
+                children2 = Volatile.Read(ref _children);
+                if (ReferenceEquals(children1, children2))
+                {
+                    // the children array didn't change while we were reading it
+                    // we can use the empty counter to determine if the qdisc is empty
+                    return emptyCounter >= children1.Length;
+                }
+            }
+        }
+    }
+
+    /// <inheritdoc/>
     // would only need to consider the local queue, since this
     // method is only called on the direct parent of a workload.
     protected override bool TryRemoveInternal(CancelableWorkload workload) => false;
 
+    /// <inheritdoc/>
     protected override bool TryDequeueInternal(bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload)
     {
+        if (IsKnownEmptyVolatile)
+        {
+            // we know that all children are empty, so we can return false immediately
+            DebugLog.WriteDiagnostic($"Qdisc is known to be empty, taking shortcut and returning false.", LogWriter.Blocking);
+            workload = null;
+            return false;
+        }
         // if we have to backtrack, we can do so by dequeuing from the last child qdisc
         // that was dequeued from. If the last child qdisc is empty, we can't backtrack and continue
         // with the next child qdisc.
@@ -104,21 +151,14 @@ internal class RoundRobinQdisc<THandle, TState> : Qdisc<THandle>, IClassifyingQd
         while (true)
         {
             // we need to keep track of the number of empty child qdiscs we encounter
-            // we also initialize our local empty counter to 0 (regardless of the global empty counter)
-            // in order to allow us to recover after after all child qdiscs were empty at one point
-            // if everything really is empty, we can return false and the worker will exit
-            // also if the children array changes while we're iterating over it, we need to start over and 
-            // resample all children for emptiness again
-
-            // TODO: without the following like, we will sometimes miss child qdiscs that are not empty, causing
-            // worker termination and orphaned workloads!
-            // it is a good idea for every dequeue operation to reset this empty counter. If children are really
-            // empty, workers will aggregate here until they are 100% sure that the qdisc is empty.
-            // this obviously sucks for performance, but it's better than orphaned workloads.
-            // we can instead introduce an additional "confirmed empty" flag that is set once after workers have
-            // established that the qdisc is empty. This flag can be reset whenever a new workload is scheduled to 
-            // this qdisc or any of its children. This way, we can avoid the expensive empty check in most cases
-            // and still be sure that we don't miss any workloads.
+            // we also need to reset the global empty counter as we don't know for sure
+            // if the qdisc is empty right now. We reset the counter all the way to 0, since
+            // we haven't established consensus with the other threads over the emptiness of the qdisc
+            // (we don't know if other threads are about to indicate that the qdisc is empty).
+            // in order to ensure that we don't terminate the worker prematurely, we reset the counter
+            // for all threads, to keep these potential other threads alive until consensus is established.
+            // after that, we can safely say that the children are empty and we don't need to check again
+            // until new workloads are scheduled.
             Volatile.Write(ref _emptyCounter, 0);
 
             int emptyCounter;
@@ -129,31 +169,7 @@ internal class RoundRobinQdisc<THandle, TState> : Qdisc<THandle>, IClassifyingQd
                 // the modulo is only applied after the increment, so we need to check if the index is in range
                 int startIndex = Atomic.IncrementModulo(ref _rrIndex, children.Length);
                 DebugLog.WriteDiagnostic($"Round robin index: {startIndex}.", LogWriter.Blocking);
-                if (startIndex < children.Length)
-                {
-                    // we're in range, try to dequeue from the child qdisc until we find a workload
-                    // or we wrap around and end up at the start index again
-                    // enter the critical dequeue section
-                    Interlocked.Increment(ref _criticalDequeueSectionCounter);
-                    IQdisc qdisc = children[startIndex].Qdisc;
-                    if (qdisc.TryDequeueInternal(backTrack, out workload))
-                    {
-                        DebugLog.WriteDiagnostic($"Dequeued workload from child qdisc {qdisc.GetType().Name} ({qdisc}).", LogWriter.Blocking);
-                        // we found a workload, update the last child qdisc and reset the empty counter
-                        _localLast.Value = children[startIndex].Qdisc;
-                        Volatile.Write(ref _emptyCounter, 0);
-                        // leave the critical dequeue section
-                        Interlocked.Decrement(ref _criticalDequeueSectionCounter);
-                        return true;
-                    }
-                    // we didn't find a workload, increment the empty counter
-                    // if the counter reaches the length of the children array, all child qdiscs are empty
-                    // and we can return false
-                    emptyCounter = Interlocked.Increment(ref _emptyCounter);
-                    // leave the critical dequeue section
-                    Interlocked.Decrement(ref _criticalDequeueSectionCounter);
-                }
-                else
+                if (startIndex >= children.Length)
                 {
                     // we're out of range, the old round robin index was stale
                     // retry with the updated round robin index which is guaranteed to be in range
@@ -162,6 +178,27 @@ internal class RoundRobinQdisc<THandle, TState> : Qdisc<THandle>, IClassifyingQd
                     spinner.SpinOnce();
                     continue;
                 }
+                // we're in range, try to dequeue from the child qdisc until we find a workload
+                // or we wrap around and end up at the start index again
+                // enter the critical dequeue section
+                Interlocked.Increment(ref _criticalDequeueSectionCounter);
+                IQdisc qdisc = children[startIndex].Qdisc;
+                if (qdisc.TryDequeueInternal(backTrack, out workload))
+                {
+                    DebugLog.WriteDiagnostic($"Dequeued workload from child qdisc {qdisc}.", LogWriter.Blocking);
+                    // we found a workload, update the last child qdisc and reset the empty counter
+                    _localLast.Value = children[startIndex].Qdisc;
+                    Volatile.Write(ref _emptyCounter, 0);
+                    // leave the critical dequeue section
+                    Interlocked.Decrement(ref _criticalDequeueSectionCounter);
+                    return true;
+                }
+                // we didn't find a workload, increment the empty counter
+                // if the counter reaches the length of the children array, all child qdiscs are empty
+                // and we can return false
+                emptyCounter = Interlocked.Increment(ref _emptyCounter);
+                // leave the critical dequeue section
+                Interlocked.Decrement(ref _criticalDequeueSectionCounter);
                 // we intentionally don't check for emptyCounter == children.Length here
                 // we give the other threads a chance to finish their work and update the empty counter
                 if (emptyCounter >= children.Length)
@@ -179,8 +216,7 @@ internal class RoundRobinQdisc<THandle, TState> : Qdisc<THandle>, IClassifyingQd
                     }
                     DebugLog.WriteDiagnostic($"Critical dequeue section is empty, resampling children.", LogWriter.Blocking);
                     // critical section is empty. RESAMPLE!
-                    emptyCounter = Volatile.Read(ref _emptyCounter);
-                    if (emptyCounter < children.Length)
+                    if (!IsKnownEmptyVolatile)
                     {
                         // the qdisc is not empty! continue with the next iteration
                         DebugLog.WriteDiagnostic($"Qdisc is not empty, continuing with next iteration.", LogWriter.Blocking);
@@ -202,7 +238,8 @@ internal class RoundRobinQdisc<THandle, TState> : Qdisc<THandle>, IClassifyingQd
         }
     }
 
-    public bool TryEnqueue(object? state, AbstractWorkloadBase workload)
+    /// <inheritdoc/>
+    protected override bool TryEnqueue(object? state, AbstractWorkloadBase workload)
     {
         // recursive classification of child qdiscs only.
         // matching our own predicate is the job of the parent qdisc.
@@ -218,9 +255,6 @@ internal class RoundRobinQdisc<THandle, TState> : Qdisc<THandle>, IClassifyingQd
                 if (children[i].TryEnqueue(state, workload))
                 {
                     DebugLog.WriteDiagnostic($"Enqueued workload {workload} to child qdisc {children[i].Qdisc}.", LogWriter.Blocking);
-                    // TODO: rethink this!
-                    // we found a child qdisc that accepted the workload, reset the empty counter (we have work to do!)
-                    Volatile.Write(ref _emptyCounter, 0);
                     return true;
                 }
             }
@@ -233,41 +267,42 @@ internal class RoundRobinQdisc<THandle, TState> : Qdisc<THandle>, IClassifyingQd
         return false;
     }
 
-    public bool TryEnqueueDirect(object? state, AbstractWorkloadBase workload)
+    /// <inheritdoc/>
+    protected override bool TryEnqueueDirect(object? state, AbstractWorkloadBase workload)
     {
         if (state is TState typedState && _predicate(typedState))
         {
             DebugLog.WriteDiagnostic($"Enqueuing workload {workload} directly to round robin qdisc {this}.", LogWriter.Blocking);
-            Enqueue(workload);
+            EnqueueDirect(workload);
             return true;
         }
         DebugLog.WriteDiagnostic($"Could not enqueue workload {workload} directly to round robin qdisc {this}.", LogWriter.Blocking);
         return false;
     }
 
+    /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Enqueue(AbstractWorkloadBase workload)
-    {
-        // TODO: rethink this!
-        // we are about to enqueue a workload directly to the local queue
-        // reset the empty counter (we have work to do!)
-        Volatile.Write(ref _emptyCounter, 0);
+    protected override void EnqueueDirect(AbstractWorkloadBase workload) =>
+        // the local queue is a qdisc itself, so we can enqueue directly to it
+        // it will call back to us with OnWorkScheduled, so we can reset the empty counter there
         _localQueue.Enqueue(workload);
-    }
 
-    public bool TryAddChild(IClasslessQdisc<THandle> child)
+    /// <inheritdoc/>
+    public override bool TryAddChild(IClasslessQdisc<THandle> child)
     {
         IChildClassification<THandle> classifiedChild = new NoChildClassification<THandle>(child);
         return TryAddChildCore(classifiedChild);
     }
 
-    public bool TryAddChild(IClasslessQdisc<THandle> child, Predicate<TState> predicate)
+    /// <inheritdoc/>
+    public override bool TryAddChild(IClasslessQdisc<THandle> child, Predicate<TState> predicate)
     {
         IChildClassification<THandle> classifiedChild = new ChildClassification<THandle, TState>(child, predicate);
         return TryAddChildCore(classifiedChild);
     }
 
-    public bool TryAddChild<TOtherState>(IClassifyingQdisc<THandle, TOtherState> child) where TOtherState : class
+    /// <inheritdoc/>
+    public override bool TryAddChild<TOtherState>(IClassifyingQdisc<THandle, TOtherState> child) where TOtherState : class
     {
         IChildClassification<THandle> classifiedChild = new ClassifierChildClassification<THandle, TOtherState>(child);
         return TryAddChildCore(classifiedChild);
@@ -310,10 +345,12 @@ internal class RoundRobinQdisc<THandle, TState> : Qdisc<THandle>, IClassifyingQd
         return true;
     }
 
-    public bool TryRemoveChild(IClasslessQdisc<THandle> child) =>
+    /// <inheritdoc/>
+    public override bool TryRemoveChild(IClasslessQdisc<THandle> child) =>
         RemoveChildInternal(child, -1);
 
-    public bool RemoveChild(IClasslessQdisc<THandle> child) =>
+    /// <inheritdoc/>
+    public override bool RemoveChild(IClasslessQdisc<THandle> child) =>
         // block up to 60 seconds to allow the child to become empty
         RemoveChildInternal(child, 60 * 1000);
 
@@ -392,10 +429,12 @@ internal class RoundRobinQdisc<THandle, TState> : Qdisc<THandle>, IClassifyingQd
         }
     }
 
-    bool IClassfulQdisc<THandle>.ContainsChild(in THandle handle) =>
-        this.To<IClassfulQdisc<THandle>>().TryFindChild(handle, out _);
+    /// <inheritdoc/>
+    protected override bool ContainsChild(in THandle handle) =>
+        TryFindChild(handle, out _);
 
-    bool IClassfulQdisc<THandle>.TryFindChild(in THandle handle, [NotNullWhen(true)] out IClasslessQdisc<THandle>? child)
+    /// <inheritdoc/>
+    protected override bool TryFindChild(in THandle handle, [NotNullWhen(true)] out IClasslessQdisc<THandle>? child)
     {
         // no lock needed, if a new child is added, a new array is created and the reference is CASed in
         // we could get a stale snapshot of the children array, but that's perfectly fine. We can't guarantee
@@ -418,5 +457,11 @@ internal class RoundRobinQdisc<THandle, TState> : Qdisc<THandle>, IClassifyingQd
         return false;
     }
 
-    void INotifyWorkScheduled.OnWorkScheduled() => ParentScheduler.OnWorkScheduled();
+    /// <inheritdoc/>
+    protected override void OnWorkScheduled()
+    {
+        // we must reset the empty counter before we call the parent scheduler
+        Volatile.Write(ref _emptyCounter, 0);
+        base.OnWorkScheduled();
+    }
 }

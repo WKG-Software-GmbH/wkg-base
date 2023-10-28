@@ -1,6 +1,7 @@
 ﻿using System.Runtime.CompilerServices;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
+using Wkg.Threading.Workloads.Pooling;
 using Wkg.Threading.Workloads.Queuing.Classful;
 using Wkg.Threading.Workloads.Queuing.Classless;
 using Wkg.Threading.Workloads.Scheduling;
@@ -10,7 +11,7 @@ namespace Wkg.Threading.Workloads.Factories;
 public abstract class AbstractClassfulWorkloadFactory<THandle> : AbstractClasslessWorkloadFactory<THandle>
     where THandle : unmanaged
 {
-    private protected AbstractClassfulWorkloadFactory(IClassfulQdisc<THandle> root) : base(root)
+    private protected AbstractClassfulWorkloadFactory(IClassfulQdisc<THandle> root, AnonymousWorkloadPool? pool) : base(root, pool)
     {
     }
 
@@ -19,8 +20,9 @@ public abstract class AbstractClassfulWorkloadFactory<THandle> : AbstractClassle
     public virtual void Schedule(in THandle handle, Action action)
     {
         DebugLog.WriteDiagnostic("Scheduling new workload.", LogWriter.Blocking);
-        // TODO: pooling
-        AnonymousWorkload workload = new(action);
+        AnonymousWorkload workload = SupportsPooling
+            ? Pool.Rent(action)
+            : new AnonymousWorkload(action);
         ScheduleCore(in handle, workload);
     }
 

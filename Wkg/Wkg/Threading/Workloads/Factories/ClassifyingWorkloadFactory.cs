@@ -1,10 +1,11 @@
-﻿using Wkg.Threading.Workloads.Queuing.Classifiers;
+﻿using Wkg.Threading.Workloads.Pooling;
+using Wkg.Threading.Workloads.Queuing.Classifiers;
 
 namespace Wkg.Threading.Workloads.Factories;
 
 public class ClassifyingWorkloadFactory<THandle> : AbstractClassifyingWorkloadFactory<THandle> where THandle : unmanaged
 {
-    internal protected ClassifyingWorkloadFactory(IClassifyingQdisc<THandle> root) : base(root)
+    internal ClassifyingWorkloadFactory(IClassifyingQdisc<THandle> root, AnonymousWorkloadPool? pool) : base(root, pool)
     {
     }
 

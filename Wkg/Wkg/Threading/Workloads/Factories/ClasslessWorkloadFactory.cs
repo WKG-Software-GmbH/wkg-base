@@ -1,10 +1,11 @@
-﻿using Wkg.Threading.Workloads.Queuing.Classless;
+﻿using Wkg.Threading.Workloads.Pooling;
+using Wkg.Threading.Workloads.Queuing.Classless;
 
 namespace Wkg.Threading.Workloads.Factories;
 
 public class ClasslessWorkloadFactory<THandle> : AbstractClasslessWorkloadFactory<THandle> where THandle : unmanaged
 {
-    internal protected ClasslessWorkloadFactory(IClasslessQdisc<THandle> root) : base(root)
+    internal ClasslessWorkloadFactory(IClasslessQdisc<THandle> root, AnonymousWorkloadPool? pool) : base(root, pool)
     {
     }
 

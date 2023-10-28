@@ -6,9 +6,6 @@ namespace ConsoleApp1;
 
 public class ConstrainedTaskScheduler : TaskScheduler
 {
-    // TODO: hide these two fields behind an interface implementing different scheduling strategies
-    // they should be encapsulated in a class that implements the scheduling strategy
-    // that would allow us to implement complex hierarchical queueing strategies
     private readonly ConcurrentQueue<Task> _tasks = new();
     private readonly ConcurrentHashSet<Task> _scheduledTasks = new();
 

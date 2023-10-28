@@ -83,6 +83,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
         {
             previousExecutionFailed = !workload.TryRunSynchronously();
             Debug.Assert(workload.IsCompleted);
+            workload.InternalMarkAsFinalized();
         }
         DebugLog.WriteInfo("Worker exited.", LogWriter.Blocking);
     }
@@ -112,6 +113,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
             int workerCountAfterExit = Interlocked.Decrement(ref _currentDegreeOfParallelism);
             int originalWorkerCount = workerCountAfterExit + 1;
             // re-sample the queue
+            DebugLog.WriteDiagnostic($"Worker found no tasks, resampling root qdisc to ensure true emptiness.", LogWriter.Blocking);
             // it is the responsibility of the qdisc implementation to ensure that this operation is thread-safe
             if (_rootQdisc.IsEmpty)
             {

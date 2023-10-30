@@ -98,7 +98,7 @@ public sealed class ClassifyingQdiscBuilderRoot<THandle, TState, TQdisc> : Class
         {
             pool = new AnonymousWorkloadPool(_context.PoolSize);
         }
-        return new ClassifyingWorkloadFactory<THandle>(_qdisc, pool);
+        return new ClassifyingWorkloadFactory<THandle>(_qdisc, pool, _context.ContextOptions);
     }
 
     public ClasslessQdiscBuilder<THandle, TChildQdisc, ClassifyingQdiscBuilderRoot<THandle, TState, TQdisc>> AddClasslessChild<TChildQdisc>(THandle childHandle)

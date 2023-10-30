@@ -5,19 +5,18 @@ namespace Wkg.Threading.Workloads;
 
 using CommonFlags = WorkloadStatus.CommonFlags;
 
-public class Workload : CancelableWorkload
+public partial class Workload : AwaitableWorkload
 {
     private readonly Action<CancellationFlag> _action;
-    private ValueTask<WorkloadResult>? _task;
 
-    internal Workload(Action<CancellationFlag> action) : this(WorkloadStatus.Created, action) => Pass();
+    internal Workload(Action<CancellationFlag> action, WorkloadContextOptions options, CancellationToken cancellationToken)
+        : this(action, WorkloadStatus.Created, options, cancellationToken) => Pass();
 
-    internal Workload(WorkloadStatus status, Action<CancellationFlag> action) : base(status)
+    internal Workload(Action<CancellationFlag> action, WorkloadStatus status, WorkloadContextOptions options, CancellationToken cancellationToken)
+        : base(status, options, cancellationToken)
     {
         _action = action;
     }
-
-    private protected override bool IsResultSet => _task.HasValue;
 
     private protected override bool TryExecuteUnsafeCore(out WorkloadStatus preTerminationStatus)
     {
@@ -28,28 +27,32 @@ public class Workload : CancelableWorkload
         preTerminationStatus = Atomic.TestAnyFlagsExchange(ref _status, WorkloadStatus.RanToCompletion, CommonFlags.WillCompleteSuccessfully);
         if (preTerminationStatus.IsOneOf(CommonFlags.WillCompleteSuccessfully))
         {
-            _task = new ValueTask<WorkloadResult>(WorkloadResult.CreateCompleted());
+            Volatile.Write(ref _exception, null);
             DebugLog.WriteDiagnostic($"{this}: Successfully completed execution.", LogWriter.Blocking);
             return true;
         }
         else if (preTerminationStatus == WorkloadStatus.Canceled)
         {
-            _task = new ValueTask<WorkloadResult>(WorkloadResult.CreateCanceled());
+            SetCanceledResultUnsafe();
             DebugLog.WriteDiagnostic($"{this}: Execution was canceled.", LogWriter.Blocking);
             return true;
         }
         return false;
     }
 
-    public WorkloadResult GetResult()
-    {
-        // TODO: via awaiter / awaitable
-        return default;
-    }
+    /// <summary>
+    /// Gets an awaiter used to await this workload.
+    /// </summary>
+    /// <remarks>
+    /// <see langword="WARNING"/>: Do not modify or remove this method. It is used by compiler generated code.
+    /// </remarks>
+    public WorkloadAwaiter GetAwaiter() => new(this);
 
-    private protected override void SetCanceledResultUnsafe() =>
-        _task = new ValueTask<WorkloadResult>(WorkloadResult.CreateCanceled());
+    private protected override void SetCanceledResultUnsafe() => 
+        Volatile.Write(ref _exception, null);
 
-    private protected override void SetFaultedResultUnsafe(Exception ex) =>
-        _task = new ValueTask<WorkloadResult>(WorkloadResult.CreateFaulted(ex));
+    private protected override void SetFaultedResultUnsafe(Exception ex) => 
+        Volatile.Write(ref _exception, ex);
+
+    internal WorkloadResult GetResultUnsafe() => new(Status, Volatile.Read(ref _exception));
 }

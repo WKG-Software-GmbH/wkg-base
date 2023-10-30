@@ -1,5 +1,4 @@
-﻿using Wkg.Threading.Workloads.Factories;
-using Wkg.Threading.Workloads.Queuing.Classful;
+﻿using Wkg.Threading.Workloads.Queuing.Classful;
 using Wkg.Threading.Workloads.Queuing.Classifiers;
 using Wkg.Threading.Workloads.Queuing.Classless;
 
@@ -12,6 +11,24 @@ public class QdiscBuilder<THandle> where THandle : unmanaged
     public QdiscBuilder<THandle> UseMaximumConcurrency(int maximumConcurrency)
     {
         _context.MaximumConcurrency = maximumConcurrency;
+        return this;
+    }
+
+    public QdiscBuilder<THandle> UseWorkloadContextOptions(WorkloadContextOptions options)
+    {
+        _context.ContextOptions = options;
+        return this;
+    }
+
+    public QdiscBuilder<THandle> FlowExecutionContextToContinuations(bool flowExecutionContext = true)
+    {
+        _context.ContextOptions = _context.ContextOptions with { FlowExecutionContext = flowExecutionContext };
+        return this;
+    }
+
+    public QdiscBuilder<THandle> RunContinuationsOnCapturedContext(bool continueOnCapturedContext = true)
+    {
+        _context.ContextOptions = _context.ContextOptions with { ContinueOnCapturedContext = continueOnCapturedContext };
         return this;
     }
 
@@ -51,4 +68,6 @@ internal class QdiscBuilderContext
     public int PoolSize { get; set; } = -1;
 
     public bool UsePooling => PoolSize > 0;
+
+    public WorkloadContextOptions ContextOptions { get; set; } = new();
 }

@@ -79,7 +79,7 @@ public sealed class ClassfulQdiscBuilderRoot<THandle, TQdisc> : ClassfulQdiscBui
         {
             pool = new AnonymousWorkloadPool(_context.PoolSize);
         }
-        return new ClassfulWorkloadFactory<THandle>(_qdisc, pool);
+        return new ClassfulWorkloadFactory<THandle>(_qdisc, pool, _context.ContextOptions);
     }
 
     public ClasslessQdiscBuilder<THandle, TChildQdisc, ClassfulQdiscBuilderRoot<THandle, TQdisc>> AddClasslessChild<TChildQdisc>(THandle childHandle)

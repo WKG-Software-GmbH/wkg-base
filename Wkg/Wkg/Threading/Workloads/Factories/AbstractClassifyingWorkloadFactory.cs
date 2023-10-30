@@ -11,7 +11,8 @@ namespace Wkg.Threading.Workloads.Factories;
 public abstract class AbstractClassifyingWorkloadFactory<THandle> : AbstractClassfulWorkloadFactory<THandle>
     where THandle : unmanaged
 {
-    private protected AbstractClassifyingWorkloadFactory(IClassifyingQdisc<THandle> root, AnonymousWorkloadPool? pool) : base(root, pool)
+    private protected AbstractClassifyingWorkloadFactory(IClassifyingQdisc<THandle> root, AnonymousWorkloadPool? pool, WorkloadContextOptions? options) 
+        : base(root, pool, options)
     {
     }
 
@@ -26,18 +27,38 @@ public abstract class AbstractClassifyingWorkloadFactory<THandle> : AbstractClas
         ClassifyCore(state, workload);
     }
 
-    public virtual Workload Classify<TState>(TState state, Action<CancellationFlag> action) where TState : class
+    public virtual Workload ClassifyAsync<TState>(TState state, Action<CancellationFlag> action, WorkloadContextOptions? options = null) 
+        where TState : class =>
+        ClassifyAsync(state, action, options, CancellationToken.None);
+
+    public virtual Workload ClassifyAsync<TState>(TState state, Action<CancellationFlag> action, CancellationToken cancellationToken) 
+        where TState : class =>
+        ClassifyAsync(state, action, null, cancellationToken);
+
+    public virtual Workload ClassifyAsync<TState>(TState state, Action<CancellationFlag> action, WorkloadContextOptions? options, CancellationToken cancellationToken) 
+        where TState : class
     {
         DebugLog.WriteDiagnostic("Scheduling new workload.", LogWriter.Blocking);
-        Workload workload = new(action);
+        options ??= DefaultOptions;
+        Workload workload = new(action, options, cancellationToken);
         ClassifyCore(state, workload);
         return workload;
     }
 
-    public virtual Workload<TResult> Classify<TState, TResult>(TState state, Func<CancellationFlag, TResult> func) where TState : class
+    public virtual Workload<TResult> ClassifyAsync<TState, TResult>(TState state, Func<CancellationFlag, TResult> func, WorkloadContextOptions? options = null) 
+        where TState : class =>
+        ClassifyAsync(state, func, options, CancellationToken.None);
+
+    public virtual Workload<TResult> ClassifyAsync<TState, TResult>(TState state, Func<CancellationFlag, TResult> func, CancellationToken cancellationToken) 
+        where TState : class =>
+        ClassifyAsync(state, func, null, cancellationToken);
+
+    public virtual Workload<TResult> ClassifyAsync<TState, TResult>(TState state, Func<CancellationFlag, TResult> func, WorkloadContextOptions? options, CancellationToken cancellationToken) 
+        where TState : class
     {
         DebugLog.WriteDiagnostic("Scheduling new workload.", LogWriter.Blocking);
-        Workload<TResult> workload = new(func);
+        options ??= DefaultOptions;
+        Workload<TResult> workload = new(func, options, cancellationToken);
         ClassifyCore(state, workload);
         return workload;
     }

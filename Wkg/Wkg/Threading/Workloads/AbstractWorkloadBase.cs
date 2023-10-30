@@ -43,9 +43,10 @@ public abstract class AbstractWorkloadBase
     internal abstract bool TryRunSynchronously();
 
     /// <summary>
-    /// Marks the workload as finalized before it falls out of scope. Allows the workload to be returned to a pool, if applicable.
+    /// Marks the workload as finalized before it falls out of scope and executes any Task continuations that were scheduled for it.
+    /// Also allows the workload to be returned to a pool, if applicable.
     /// </summary>
-    internal abstract void InternalMarkAsFinalized();
+    internal abstract void InternalRunContinuations();
 
     /// <summary>
     /// Attempts to bind the workload to the specified qdisc.
@@ -66,7 +67,7 @@ public abstract class AbstractWorkloadBase
         bool IQdisc.IsEmpty => ThrowHelper<bool>();
         int IQdisc.Count => ThrowHelper<int>();
         bool IQdisc.TryDequeueInternal(bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload) => (workload = null) == null && ThrowHelper<bool>();
-        bool IQdisc.TryRemoveInternal(CancelableWorkload workload) => ThrowHelper<bool>();
+        bool IQdisc.TryRemoveInternal(AwaitableWorkload workload) => ThrowHelper<bool>();
         void IQdisc.InternalInitialize(INotifyWorkScheduled parentScheduler) => ThrowHelper<bool>();
         void IQdisc.Complete() => ThrowHelper<bool>();
 

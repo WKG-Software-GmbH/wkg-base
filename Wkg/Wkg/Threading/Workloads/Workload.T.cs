@@ -1,29 +1,26 @@
-﻿using Wkg.Internals.Diagnostic;
+﻿using System;
+using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
 
 namespace Wkg.Threading.Workloads;
 
 using CommonFlags = WorkloadStatus.CommonFlags;
 
-public class Workload<TResult> : CancelableWorkload
+public class Workload<TResult> : AwaitableWorkload
 {
     private readonly Func<CancellationFlag, TResult> _func;
-    private ValueTask<WorkloadResult<TResult>>? _task;
+    private TResult? _result;
 
-    internal Workload(Func<CancellationFlag, TResult> func) : this(WorkloadStatus.Created, func) => Pass();
+    internal Workload(Func<CancellationFlag, TResult> func, WorkloadContextOptions options, CancellationToken cancellationToken)
+        : this(func, WorkloadStatus.Created, options, cancellationToken) => Pass();
 
-    internal Workload(WorkloadStatus status, Func<CancellationFlag, TResult> func) : base(status)
+    internal Workload(Func<CancellationFlag, TResult> func, WorkloadStatus status, WorkloadContextOptions options, CancellationToken cancellationToken)
+        : base(status, options, cancellationToken)
     {
         _func = func;
     }
 
-    private protected override bool IsResultSet => _task.HasValue;
-
-    public WorkloadResult<TResult> GetResult()
-    {
-        // TODO: via awaiter / awaitable
-        return default;
-    }
+    public WorkloadAwaiter<TResult> GetAwaiter() => new(this);
 
     private protected override bool TryExecuteUnsafeCore(out WorkloadStatus preTerminationStatus)
     {
@@ -35,22 +32,31 @@ public class Workload<TResult> : CancelableWorkload
         preTerminationStatus = Atomic.TestAnyFlagsExchange(ref _status, WorkloadStatus.RanToCompletion, CommonFlags.WillCompleteSuccessfully);
         if (preTerminationStatus.IsOneOf(CommonFlags.WillCompleteSuccessfully))
         {
-            _task = new ValueTask<WorkloadResult<TResult>>(WorkloadResult.CreateCompleted(result));
+            Volatile.Write(ref _exception, null);
+            _result = result;
             DebugLog.WriteDiagnostic($"{this}: Successfully completed execution.", LogWriter.Blocking);
             return true;
         }
         else if (preTerminationStatus == WorkloadStatus.Canceled)
         {
-            _task = new ValueTask<WorkloadResult<TResult>>(WorkloadResult.CreateCanceled(result));
+            SetCanceledResultUnsafe();
             DebugLog.WriteDiagnostic($"{this}: Execution was canceled.", LogWriter.Blocking);
             return true;
         }
         return false;
     }
 
-    private protected override void SetCanceledResultUnsafe() => 
-        _task = new ValueTask<WorkloadResult<TResult>>(WorkloadResult.CreateCanceled<TResult>());
+    private protected override void SetCanceledResultUnsafe()
+    {
+        Volatile.Write(ref _exception, null);
+        _result = default;
+    }
 
-    private protected override void SetFaultedResultUnsafe(Exception ex) => 
-        _task = new ValueTask<WorkloadResult<TResult>>(WorkloadResult.CreateFaulted<TResult>(ex));
+    private protected override void SetFaultedResultUnsafe(Exception ex)
+    {
+        Volatile.Write(ref _exception, ex);
+        _result = default;
+    }
+
+    internal WorkloadResult<TResult> GetResultUnsafe() => new(Status, Volatile.Read(ref _exception), _result);
 }

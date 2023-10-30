@@ -20,7 +20,7 @@ internal class AnonymousWorkload : AbstractWorkloadBase
         _action = action;
     }
 
-    internal override void InternalMarkAsFinalized() => Pass();
+    internal override void InternalRunContinuations() => Pass();
 
     // Only used for cancellation. Anonymous workloads are not bound to a qdisc.
     internal override bool TryInternalBindQdisc(IQdisc qdisc)
@@ -90,7 +90,7 @@ internal class PooledAnonomousWorkload : AnonymousWorkload
         _pool = pool;
     }
 
-    internal override void InternalMarkAsFinalized()
+    internal override void InternalRunContinuations()
     {
         Volatile.Write(ref _action, null!);
         Volatile.Write(ref _status, WorkloadStatus.Pooled);

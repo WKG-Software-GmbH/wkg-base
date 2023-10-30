@@ -53,5 +53,5 @@ public sealed class LifoQdisc<THandle> : Qdisc<THandle>, IClasslessQdisc<THandle
     protected override bool TryDequeueInternal(bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload) => _stack.TryPop(out workload);
 
     /// <inheritdoc/>
-    protected override bool TryRemoveInternal(CancelableWorkload workload) => false;
+    protected override bool TryRemoveInternal(AwaitableWorkload workload) => false;
 }

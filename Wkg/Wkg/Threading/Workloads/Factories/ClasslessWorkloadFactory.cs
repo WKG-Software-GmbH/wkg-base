@@ -5,7 +5,8 @@ namespace Wkg.Threading.Workloads.Factories;
 
 public class ClasslessWorkloadFactory<THandle> : AbstractClasslessWorkloadFactory<THandle> where THandle : unmanaged
 {
-    internal ClasslessWorkloadFactory(IClasslessQdisc<THandle> root, AnonymousWorkloadPool? pool) : base(root, pool)
+    internal ClasslessWorkloadFactory(IClasslessQdisc<THandle> root, AnonymousWorkloadPool? pool, WorkloadContextOptions? options) 
+        : base(root, pool, options)
     {
     }
 

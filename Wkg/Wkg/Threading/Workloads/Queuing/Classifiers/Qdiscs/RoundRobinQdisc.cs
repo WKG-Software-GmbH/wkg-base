@@ -118,7 +118,7 @@ public sealed class RoundRobinQdisc<THandle, TState> : ClassifyingQdisc<THandle,
     /// <inheritdoc/>
     // would only need to consider the local queue, since this
     // method is only called on the direct parent of a workload.
-    protected override bool TryRemoveInternal(CancelableWorkload workload) => false;
+    protected override bool TryRemoveInternal(AwaitableWorkload workload) => false;
 
     /// <inheritdoc/>
     protected override bool TryDequeueInternal(bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload)

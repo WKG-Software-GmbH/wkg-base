@@ -19,7 +19,9 @@ Log.UseLogger(Logger.Create(LoggerConfiguration.Create()
     .UseDefaultLogWriter(LogWriter.Blocking)));
 
 ClassifyingWorkloadFactory<int> factory = new QdiscBuilder<int>()
-    .UseMaximumConcurrency(8)
+    .UseMaximumConcurrency(1)
+    .FlowExecutionContextToContinuations()
+    .RunContinuationsOnCapturedContext()
     .UseAnonymousWorkloadPooling(poolSize: 64)
     .UseClassifyingRoot<RoundRobinQdisc<int, State>, State>(1, state => state.QdiscType == QdiscType.RoundRobin)
         .AddClasslessChild<FifoQdisc<int>>(2, state => state.QdiscType == QdiscType.Fifo).Build()
@@ -41,8 +43,67 @@ ClassifyingWorkloadFactory<int> factory = new QdiscBuilder<int>()
         .AddClasslessChild<FifoQdisc<int>>(8).Build()
         .Build();
 
+AsyncLocal<int> asyncLocal = new()
+{
+    Value = 1337
+};
+Log.WriteInfo($"ThreadLocal: {asyncLocal.Value}");
+
+SynchronizationContext.SetSynchronizationContext(new MySynchronizationContext());
+
+Log.WriteInfo(SynchronizationContext.Current?.ToString() ?? "null");
+
+WorkloadResult<int> result = await factory.ScheduleAsync(flag =>
+{
+    Log.WriteInfo($"Hello from the root scheduler. The async local value is {asyncLocal.Value}.");
+    Thread.Sleep(1000);
+    Log.WriteInfo("Goodbye from the root scheduler!");
+    return 42;
+});
+Log.WriteInfo($"Result: {result}");
+
+Log.WriteInfo($"ThreadLocal: {asyncLocal.Value}");
+Log.WriteInfo(SynchronizationContext.Current?.ToString() ?? "null");
+
+CancellationTokenSource cts = new();
+Workload workload = factory.ScheduleAsync(flag =>
+{
+    Log.WriteInfo($"Hello from the root scheduler again");
+    Thread.Sleep(1000);
+    flag.ThrowIfCancellationRequested();
+    Log.WriteFatal("I should not have gotten here.");
+}, cts.Token);
+
+cts.Cancel();
+
+WorkloadResult result2 = await workload;
+
+Log.WriteInfo($"Result: {result2}");
+
+Workload<string> workload3 = factory.ScheduleAsync(flag =>
+{
+    Log.WriteInfo($"Hello from the root scheduler again again");
+    Thread.Sleep(1000);
+    return "Wow. The blocking wait actually worked.";
+});
+
+WorkloadResult<string> result3 = workload3.GetAwaiter().GetResult();
+
+Log.WriteInfo($"Result: {result3}");
+if (result3.TryGetResult(out string? value))
+{
+    Log.WriteInfo($"Result: {value}");
+}
+
+WorkloadResult result4 = await factory.ScheduleAsync(flag =>
+{
+    Log.WriteInfo($"Hello from the root scheduler again again again");
+    Thread.Sleep(1000);
+    throw new Exception("This is an exception.");
+});
+
 const int WORKLOAD_COUNT = 10;
-CancelableWorkload[] workloads1 = new CancelableWorkload[WORKLOAD_COUNT];
+AwaitableWorkload[] workloads1 = new AwaitableWorkload[WORKLOAD_COUNT];
 
 State fifoState = new(QdiscType.Fifo);
 State lifoState = new(QdiscType.Lifo);
@@ -55,7 +116,7 @@ for (int times = 0; times < 2; times++)
         if (i == 3)
         {
             // self-canceling workload (gotta test cancelling a running workload)
-            workloads1[i] = factory.Classify(fifoState, cancellationFlag =>
+            workloads1[i] = factory.ClassifyAsync(fifoState, cancellationFlag =>
             {
                 Log.WriteInfo("#1 Cancelling myself :P");
                 for (int i = 0; i < 10; i++)
@@ -72,18 +133,18 @@ for (int times = 0; times < 2; times++)
         }
         if (i == 5)
         {
-            workloads1[i] = factory.Classify(fifoState, _ => workloads1[6].TryCancel());
+            workloads1[i] = factory.ClassifyAsync(fifoState, _ => workloads1[6].TryCancel());
             continue;
         }
-        workloads1[i] = factory.Classify(fifoState, DoStuff);
+        workloads1[i] = factory.ClassifyAsync(fifoState, DoStuff);
     }
-    CancelableWorkload[] workloads2 = new CancelableWorkload[WORKLOAD_COUNT];
+    AwaitableWorkload[] workloads2 = new AwaitableWorkload[WORKLOAD_COUNT];
     for (int i = 0; i < WORKLOAD_COUNT; i++)
     {
         if (i == 3)
         {
             // self-canceling workload (gotta test cancelling a running workload)
-            workloads2[i] = factory.Classify(lifoState, cancellationFlag =>
+            workloads2[i] = factory.ClassifyAsync(lifoState, cancellationFlag =>
             {
                 Log.WriteInfo("#2 Cancelling myself :P");
                 for (int i = 0; i < 10; i++)
@@ -100,10 +161,10 @@ for (int times = 0; times < 2; times++)
         }
         if (i == 5)
         {
-            workloads2[i] = factory.Classify(lifoState, _ => workloads2[4].TryCancel());
+            workloads2[i] = factory.ClassifyAsync(lifoState, _ => workloads2[4].TryCancel());
             continue;
         }
-        workloads2[i] = factory.Classify(lifoState, DoStuff);
+        workloads2[i] = factory.ClassifyAsync(lifoState, DoStuff);
     }
 
     factory.Classify(fifoState, () =>
@@ -112,37 +173,10 @@ for (int times = 0; times < 2; times++)
         bool result = workloads1[0].TryCancel();
         Log.WriteDebug($"Result: {result}");
     });
+    factory.Schedule(14, () => Log.WriteEvent("Hello from Nested RR scheduler? I guess? WTF :)"));
 
-    TaskCompletionSource tcs1 = new();
-    TaskCompletionSource tcs2 = new();
-    TaskCompletionSource tcs3 = new();
-    TaskCompletionSource tcs4 = new();
-
-    factory.Schedule(6, () => Log.WriteEvent("Hello from Nested RR scheduler? I guess? WTF :)"));
-
-    factory.Schedule(2, () =>
-    {
-        Log.WriteEvent("Signaling completion for tcs1.");
-        tcs1.SetResult();
-    });
-    factory.Schedule(1, () =>
-    {
-        Log.WriteEvent("Signaling completion for tcs2.");
-        tcs2.SetResult();
-    });
-    factory.Schedule(8, () =>
-    {
-        Log.WriteEvent("Signaling completion for tcs3.");
-        tcs3.SetResult();
-    });
-    factory.Schedule(14, () =>
-    {
-        Log.WriteEvent("Signaling completion for tcs4.");
-        tcs4.SetResult();
-    });
-
-    await Task.WhenAll(tcs1.Task, tcs2.Task, tcs3.Task, tcs4.Task);
-    await Task.Delay(10000);
+    await Workload.WhenAll(workloads1);
+    await Workload.WhenAll(workloads2);
 }
 Log.WriteInfo("main thread exiting...");
 
@@ -167,3 +201,12 @@ enum QdiscType : int
 
 record State(QdiscType QdiscType);
 record SomeOtherState();
+
+class MySynchronizationContext : SynchronizationContext
+{
+    public override void Post(SendOrPostCallback d, object? state) => base.Post(state =>
+    {
+        SetSynchronizationContext(this);
+        d.Invoke(state);
+    }, state);
+}

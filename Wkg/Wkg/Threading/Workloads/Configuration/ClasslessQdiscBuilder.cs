@@ -52,6 +52,6 @@ public sealed class ClasslessQdiscBuilderRoot<THandle, TQdisc> : ClasslessQdiscB
         {
             pool = new AnonymousWorkloadPool(_context.PoolSize);
         }
-        return new ClasslessWorkloadFactory<THandle>(_qdisc, pool);
+        return new ClasslessWorkloadFactory<THandle>(_qdisc, pool, _context.ContextOptions);
     }
 }

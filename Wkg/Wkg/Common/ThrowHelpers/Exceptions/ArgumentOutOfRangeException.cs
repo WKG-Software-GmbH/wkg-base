@@ -54,5 +54,29 @@ public static partial class Throw
                 throw new AOORE(paramName, value, "Value must be non-negative.");
             }
         }
+
+        /// <summary>
+        /// Throws a new <see cref="AOORE"/> if <c><paramref name="value"/> &lt; <paramref name="min"/></c>.
+        /// </summary>
+        /// <param name="paramName">The name of the parameter.</param>
+        /// <param name="value">The value of the parameter.</param>
+        /// <param name="min">The minimum allowed value of the parameter.</param>
+        /// <exception cref="AOORE">Thrown if <c><paramref name="value"/> &lt; <paramref name="min"/></c>.</exception>
+        public static void IfLessThan(string paramName, int value, int min)
+        {
+            if (value < min)
+            {
+                throw new AOORE(paramName, value, $"Value must be greater than or equal to {min}.");
+            }
+        }
+
+        /// <inheritdoc cref="IfLessThan(string, int, int)"/>
+        public static void IfLessThan(string paramName, long value, long min)
+        {
+            if (value < min)
+            {
+                throw new AOORE(paramName, value, $"Value must be greater than or equal to {min}.");
+            }
+        }
     }
 }

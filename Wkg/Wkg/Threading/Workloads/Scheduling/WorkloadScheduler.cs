@@ -26,6 +26,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
 
     public int MaximumConcurrencyLevel => _maximumConcurrencyLevel;
 
+    // TODO: deadlocking race condition with TryDequeueOrExitSafely!!! (when we're attempting to dispatch a new worker with one worker trying to exit)
     void INotifyWorkScheduled.OnWorkScheduled()
     {
         DebugLog.WriteDiagnostic("Workload scheduler was poked.", LogWriter.Blocking);
@@ -38,12 +39,14 @@ internal class WorkloadScheduler : INotifyWorkScheduled
             {
                 DebugLog.WriteDiagnostic($"Attempting to start a new worker: {workerCount} < {_maximumConcurrencyLevel}.", LogWriter.Blocking);
                 // we have room for another worker, so we'll start one
+                // TODO: this is broken (DEADLOCK / worker starvation). Can't we simplify this with Atomic.IncrementClampMax?
                 int actualWorkerCount = Interlocked.CompareExchange(ref _currentDegreeOfParallelism, workerCount + 1, workerCount);
                 if (actualWorkerCount == workerCount)
                 {
                     DebugLog.WriteDiagnostic($"Successfully started a new worker: {workerCount} -> {actualWorkerCount + 1}.", LogWriter.Blocking);
+                    // do not flow the execution context to the worker
+                    DispatchWorkerNonCapturing();
                     // we successfully started a worker, so we can exit
-                    ThreadPool.QueueUserWorkItem(WorkerLoop, null);
                     return;
                 }
                 // the worker count changed. We either lost a worker, or we gained a worker
@@ -75,6 +78,27 @@ internal class WorkloadScheduler : INotifyWorkScheduled
         }
     }
 
+    private void DispatchWorkerNonCapturing()
+    {
+        bool restoreFlow = false;
+        try
+        {
+            if (!ExecutionContext.IsFlowSuppressed())
+            {
+                ExecutionContext.SuppressFlow();
+                restoreFlow = true;
+            }
+            ThreadPool.QueueUserWorkItem(WorkerLoop, null);
+        }
+        finally
+        {
+            if (restoreFlow)
+            {
+                ExecutionContext.RestoreFlow();
+            }
+        }
+    }
+
     private void WorkerLoop(object? state)
     {
         DebugLog.WriteInfo("Worker started.", LogWriter.Blocking);
@@ -83,7 +107,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
         {
             previousExecutionFailed = !workload.TryRunSynchronously();
             Debug.Assert(workload.IsCompleted);
-            workload.InternalMarkAsFinalized();
+            workload.InternalRunContinuations();
         }
         DebugLog.WriteInfo("Worker exited.", LogWriter.Blocking);
     }
@@ -97,6 +121,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
     /// <remarks>
     /// If this method returns <see langword="false"/>, the worker must exit in order to respect the max degree of parallelism.
     /// </remarks>
+    // TODO: deadlocking race condition with OnWorkScheduled!!! (when we're attempting to restore the worker count with 1 worker in total)
     private bool TryDequeueOrExitSafely(bool previousExecutionFailed, [NotNullWhen(true)] out AbstractWorkloadBase? workload)
     {
         DebugLog.WriteDiagnostic("Worker is attempting to dequeue a workload.", LogWriter.Blocking);
@@ -127,6 +152,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
             while (true)
             {
                 int newWorkerCount = Interlocked.CompareExchange(ref _currentDegreeOfParallelism, originalWorkerCount, workerCountAfterExit);
+                DebugLog.WriteDiagnostic($"Worker attempting to restore worker count: {workerCountAfterExit} -> {originalWorkerCount}. Actual worker count: {newWorkerCount}.", LogWriter.Blocking);
                 if (newWorkerCount > workerCountAfterExit)
                 {
                     // it's fine. They already scheduled a replacement worker, so we can exit

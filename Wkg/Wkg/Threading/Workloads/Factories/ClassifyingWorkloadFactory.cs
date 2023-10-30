@@ -5,7 +5,8 @@ namespace Wkg.Threading.Workloads.Factories;
 
 public class ClassifyingWorkloadFactory<THandle> : AbstractClassifyingWorkloadFactory<THandle> where THandle : unmanaged
 {
-    internal ClassifyingWorkloadFactory(IClassifyingQdisc<THandle> root, AnonymousWorkloadPool? pool) : base(root, pool)
+    internal ClassifyingWorkloadFactory(IClassifyingQdisc<THandle> root, AnonymousWorkloadPool? pool, WorkloadContextOptions? options) 
+        : base(root, pool, options)
     {
     }
 

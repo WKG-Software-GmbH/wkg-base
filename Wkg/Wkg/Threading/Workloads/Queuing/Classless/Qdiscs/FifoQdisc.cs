@@ -43,6 +43,10 @@ public sealed class FifoQdisc<THandle> : Qdisc<THandle>, IClasslessQdisc<THandle
             _queue.Enqueue(workload);
             NotifyWorkScheduled();
         }
+        else if (workload.IsCompleted)
+        {
+            DebugLog.WriteWarning($"A workload was scheduled, but it was already completed. What are you doing?", LogWriter.Blocking);
+        }
         else
         {
             DebugLog.WriteWarning("A workload was scheduled, but could not be bound to the qdisc. This is a likely a bug in the qdisc scheduler implementation.", LogWriter.Blocking);
@@ -53,5 +57,5 @@ public sealed class FifoQdisc<THandle> : Qdisc<THandle>, IClasslessQdisc<THandle
     protected override bool TryDequeueInternal(bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload) => _queue.TryDequeue(out workload);
 
     /// <inheritdoc/>
-    protected override bool TryRemoveInternal(CancelableWorkload workload) => false;
+    protected override bool TryRemoveInternal(AwaitableWorkload workload) => false;
 }

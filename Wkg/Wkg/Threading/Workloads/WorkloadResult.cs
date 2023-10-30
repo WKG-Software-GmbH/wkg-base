@@ -1,41 +1,37 @@
-﻿namespace Wkg.Threading.Workloads;
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace Wkg.Threading.Workloads;
 
 public readonly struct WorkloadResult
 {
-    public readonly Exception? Exception { get; }
-
     public readonly WorkloadStatus CompletionStatus { get; }
 
-    internal WorkloadResult(Exception? exception, WorkloadStatus completionStatus)
+    public readonly Exception? Exception { get; }
+
+    internal WorkloadResult(WorkloadStatus completionStatus, Exception? exception)
     {
         Exception = exception;
         CompletionStatus = completionStatus;
     }
 
-    internal static WorkloadResult CreateFaulted(Exception exception) =>
-        new(exception, WorkloadStatus.Faulted);
-
-    internal static WorkloadResult CreateCanceled() =>
-        new(null, WorkloadStatus.Canceled);
-
-    internal static WorkloadResult CreateCompleted() =>
-        new(null, WorkloadStatus.RanToCompletion);
-
-    internal static WorkloadResult<TResult> CreateFaulted<TResult>(Exception exception) =>
-        new(exception, WorkloadStatus.Faulted, default);
-
-    internal static WorkloadResult<TResult> CreateCanceled<TResult>() =>
-        new(null, WorkloadStatus.Canceled, default);
-
-    internal static WorkloadResult<TResult> CreateCanceled<TResult>(TResult result) =>
-        new(null, WorkloadStatus.Canceled, result);
-
-    internal static WorkloadResult<TResult> CreateCompleted<TResult>(TResult result) =>
-        new(null, WorkloadStatus.RanToCompletion, result);
-
     public readonly bool IsSuccess => CompletionStatus == WorkloadStatus.RanToCompletion;
 
+    [MemberNotNullWhen(true, nameof(Exception))]
     public readonly bool IsFaulted => CompletionStatus == WorkloadStatus.Faulted;
 
     public readonly bool IsCanceled => CompletionStatus == WorkloadStatus.Canceled;
+
+    public readonly void ThrowOnNonSuccess()
+    {
+        if (IsFaulted)
+        {
+            throw Exception;
+        }
+        else if (IsCanceled)
+        {
+            throw new OperationCanceledException();
+        }
+    }
+
+    public override string ToString() => CompletionStatus.ToString();
 }

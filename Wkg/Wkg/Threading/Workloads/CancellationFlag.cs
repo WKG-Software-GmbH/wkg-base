@@ -8,10 +8,10 @@ namespace Wkg.Threading.Workloads;
 /// </summary>
 public readonly struct CancellationFlag
 {
-    private static readonly CancelableWorkload _neverCancelledWorkload = new Workload(WorkloadStatus.Invalid, null!);
-    internal readonly CancelableWorkload _workload;
+    private static readonly AwaitableWorkload _neverCancelledWorkload = new Workload(null!, WorkloadStatus.Invalid, null!, CancellationToken.None);
+    internal readonly AwaitableWorkload _workload;
 
-    internal CancellationFlag(CancelableWorkload workload)
+    internal CancellationFlag(AwaitableWorkload workload)
     {
         _workload = workload;
     }

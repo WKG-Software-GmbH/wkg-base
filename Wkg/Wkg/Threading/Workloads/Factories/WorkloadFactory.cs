@@ -7,12 +7,16 @@ namespace Wkg.Threading.Workloads.Factories;
 public abstract class WorkloadFactory<THandle> where THandle : unmanaged
 {
     private protected IClasslessQdisc<THandle> _root;
+
     private protected AnonymousWorkloadPool? Pool { get; }
 
-    private protected WorkloadFactory(IClasslessQdisc<THandle> root, AnonymousWorkloadPool? pool)
+    public WorkloadContextOptions DefaultOptions { get; }
+
+    private protected WorkloadFactory(IClasslessQdisc<THandle> root, AnonymousWorkloadPool? pool, WorkloadContextOptions? options)
     {
         _root = root;
         Pool = pool;
+        DefaultOptions = options ?? new WorkloadContextOptions();
     }
 
     [MemberNotNullWhen(true, nameof(Pool))]

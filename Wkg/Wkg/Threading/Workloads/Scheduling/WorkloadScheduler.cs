@@ -135,8 +135,9 @@ internal class WorkloadScheduler : INotifyWorkScheduled
                 // we successfully dequeued a task, return with success
                 return true;
             }
+            // IDEA: we could introduce a non-blocking critical section here.
+            // Scheduling threads will have to wait for the worker to figure out if it wants to exit or not.
             int workerCountAfterExit = Interlocked.Decrement(ref _currentDegreeOfParallelism);
-            int originalWorkerCount = workerCountAfterExit + 1;
             // re-sample the queue
             DebugLog.WriteDiagnostic($"Worker found no tasks, resampling root qdisc to ensure true emptiness.", LogWriter.Blocking);
             // it is the responsibility of the qdisc implementation to ensure that this operation is thread-safe
@@ -146,31 +147,44 @@ internal class WorkloadScheduler : INotifyWorkScheduled
                 DebugLog.WriteDiagnostic($"Worker found no more tasks, exiting.", LogWriter.Blocking);
                 return false;
             }
-            // failure case: someone else scheduled a task, possible before we decremented the worker count, so we could lose a worker here
-            // attempt abort the exit by incrementing the worker count again
+            // failure case: someone else scheduled a task, possible before we decremented the worker count,
+            // so we could lose a worker here attempt abort the exit by incrementing the worker count again
             // spin loop against other workers currently exiting
             while (true)
             {
-                int newWorkerCount = Interlocked.CompareExchange(ref _currentDegreeOfParallelism, originalWorkerCount, workerCountAfterExit);
-                DebugLog.WriteDiagnostic($"Worker attempting to restore worker count: {workerCountAfterExit} -> {originalWorkerCount}. Actual worker count: {newWorkerCount}.", LogWriter.Blocking);
-                if (newWorkerCount > workerCountAfterExit)
+                // WTF: why not just do an atomic clamped increment here?
+                int restoreTarget = workerCountAfterExit + 1;
+                int preRestoreWorkerCount = Interlocked.CompareExchange(ref _currentDegreeOfParallelism, restoreTarget, workerCountAfterExit);
+                DebugLog.WriteDiagnostic($"Worker attempting to restore worker count: {workerCountAfterExit} -> {restoreTarget}. Actual worker count: {preRestoreWorkerCount}.", LogWriter.Blocking);
+                // originalWorkerCount = 1
+                // workerCountAfterExit = 0
+                // preRestoreWorkerCount = 0
+                // ==> successfull restore
+                if (preRestoreWorkerCount > workerCountAfterExit)
                 {
                     // it's fine. They already scheduled a replacement worker, so we can exit
                     DebugLog.WriteDiagnostic($"Worker exiting after replacement worker was scheduled.", LogWriter.Blocking);
                     return false;
                 }
                 // we either successfully restored the worker count, or we lost more than one worker
-                if (newWorkerCount == originalWorkerCount)
+                if (preRestoreWorkerCount == workerCountAfterExit)
                 {
-                    // we successfully restored the worker count, so we can break out of the restore loop and continue the outer dequeue loop
-                    DebugLog.WriteDiagnostic($"Worker successfully restored worker count to {originalWorkerCount}. Continuing dequeue loop.", LogWriter.Blocking);
+                    // the worker count before our restore attempt was the one we expected, so we successfully
+                    // restored to the original worker count. we can break out of the restore loop, spin a few
+                    // cycles and continue resampling in the outer dequeue loop.
+                    DebugLog.WriteDiagnostic($"Worker successfully restored worker count to {restoreTarget}. Continuing dequeue loop.", LogWriter.Blocking);
                     break;
                 }
+                // TODO: do we even need this?
+                // the only way this could happen is if we lost more than one worker
+                // in that case we probably want to stay alive, and break as well.
+                // We'd re-sample the queue, and then exit if there are no more tasks
+
                 // some other worker beat us to restoring the worker count, so we need to try again
-                workerCountAfterExit = newWorkerCount;
-                originalWorkerCount = workerCountAfterExit + 1;
+                workerCountAfterExit = preRestoreWorkerCount;
+                restoreTarget = workerCountAfterExit + 1;
                 // if we would violate the max degree of parallelism, we need to exit
-                if (originalWorkerCount > _maximumConcurrencyLevel)
+                if (restoreTarget > _maximumConcurrencyLevel)
                 {
                     // give up and exit
                     DebugLog.WriteDiagnostic($"Worker exiting after encountering maximum concurrency level {_maximumConcurrencyLevel} during restore attempt.", LogWriter.Blocking);

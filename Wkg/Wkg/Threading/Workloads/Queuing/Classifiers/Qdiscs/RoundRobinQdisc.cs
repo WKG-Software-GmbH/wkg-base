@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Wkg.Common.Extensions;
 using Wkg.Common.ThrowHelpers;
@@ -23,9 +22,9 @@ public sealed class RoundRobinQdisc<THandle, TState> : ClassifyingQdisc<THandle,
 {
     private readonly ThreadLocal<IQdisc?> _localLast;
     private readonly IClasslessQdisc<THandle> _localQueue;
-    private volatile IChildClassification<THandle>[] _children;
     private readonly Predicate<TState> _predicate;
 
+    private IChildClassification<THandle>[] _children;
     private readonly ReaderWriterLockSlim _childrenLock;
     private readonly EmptyCounter _emptyCounter;
     private int _rrIndex;
@@ -72,37 +71,65 @@ public sealed class RoundRobinQdisc<THandle, TState> : ClassifyingQdisc<THandle,
             try
             {
                 // we must ensure that no other thread is removing children
-                // or that new workloads are scheduled to children while we're counting them
                 // dequeue operations are not a problem, since we only need to provide a weakly consistent count!
-                _childrenLock.EnterReadLock();
-
-                IChildClassification<THandle>[] children = _children;
-                int count = 0;
-                for (int i = 0; i < children.Length; i++)
+                _childrenLock.EnterUpgradeableReadLock();
+                int count = CountChildrenUnsafe();
+                if (count == 0)
                 {
-                    count += children[i].Qdisc.Count;
+                    // we need to actually block any enqueue operations while we're counting
+                    // otherwise we may miss workloads that are enqueued while we're counting
+                    // upgrade to a write lock
+                    try
+                    {
+                        _childrenLock.EnterWriteLock();
+                        count = CountChildrenUnsafe();
+                    }
+                    finally
+                    {
+                        _childrenLock.ExitWriteLock();
+                    }
                 }
                 return count;
             }
             finally
             {
-                _childrenLock.ExitReadLock();
+                _childrenLock.ExitUpgradeableReadLock();
             }
         }
+    }
+
+    /// <summary>
+    /// Only call this method if you have a read or write lock on <see cref="_childrenLock"/>.
+    /// </summary>
+    private int CountChildrenUnsafe()
+    {
+        // get a local snapshot of the children array, other threads may still add new children which we don't care about here
+        IChildClassification<THandle>[] children = Volatile.Read(ref _children);
+        int count = 0;
+        for (int i = 0; i < children.Length; i++)
+        {
+            count += children[i].Qdisc.Count;
+        }
+        return count;
     }
 
     private bool IsKnownEmptyVolatile
     {
         get
         {
-            try
+            IChildClassification<THandle>[] children1, children2;
+            uint emptyCounter;
+            while (true)
             {
-                _childrenLock.EnterReadLock();
-                return _emptyCounter.GetCount() >= _children.Length;
-            }
-            finally
-            {
-                _childrenLock.ExitReadLock();
+                children1 = Volatile.Read(ref _children);
+                emptyCounter = _emptyCounter.GetCount();
+                children2 = Volatile.Read(ref _children);
+                if (ReferenceEquals(children1, children2))
+                {
+                    // the children array didn't change while we were reading it
+                    // we can use the empty counter to determine if the qdisc is empty
+                    return emptyCounter >= children1.Length;
+                }
             }
         }
     }
@@ -132,23 +159,27 @@ public sealed class RoundRobinQdisc<THandle, TState> : ClassifyingQdisc<THandle,
             return true;
         }
         // backtracking failed, or was not requested. We need to iterate over all child qdiscs.
-        try
+        while (true)
         {
-            // TODO: would be cool to do a try enter read lock here, and do other stuff if we can't
-            // makes no sense to block all workers just because someone is modifying the children array
-            // we can't also just try and return false, since our parent may think that we're empty
-            _childrenLock.EnterReadLock();
-
-            IChildClassification<THandle>[] children = _children;
+            IChildClassification<THandle>[] children = Volatile.Read(ref _children);
 
             // loop until we find a workload or until we meet requirements for worker termination
-            while (true) 
+            // if the children array changes while we're looping, we need to start over
+            do
             {
-                // this is our local round robin index. it is guaranteed to be in range and that we are the only thread
-                // that has this index assigned (well, unless there's more worker threads than children, but that's unlikely)
+                // this is our local round robin index. it is not guaranteed to be in range, since we are reading a *snapshot*
+                // the modulo is only applied after the increment, so we need to check if the index is in range
                 // NOTE: that the _rrIndex is *post-incremented*, so our index is _rrIndex - 1
                 // (well it would be, if it wasn't for the modulo)
                 int index = Atomic.IncrementModulo(ref _rrIndex, children.Length);
+                if (index >= children.Length)
+                {
+                    // we're out of range, the old round robin index was stale
+                    // retry with the updated round robin index which is guaranteed to be in range
+                    // (unless the array changed again, but that's unlikely)
+                    DebugLog.WriteDiagnostic($"Round robin index out of range, retrying with updated index.", LogWriter.Blocking);
+                    continue;
+                }
                 uint token = _emptyCounter.GetToken();
                 CriticalSection criticalSection = CriticalSection.Enter(ref _criticalDequeueSection);
                 IQdisc qdisc = children[index].Qdisc;
@@ -196,14 +227,12 @@ public sealed class RoundRobinQdisc<THandle, TState> : ClassifyingQdisc<THandle,
                     }
 
                     // the qdisc is not empty! continue with the next iteration
-                    DebugLog.WriteDiagnostic($"{this} Qdisc is not empty, continuing with next iteration.", LogWriter.Blocking);
+                    DebugLog.WriteDebug($"{this} Qdisc is not empty, continuing with next iteration.", LogWriter.Blocking);
                 }
                 // the qdisc is not empty, but we didn't find a workload. continue with the next iteration
-            }
-        }
-        finally
-        {
-            _childrenLock.ExitReadLock();
+            } while (ReferenceEquals(children, Interlocked.CompareExchange(ref _children, children, children)));
+            // the children array changed while we were iterating over it
+            DebugLog.WriteDebug($"Children array changed while iterating over it, resampling children.", LogWriter.Blocking);
         }
     }
 
@@ -215,10 +244,11 @@ public sealed class RoundRobinQdisc<THandle, TState> : ClassifyingQdisc<THandle,
         try
         {
             // prevent children from being removed while we're iterating over them
+            // new children can still be added, but that's not a problem
             _childrenLock.EnterReadLock();
             DebugLog.WriteDiagnostic($"Trying to enqueue workload {workload} to round robin qdisc {this}.", LogWriter.Blocking);
 
-            IChildClassification<THandle>[] children = _children;
+            IChildClassification<THandle>[] children = Volatile.Read(ref _children);
             for (int i = 0; i < children.Length; i++)
             {
                 if (children[i].TryEnqueue(state, workload))
@@ -285,14 +315,17 @@ public sealed class RoundRobinQdisc<THandle, TState> : ClassifyingQdisc<THandle,
         // link the child qdisc to the parent qdisc first
         child.Qdisc.InternalInitialize(this);
 
-        try
+        // no lock needed, a new array is created and the reference is CASed in
+        // contention is unlikely, since this method is only called when a new child qdisc is created
+        // and added to the parent qdisc, which is not a frequent operation
+        IChildClassification<THandle>[] children, newChildren;
+        do
         {
-            _childrenLock.EnterWriteLock();
-
-            // get the latest children array
-            IChildClassification<THandle>[] children = _children;
-
-            // it is possible that the child was already added previously, so we need to check for that
+            // get local readonly snapshot of the children array
+            children = Volatile.Read(ref _children);
+            // check if the child is already present
+            // we need to repeat this check in case another thread added the same child in the meantime
+            // (this shouldn't happen, but it's possible. people do weird things sometimes)
             for (int i = 0; i < children.Length; i++)
             {
                 if (children[i].Qdisc.Handle.Equals(child.Qdisc.Handle))
@@ -303,19 +336,14 @@ public sealed class RoundRobinQdisc<THandle, TState> : ClassifyingQdisc<THandle,
                 }
             }
             // child not present, add it
-            IChildClassification<THandle>[] newChildren = new IChildClassification<THandle>[children.Length + 1];
+            newChildren = new IChildClassification<THandle>[children.Length + 1];
             Array.Copy(children, newChildren, children.Length);
             newChildren[^1] = child;
-
-            // use Volatile.Write to ensure that the new array is visible to other threads and not just written to the local cache
-            _children = newChildren;
-            DebugLog.WriteDiagnostic($"Added child qdisc {child.Qdisc} to round robin qdisc {this}.", LogWriter.Blocking);
-            return true;
-        }
-        finally
-        {
-            _childrenLock.ExitWriteLock();
-        }
+            // try to CAS the new array in, if it fails, try again
+        } while (Interlocked.CompareExchange(ref _children, newChildren, children) != children);
+        // CAS succeeded, we're done
+        DebugLog.WriteDiagnostic($"Added child qdisc {child.Qdisc} to round robin qdisc {this}.", LogWriter.Blocking);
+        return true;
     }
 
     /// <inheritdoc/>
@@ -341,7 +369,7 @@ public sealed class RoundRobinQdisc<THandle, TState> : ClassifyingQdisc<THandle,
             // that's unfortunate, we need to acquire the write lock
             _childrenLock.EnterWriteLock();
 
-            IChildClassification<THandle>[] children = _children;
+            IChildClassification<THandle>[] children = Volatile.Read(ref _children);
             // check if the child is present
             // we need to repeat this check in case another thread removed the same child in the meantime
             // (this shouldn't happen, but it's possible. people do weird things sometimes)
@@ -401,7 +429,7 @@ public sealed class RoundRobinQdisc<THandle, TState> : ClassifyingQdisc<THandle,
         {
             _childrenLock.EnterReadLock();
 
-            IChildClassification<THandle>[] children = _children;
+            IChildClassification<THandle>[] children = Volatile.Read(ref _children);
             for (int i = 0; i < children.Length; i++)
             {
                 child = children[i].Qdisc;
@@ -477,36 +505,37 @@ public sealed class RoundRobinQdisc<THandle, TState> : ClassifyingQdisc<THandle,
             return (uint)newState;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public uint GetToken() => (uint)(Volatile.Read(ref _state) >> 32);
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public uint GetCount() => (uint)Volatile.Read(ref _state);
-    }
-
-    private readonly ref struct CriticalSection
-    {
-        private readonly ref int _count;
-
-        private CriticalSection(ref int state)
-        {
-            _count = ref state;
-        }
-
-        public static CriticalSection Enter(ref int state)
-        {
-            Interlocked.Increment(ref state);
-            return new CriticalSection(ref state);
-        }
-
-        public void Exit() => Interlocked.Decrement(ref _count);
-
-        public void SpinUntilEmpty()
-        {
-            SpinWait spinner = default;
-            while (Interlocked.CompareExchange(ref _count, 0, 0) != 0)
-            {
-                spinner.SpinOnce();
-            }
-        }
     }
 }
 
+file readonly ref struct CriticalSection
+{
+    private readonly ref int _count;
+
+    private CriticalSection(ref int state)
+    {
+        _count = ref state;
+    }
+
+    public static CriticalSection Enter(ref int state)
+    {
+        Interlocked.Increment(ref state);
+        return new CriticalSection(ref state);
+    }
+
+    public void Exit() => Interlocked.Decrement(ref _count);
+
+    public void SpinUntilEmpty()
+    {
+        SpinWait spinner = default;
+        while (Interlocked.CompareExchange(ref _count, 0, 0) != 0)
+        {
+            spinner.SpinOnce();
+        }
+    }
+}

@@ -20,7 +20,7 @@ Log.UseLogger(Logger.Create(LoggerConfiguration.Create()
     .UseDefaultLogWriter(LogWriter.Blocking)));
 
 ClassifyingWorkloadFactory<int> factory = new QdiscBuilder<int>()
-    .UseMaximumConcurrency(8)
+    .UseMaximumConcurrency(4)
     .FlowExecutionContextToContinuations()
     .RunContinuationsOnCapturedContext()
     .UseAnonymousWorkloadPooling(poolSize: 64)
@@ -184,8 +184,8 @@ for (int times = 0; times < 2; times++)
     await Workload.WhenAll(workloads2);
 }
 Log.WriteFatal("STARTING TESTS");
-AwaitableWorkload[] wls = new AwaitableWorkload[800];
-for (int i = 0; i < 800; i++)
+AwaitableWorkload[] wls = new AwaitableWorkload[80];
+for (int i = 0; i < 80; i++)
 {
     wls[i] = factory.ScheduleAsync(flag =>
     {
@@ -195,6 +195,27 @@ for (int i = 0; i < 800; i++)
 Log.WriteInfo("Waiting for all workloads to complete...");
 await Workload.WhenAll(wls);
 Log.WriteFatal("DONE WITH TESTS");
+
+ClasslessWorkloadFactory<int> simpleFactory = new QdiscBuilder<int>()
+    .UseMaximumConcurrency(16)
+    .FlowExecutionContextToContinuations()
+    .RunContinuationsOnCapturedContext()
+    .UseAnonymousWorkloadPooling(poolSize: 64)
+    .UseClasslessRoot<FifoQdisc<int>>(1)
+    .Build();
+
+Log.WriteInfo("Starting simple tests...");
+AwaitableWorkload[] wls2 = new AwaitableWorkload[80];
+for (int i = 0; i < 80; i++)
+{
+    wls2[i] = simpleFactory.ScheduleAsync(flag =>
+    {
+        Thread.Sleep(100);
+    });
+}
+Log.WriteInfo("Waiting for all workloads to complete...");
+await Workload.WhenAll(wls2);
+Log.WriteInfo("Done with simple tests.");
 
 static void DoStuff(CancellationFlag cancellationFlag)
 {

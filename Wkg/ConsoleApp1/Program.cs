@@ -1,4 +1,5 @@
 ﻿// See https://aka.ms/new-console-template for more information
+using System.Diagnostics;
 using Wkg.Logging;
 using Wkg.Logging.Configuration;
 using Wkg.Logging.Generators;
@@ -19,7 +20,7 @@ Log.UseLogger(Logger.Create(LoggerConfiguration.Create()
     .UseDefaultLogWriter(LogWriter.Blocking)));
 
 ClassifyingWorkloadFactory<int> factory = new QdiscBuilder<int>()
-    .UseMaximumConcurrency(1)
+    .UseMaximumConcurrency(8)
     .FlowExecutionContextToContinuations()
     .RunContinuationsOnCapturedContext()
     .UseAnonymousWorkloadPooling(poolSize: 64)
@@ -76,7 +77,11 @@ Workload workload = factory.ScheduleAsync(flag =>
 
 cts.Cancel();
 
-WorkloadResult result2 = await workload;
+Workload wl2 = (Workload)await Workload.WhenAny(workload);
+
+Debug.Assert(wl2.IsCompleted);
+
+WorkloadResult result2 = wl2.GetAwaiter().GetResult();
 
 Log.WriteInfo($"Result: {result2}");
 
@@ -133,7 +138,7 @@ for (int times = 0; times < 2; times++)
         }
         if (i == 5)
         {
-            workloads1[i] = factory.ClassifyAsync(fifoState, _ => workloads1[6].TryCancel());
+            workloads1[i] = factory.ClassifyAsync(fifoState, _ => workloads1[4].TryCancel());
             continue;
         }
         workloads1[i] = factory.ClassifyAsync(fifoState, DoStuff);

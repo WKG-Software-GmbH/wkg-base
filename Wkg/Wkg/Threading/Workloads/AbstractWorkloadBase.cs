@@ -34,7 +34,7 @@ public abstract class AbstractWorkloadBase
     /// <summary>
     /// Indicates whether the workload is in any of the terminal states: <see cref="WorkloadStatus.RanToCompletion"/>, <see cref="WorkloadStatus.Faulted"/>, or <see cref="WorkloadStatus.Canceled"/>.
     /// </summary>
-    public bool IsCompleted => Status.IsOneOf(CommonFlags.Completed);
+    public virtual bool IsCompleted => Status.IsOneOf(CommonFlags.Completed);
 
     /// <summary>
     /// Attempts to execute the action associated with this workload.

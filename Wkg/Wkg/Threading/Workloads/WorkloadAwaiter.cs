@@ -20,7 +20,7 @@ public readonly struct WorkloadAwaiter : ICriticalNotifyCompletion, INotifyCompl
     /// <remarks>
     /// <see langword="WARNING"/>: Do not change the signature of this property. It is used by compiler generated code.
     /// </remarks>
-    public readonly bool IsCompleted => _workload.IsCompleted && _workload.HasResult;
+    public readonly bool IsCompleted => _workload.IsCompleted;
 
     /// <inheritdoc/>
     public void OnCompleted(Action continuation)
@@ -51,12 +51,12 @@ public readonly struct WorkloadAwaiter : ICriticalNotifyCompletion, INotifyCompl
 
     internal static void ValidateEnd(AwaitableWorkload workload)
     {
-        if (!workload.HasResult)
+        if (!workload.IsCompleted)
         {
             DebugLog.WriteDiagnostic($"workload: {workload} is not completed. blocking until completion", LogWriter.Blocking);
             workload.InternalWait(Timeout.Infinite, CancellationToken.None);
         }
         Debug.Assert(workload.IsCompleted, "Workload must be completed at this point.");
-        Debug.Assert(workload.HasResult, "Workload must have a result at this point.");
+        Debug.Assert(workload.ContinuationsInvoked, "Continuations should have been invoked at this point.");
     }
 }

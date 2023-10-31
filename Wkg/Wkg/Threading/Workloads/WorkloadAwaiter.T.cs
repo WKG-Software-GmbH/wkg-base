@@ -20,7 +20,7 @@ public readonly struct WorkloadAwaiter<TResult> : ICriticalNotifyCompletion, INo
     /// <remarks>
     /// <see langword="WARNING"/>: Do not change the signature of this property. It is used by compiler generated code.
     /// </remarks>
-    public readonly bool IsCompleted => _workload.IsCompleted && _workload.HasResult;
+    public readonly bool IsCompleted => _workload.IsCompleted;
 
     /// <inheritdoc/>
     public readonly void OnCompleted(Action continuation)

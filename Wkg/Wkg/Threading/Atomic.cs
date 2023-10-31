@@ -1,4 +1,5 @@
 ﻿using System.Runtime.CompilerServices;
+using Wkg.Common;
 
 namespace Wkg.Threading;
 
@@ -76,6 +77,30 @@ public static class Atomic
     /// <summary>
     /// Atomically increments the value stored in the specified location, but only if the incremented value is less than or equal to the specified maximum value.
     /// </summary>
+    /// <remarks>
+    /// The input values must satisfy the following precondition:
+    /// <c>int.MinValue &lt;= location - maxValue + 1 &lt;= int.MaxValue</c>
+    /// </remarks>
+    /// <param name="location">A reference to the integer value to increment.</param>
+    /// <param name="maxValue">The maximum value. If the incremented value would exceed this value, it is clamped to this value.</param>
+    /// <returns>The original value stored in <paramref name="location"/> before incrementing.</returns>
+    public static int IncrementClampMaxFast(ref int location, int maxValue)
+    {
+        int original, incremented;
+        do
+        {
+            original = Volatile.Read(ref location);
+            // believe it or not, this branchless version alone eliminates two branches and three jump labels
+            // in the optimized x64 JIT assembly :0
+            incremented = FastMath.Min(original + 1, maxValue);
+        }
+        while (Interlocked.CompareExchange(ref location, incremented, original) != original);
+        return original;
+    }
+
+    /// <summary>
+    /// Atomically increments the value stored in the specified location, but only if the incremented value is less than or equal to the specified maximum value.
+    /// </summary>
     /// <param name="location">A reference to the integer value to increment.</param>
     /// <param name="maxValue">The maximum value. If the incremented value would exceed this value, it is clamped to this value.</param>
     /// <returns>The original value stored in <paramref name="location"/> before incrementing.</returns>
@@ -133,6 +158,28 @@ public static class Atomic
     #endregion IncrementClampMax
 
     #region DecrementClampMin
+
+    /// <summary>
+    /// Atomically decrements the value stored in the specified location, but only if the decremented value is greater than or equal to the specified minimum value.
+    /// </summary>
+    /// <remarks>
+    /// The input values must satisfy the following precondition:
+    /// <c>int.MinValue &lt;= location - minValue - 1 &lt;= int.MaxValue</c>
+    /// </remarks>
+    /// <param name="location">A reference to the integer value to decrement.</param>
+    /// <param name="minValue">The minimum value. If the decremented value would be less than this value, it is clamped to this value.</param>
+    /// <returns>The original value stored in <paramref name="location"/> before decrementing.</returns>
+    public static int DecrementClampMinFast(ref int location, int minValue)
+    {
+        int original, decremented;
+        do
+        {
+            original = Volatile.Read(ref location);
+            decremented = FastMath.Max(original - 1, minValue);
+        }
+        while (Interlocked.CompareExchange(ref location, decremented, original) != original);
+        return original;
+    }
 
     /// <summary>
     /// Atomically decrements the value stored in the specified location, but only if the decremented value is greater than or equal to the specified minimum value.

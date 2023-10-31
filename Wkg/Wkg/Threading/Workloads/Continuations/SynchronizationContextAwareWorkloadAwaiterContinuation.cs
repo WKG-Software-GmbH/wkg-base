@@ -13,7 +13,7 @@ internal class SynchronizationContextAwareWorkloadAwaiterContinuation : Workload
         _synchronizationContext = synchronizationContext;
     }
 
-    public override void Invoke()
+    public override void Invoke(AwaitableWorkload workload)
     {
         if (_capturedContext is null)
         {

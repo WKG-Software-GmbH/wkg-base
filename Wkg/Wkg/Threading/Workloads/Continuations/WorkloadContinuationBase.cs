@@ -15,5 +15,5 @@ internal abstract class WorkloadContinuationBase : IWorkloadContinuation
         _continuation = continuation;
     }
 
-    public abstract void Invoke();
+    public abstract void Invoke(AwaitableWorkload workload);
 }

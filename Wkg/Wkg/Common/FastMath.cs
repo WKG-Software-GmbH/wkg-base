@@ -4,7 +4,8 @@ using System.Runtime.CompilerServices;
 namespace Wkg.Common;
 
 /// <summary>
-/// Provides implementations of common math functions that are faster than the BCL implementations in the <see cref="Math"/> API, but some additional preconditions may apply.
+/// Provides performance-oriented implementations of common math functions that are generally faster 
+/// than the BCL implementations in the <see cref="Math"/> API, but some additional preconditions may apply.
 /// </summary>
 [DebuggerStepThrough]
 public static unsafe class FastMath

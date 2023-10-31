@@ -126,7 +126,7 @@ public sealed class RoundRobinQdisc<THandle, TState> : ClassifyingQdisc<THandle,
         if (IsKnownEmptyVolatile)
         {
             // we know that all children are empty, so we can return false immediately
-            DebugLog.WriteDiagnostic($"Qdisc is known to be empty, taking shortcut and returning false.", LogWriter.Blocking);
+            DebugLog.WriteDiagnostic($"Qdisc {this} is known to be empty, taking shortcut and returning false.", LogWriter.Blocking);
             workload = null;
             return false;
         }
@@ -159,7 +159,7 @@ public sealed class RoundRobinQdisc<THandle, TState> : ClassifyingQdisc<THandle,
             // for all threads, to keep these potential other threads alive until consensus is established.
             // after that, we can safely say that the children are empty and we don't need to check again
             // until new workloads are scheduled.
-            Volatile.Write(ref _emptyCounter, 0);
+            Interlocked.Exchange(ref _emptyCounter, 0);
 
             int emptyCounter;
             IChildClassification<THandle>[] children = Volatile.Read(ref _children);
@@ -188,7 +188,7 @@ public sealed class RoundRobinQdisc<THandle, TState> : ClassifyingQdisc<THandle,
                     DebugLog.WriteDiagnostic($"Dequeued workload from child qdisc {qdisc}.", LogWriter.Blocking);
                     // we found a workload, update the last child qdisc and reset the empty counter
                     _localLast.Value = children[startIndex].Qdisc;
-                    Volatile.Write(ref _emptyCounter, 0);
+                    Interlocked.Exchange(ref _emptyCounter, 0);
                     // leave the critical dequeue section
                     Interlocked.Decrement(ref _criticalDequeueSectionCounter);
                     return true;
@@ -461,7 +461,10 @@ public sealed class RoundRobinQdisc<THandle, TState> : ClassifyingQdisc<THandle,
     protected override void OnWorkScheduled()
     {
         // we must reset the empty counter before we call the parent scheduler
-        Volatile.Write(ref _emptyCounter, 0);
+        // we need a full fence here, since we need to ensure that the empty counter is reset
+        // before the parent scheduler is notified (Volatile.Write has release semantics)
+        Interlocked.Exchange(ref _emptyCounter, 0);
+        DebugLog.WriteDiagnostic($"{this}: reset empty counter to 0.", LogWriter.Blocking);
         base.OnWorkScheduled();
     }
 }

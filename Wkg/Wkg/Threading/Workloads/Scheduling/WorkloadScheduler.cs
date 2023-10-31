@@ -6,6 +6,8 @@ using Wkg.Threading.Workloads.Queuing;
 
 namespace Wkg.Threading.Workloads.Internals;
 
+using CommonFlags = WorkloadStatus.CommonFlags;
+
 internal class WorkloadScheduler : INotifyWorkScheduled
 {
     private readonly IQdisc _rootQdisc;
@@ -26,56 +28,24 @@ internal class WorkloadScheduler : INotifyWorkScheduled
 
     public int MaximumConcurrencyLevel => _maximumConcurrencyLevel;
 
-    // TODO: deadlocking race condition with TryDequeueOrExitSafely!!! (when we're attempting to dispatch a new worker with one worker trying to exit)
     void INotifyWorkScheduled.OnWorkScheduled()
     {
         DebugLog.WriteDiagnostic("Workload scheduler was poked.", LogWriter.Blocking);
 
-        SpinWait spinner = default;
-        while (true)
+        // this atomic clamped increment is commital, if we have room for another worker, we must start one
+        // we are not allowed to abort the operation, because that could lead to starvation
+        int original = Atomic.IncrementClampMaxFast(ref _currentDegreeOfParallelism, _maximumConcurrencyLevel);
+        if (original < _maximumConcurrencyLevel)
         {
-            int workerCount = Volatile.Read(ref _currentDegreeOfParallelism);
-            if (workerCount < _maximumConcurrencyLevel)
-            {
-                DebugLog.WriteDiagnostic($"Attempting to start a new worker: {workerCount} < {_maximumConcurrencyLevel}.", LogWriter.Blocking);
-                // we have room for another worker, so we'll start one
-                // TODO: this is broken (DEADLOCK / worker starvation). Can't we simplify this with Atomic.IncrementClampMax?
-                int actualWorkerCount = Interlocked.CompareExchange(ref _currentDegreeOfParallelism, workerCount + 1, workerCount);
-                if (actualWorkerCount == workerCount)
-                {
-                    DebugLog.WriteDiagnostic($"Successfully started a new worker: {workerCount} -> {actualWorkerCount + 1}.", LogWriter.Blocking);
-                    // do not flow the execution context to the worker
-                    DispatchWorkerNonCapturing();
-                    // we successfully started a worker, so we can exit
-                    return;
-                }
-                // the worker count changed. We either lost a worker, or we gained a worker
-                if (actualWorkerCount < workerCount)
-                {
-                    // we lost a worker.
-                    // the only way this could happen is if the worker exited, because there were no more tasks
-                    // however, we just added a task, so we know that there are tasks
-                    // we also know that that the worker will re-sample the queue, so we trust that the worker knows what it's doing
-                    // we can exit
-                    DebugLog.WriteDiagnostic($"Lost a worker: {workerCount} -> {actualWorkerCount}.", LogWriter.Blocking);
-                    return;
-                }
-                // we gained a worker.
-                // the only way this could happen is if another task was scheduled,
-                // and the worker count was incremented before we could increment it.
-                // this still means that we could benefit from another worker, so we'll try again
-                // worst case is that we'll start a worker that will find out that it's useless because somone else already did the work.
-                // in that case, the worker will end itself, and everything will be fine
-                DebugLog.WriteDiagnostic($"Gained a worker: {workerCount} -> {actualWorkerCount}. Spinning for retry.", LogWriter.Blocking);
-                spinner.SpinOnce();
-            }
-            else
-            {
-                // we're at the max degree of parallelism, so we can exit
-                DebugLog.WriteDiagnostic($"Reached maximum concurrency level: {workerCount} >= {_maximumConcurrencyLevel}.", LogWriter.Blocking);
-                return;
-            }
+            // we have room for another worker, so we'll start one
+            DebugLog.WriteDiagnostic($"Successfully started a new worker: {original} -> {original + 1}.", LogWriter.Blocking);
+            // do not flow the execution context to the worker
+            DispatchWorkerNonCapturing();
+            // we successfully started a worker, so we can exit
+            return;
         }
+        // we're at the max degree of parallelism, so we can exit
+        DebugLog.WriteDiagnostic($"Reached maximum concurrency level: {original} >= {_maximumConcurrencyLevel}.", LogWriter.Blocking);
     }
 
     private void DispatchWorkerNonCapturing()
@@ -106,7 +76,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
         while (TryDequeueOrExitSafely(previousExecutionFailed, out AbstractWorkloadBase? workload))
         {
             previousExecutionFailed = !workload.TryRunSynchronously();
-            Debug.Assert(workload.IsCompleted);
+            Debug.Assert(workload.Status.IsOneOf(CommonFlags.Completed));
             workload.InternalRunContinuations();
         }
         DebugLog.WriteInfo("Worker exited.", LogWriter.Blocking);
@@ -121,12 +91,10 @@ internal class WorkloadScheduler : INotifyWorkScheduled
     /// <remarks>
     /// If this method returns <see langword="false"/>, the worker must exit in order to respect the max degree of parallelism.
     /// </remarks>
-    // TODO: deadlocking race condition with OnWorkScheduled!!! (when we're attempting to restore the worker count with 1 worker in total)
     private bool TryDequeueOrExitSafely(bool previousExecutionFailed, [NotNullWhen(true)] out AbstractWorkloadBase? workload)
     {
         DebugLog.WriteDiagnostic("Worker is attempting to dequeue a workload.", LogWriter.Blocking);
-        SpinWait spinner = default;
-        // spin loop against scheduling threads
+        // race against scheduling threads
         while (true)
         {
             if (_rootQdisc.TryDequeueInternal(previousExecutionFailed, out workload))
@@ -135,9 +103,11 @@ internal class WorkloadScheduler : INotifyWorkScheduled
                 // we successfully dequeued a task, return with success
                 return true;
             }
-            // IDEA: we could introduce a non-blocking critical section here.
-            // Scheduling threads will have to wait for the worker to figure out if it wants to exit or not.
-            int workerCountAfterExit = Interlocked.Decrement(ref _currentDegreeOfParallelism);
+            // we are about to exit, so we must decrement the worker count
+            // there is no need for a clamped decrement, because every worker will only ever increment the worker count
+            // one when it is started, and decrement it once when it exits
+            // as long as invariants are not broken, the worker count will never be negative
+            Interlocked.Decrement(ref _currentDegreeOfParallelism);
             // re-sample the queue
             DebugLog.WriteDiagnostic($"Worker found no tasks, resampling root qdisc to ensure true emptiness.", LogWriter.Blocking);
             // it is the responsibility of the qdisc implementation to ensure that this operation is thread-safe
@@ -147,55 +117,21 @@ internal class WorkloadScheduler : INotifyWorkScheduled
                 DebugLog.WriteDiagnostic($"Worker found no more tasks, exiting.", LogWriter.Blocking);
                 return false;
             }
-            // failure case: someone else scheduled a task, possible before we decremented the worker count,
+            DebugLog.WriteDiagnostic($"Worker exit attempt was interrupted by new scheduling activity. Attempting to restore worker count.", LogWriter.Blocking);
+            // failure case: someone else scheduled a task, possibly before we decremented the worker count,
             // so we could lose a worker here attempt abort the exit by incrementing the worker count again
-            // spin loop against other workers currently exiting
-            while (true)
+            // we could be racing against a scheduling thread, or any other worker that is also trying to exit
+            // we simply do a simple atomic clamped increment, and depending on that result, we either exit, or we retry
+            // this is thread-safe, because we CAS first, and decide based on the result without any interleaving
+            int original = Atomic.IncrementClampMaxFast(ref _currentDegreeOfParallelism, _maximumConcurrencyLevel);
+            if (original >= _maximumConcurrencyLevel)
             {
-                // WTF: why not just do an atomic clamped increment here?
-                int restoreTarget = workerCountAfterExit + 1;
-                int preRestoreWorkerCount = Interlocked.CompareExchange(ref _currentDegreeOfParallelism, restoreTarget, workerCountAfterExit);
-                DebugLog.WriteDiagnostic($"Worker attempting to restore worker count: {workerCountAfterExit} -> {restoreTarget}. Actual worker count: {preRestoreWorkerCount}.", LogWriter.Blocking);
-                // originalWorkerCount = 1
-                // workerCountAfterExit = 0
-                // preRestoreWorkerCount = 0
-                // ==> successfull restore
-                if (preRestoreWorkerCount > workerCountAfterExit)
-                {
-                    // it's fine. They already scheduled a replacement worker, so we can exit
-                    DebugLog.WriteDiagnostic($"Worker exiting after replacement worker was scheduled.", LogWriter.Blocking);
-                    return false;
-                }
-                // we either successfully restored the worker count, or we lost more than one worker
-                if (preRestoreWorkerCount == workerCountAfterExit)
-                {
-                    // the worker count before our restore attempt was the one we expected, so we successfully
-                    // restored to the original worker count. we can break out of the restore loop, spin a few
-                    // cycles and continue resampling in the outer dequeue loop.
-                    DebugLog.WriteDiagnostic($"Worker successfully restored worker count to {restoreTarget}. Continuing dequeue loop.", LogWriter.Blocking);
-                    break;
-                }
-                // some other worker beat us to restoring the worker count, so we need to try again
-                // attempt to stay alive!
-                workerCountAfterExit = preRestoreWorkerCount;
-                restoreTarget = workerCountAfterExit + 1;
-                // if we would violate the max degree of parallelism, we need to exit
-                // TODO: this is risky!!!!
-                if (restoreTarget > _maximumConcurrencyLevel)
-                {
-                    // give up and exit
-                    DebugLog.WriteDiagnostic($"Worker exiting after encountering maximum concurrency level {_maximumConcurrencyLevel} during restore attempt.", LogWriter.Blocking);
-                    return false;
-                }
-                // continue attempts to stay alive
-                // worst thing that could happen is that we have been replaced by the next iteration,
-                // or that we manage to restore, stay alive, but then find out that we're useless (no tasks)
-                // in any case, we'll either continure with well-defined state, or we'll exit
-                DebugLog.WriteDiagnostic($"Worker spinning for retry during restore attempt.", LogWriter.Blocking);
-                spinner.SpinOnce();
+                // somehow someone else comitted to creating a new worker, that's unfortunate due to the scheduling overhead
+                // but they are committed now, so we must give up and exit
+                DebugLog.WriteDiagnostic($"Worker exiting after encountering maximum concurrency level {_maximumConcurrencyLevel} during restore attempt.", LogWriter.Blocking);
+                return false;
             }
-            DebugLog.WriteDiagnostic($"Worker spinning for retry while attempting to dequeue workload.", LogWriter.Blocking);
-            spinner.SpinOnce();
+            DebugLog.WriteDiagnostic($"Worker successfully recovered from termination attempt and will continue attempting to dequeue workloads.", LogWriter.Blocking);
         }
     }
 }

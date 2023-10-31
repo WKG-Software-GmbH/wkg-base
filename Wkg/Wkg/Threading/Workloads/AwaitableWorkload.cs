@@ -42,7 +42,12 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
         TryCancel();
     }
 
-    internal bool HasResult => ReferenceEquals(Volatile.Read(ref _continuation), _workloadCompletionSentinel);
+    /// <summary>
+    /// Indicates whether the result has been set and that the workload is in any of the terminal states: <see cref="WorkloadStatus.RanToCompletion"/>, <see cref="WorkloadStatus.Faulted"/>, or <see cref="WorkloadStatus.Canceled"/>.
+    /// </summary>
+    public override bool IsCompleted => base.IsCompleted && ContinuationsInvoked;
+
+    internal bool ContinuationsInvoked => ReferenceEquals(Volatile.Read(ref _continuation), _workloadCompletionSentinel);
 
     /// <summary>
     /// Attempts to transition the workload to the <see cref="WorkloadStatus.Canceled"/> state.
@@ -51,8 +56,8 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
     public bool TryCancel()
     {
         DebugLog.WriteDiagnostic($"{this}: Attempting to cancel workload.", LogWriter.Blocking);
-        // fast and easy path
-        if (IsCompleted)
+        // fast and easy path. we can simply check against the base implementation as we don't care about the result
+        if (base.IsCompleted)
         {
             // already completed, nothing to do
             DebugLog.WriteDiagnostic($"{this}: Workload is already completed, nothing to do.", LogWriter.Blocking);
@@ -127,7 +132,16 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
             // if we fail, then another thread was faster and we should just return
             // it is also possible that the workload is already running, or has just been canceled
             // in any way, we try our best, and if it doesn't work, we just give up
-            return ReferenceEquals(Interlocked.CompareExchange(ref _qdisc, current, qdisc), current);
+            bool result = ReferenceEquals(Interlocked.CompareExchange(ref _qdisc, qdisc, current), current);
+            if (result)
+            {
+                DebugLog.WriteDiagnostic($"{this}: Successfully bound workload to qdisc.", LogWriter.Blocking);
+            }
+            else
+            {
+                DebugLog.WriteWarning($"{this}: Failed to bind workload to qdisc. The workload is already running, has been canceled, or another thread was faster.", LogWriter.Blocking);
+            }
+            return result;
         }
         // the workload could have been initialized with a canceled cancellation token
         // in that case, we can give up and must set the result
@@ -136,15 +150,15 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
         {
             DebugLog.WriteDiagnostic($"{this}: Failed to bind workload to qdisc. The workload was canceled before it could be bound.", LogWriter.Blocking);
             SetCanceledResultUnsafe();
-            // run continuations
-            InternalRunContinuations();
-            return false;
         }
-        // this is weird.
-        WorkloadSchedulingException exception = WorkloadSchedulingException.CreateVirtual($"Workload is in an invalid state. This is a bug. Status was '{status}' during binding attempt.");
-        // mark the workload as faulted
-        Volatile.Write(ref _status, WorkloadStatus.Faulted);
-        SetFaultedResultUnsafe(exception);
+        else
+        {
+            // this is weird.
+            WorkloadSchedulingException exception = WorkloadSchedulingException.CreateVirtual($"Workload is in an invalid state. This is a bug. Status was '{status}' during binding attempt.");
+            // mark the workload as faulted
+            Volatile.Write(ref _status, WorkloadStatus.Faulted);
+            SetFaultedResultUnsafe(exception);
+        }
         // run continuations
         InternalRunContinuations();
         return false;
@@ -198,7 +212,7 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
             DebugLog.WriteException(exception, LogWriter.Blocking);
             // notify the caller that the workload could not be executed
             // they might be awaiting the workload, so we need to set the result if it's not already set
-            if (!HasResult)
+            if (!IsCompleted)
             {
                 Interlocked.Exchange(ref _status, WorkloadStatus.Faulted);
                 SetFaultedResultUnsafe(exception);
@@ -217,6 +231,7 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
 
     internal void AddOrRunInlineContinuationAction(object continuation, bool scheduleBeforeOthers = false)
     {
+        DebugLog.WriteDiagnostic($"{this}: Attempting to add or run inline continuation.", LogWriter.Blocking);
         if (!TryAddContinuation(continuation, scheduleBeforeOthers))
         {
             DebugLog.WriteDiagnostic($"{this}: Failed to add continuation. Executing inline.", LogWriter.Blocking);
@@ -226,7 +241,7 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
             }
             else if (continuation is IWorkloadContinuation wc)
             {
-                wc.Invoke();
+                wc.Invoke(this);
             }
             else
             {
@@ -240,7 +255,7 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
         if (!TryAddContinuation(continuation, scheduleBeforeOthers))
         {
             DebugLog.WriteDiagnostic($"{this}: Failed to add continuation. Invoking on context.", LogWriter.Blocking);
-            continuation.Invoke();
+            continuation.Invoke(this);
         }
     }
 
@@ -276,7 +291,7 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
     {
         DebugLog.WriteDiagnostic($"{this}: Attempting to add continuation.", LogWriter.Blocking);
         // fast and easy path
-        if (HasResult && IsCompleted)
+        if (IsCompleted)
         {
             DebugLog.WriteDiagnostic($"{this}: Workload is already completed, not scheduling continuation.", LogWriter.Blocking);
             // already completed, nothing to do
@@ -428,7 +443,7 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
                 return;
             case IWorkloadContinuation workloadContinuation:
                 DebugLog.WriteDiagnostic($"{this}: Running workload continuation.", LogWriter.Blocking);
-                workloadContinuation.Invoke();
+                workloadContinuation.Invoke(this);
                 return;
             case List<object?> list:
             {
@@ -446,7 +461,7 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
                             action.Invoke();
                             break;
                         case IWorkloadContinuation wc:
-                            wc.Invoke();
+                            wc.Invoke(this);
                             break;
                         case null:
                             break;
@@ -495,7 +510,7 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
     {
         Throw.ArgumentOutOfRangeException.IfLessThan(nameof(millisecondsTimeout), millisecondsTimeout, -1);
 
-        if (HasResult && IsCompleted)
+        if (IsCompleted)
         {
             return true;
         }
@@ -506,7 +521,7 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
     private bool SpinThenBlockingWait(int millisecondsTimeout, CancellationToken token)
     {
         uint startTimeTicks = (uint)Environment.TickCount;
-        if (HasResult && IsCompleted)
+        if (IsCompleted)
         {
             return true;
         }
@@ -522,7 +537,7 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
         for (int i = 0; i < spinCount; i++)
         {
             spinner.SpinOnce();
-            if (HasResult && IsCompleted)
+            if (IsCompleted)
             {
                 DebugLog.WriteDiagnostic($"{this}: workload completed during spin wait.", LogWriter.Blocking);
                 return true;
@@ -532,7 +547,7 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
         ManualResetEventSlim mres = new(false);
         // box the continuation first to capture the object reference
         object continuationBox = new Action(mres.Set);
-        bool result = false;
+        bool waitSuccessful = false;
         try
         {
             // try to add the continuation or immediately run it inline if we failed
@@ -541,24 +556,24 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
 
             if (millisecondsTimeout == Timeout.Infinite)
             {
-                result = mres.Wait(Timeout.Infinite, token);
+                waitSuccessful = mres.Wait(Timeout.Infinite, token);
             }
             else
             {
                 uint remainingTicks = (uint)Environment.TickCount - startTimeTicks;
                 if (remainingTicks < millisecondsTimeout)
                 {
-                    result = mres.Wait((int)(millisecondsTimeout - remainingTicks), token);
+                    waitSuccessful = mres.Wait((int)(millisecondsTimeout - remainingTicks), token);
                 }
             }
         }
         finally
         {
-            if (!IsCompleted && !result)
+            if (!IsCompleted)
             {
                 RemoveContinuation(continuationBox);
             }
         }
-        return result;
+        return waitSuccessful;
     }
 }

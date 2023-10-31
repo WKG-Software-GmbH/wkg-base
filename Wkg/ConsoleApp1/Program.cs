@@ -183,7 +183,18 @@ for (int times = 0; times < 2; times++)
     await Workload.WhenAll(workloads1);
     await Workload.WhenAll(workloads2);
 }
-Log.WriteInfo("main thread exiting...");
+Log.WriteFatal("STARTING TESTS");
+AwaitableWorkload[] wls = new AwaitableWorkload[800];
+for (int i = 0; i < 800; i++)
+{
+    wls[i] = factory.ScheduleAsync(flag =>
+    {
+        Thread.Sleep(100);
+    });
+}
+Log.WriteInfo("Waiting for all workloads to complete...");
+await Workload.WhenAll(wls);
+Log.WriteFatal("DONE WITH TESTS");
 
 static void DoStuff(CancellationFlag cancellationFlag)
 {

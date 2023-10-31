@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Wkg.Common.Extensions;
 using Wkg.Common.ThrowHelpers;
@@ -22,13 +23,13 @@ public sealed class RoundRobinQdisc<THandle, TState> : ClassifyingQdisc<THandle,
 {
     private readonly ThreadLocal<IQdisc?> _localLast;
     private readonly IClasslessQdisc<THandle> _localQueue;
-
     private volatile IChildClassification<THandle>[] _children;
     private readonly Predicate<TState> _predicate;
+
     private readonly ReaderWriterLockSlim _childrenLock;
+    private readonly EmptyCounter _emptyCounter;
     private int _rrIndex;
-    private int _emptyCounter;
-    private int _criticalDequeueSectionCounter;
+    private int _criticalDequeueSection;
 
     private RoundRobinQdisc(THandle handle, Predicate<TState> predicate) : base(handle)
     {
@@ -37,6 +38,7 @@ public sealed class RoundRobinQdisc<THandle, TState> : ClassifyingQdisc<THandle,
         _children = new IChildClassification<THandle>[] { new NoChildClassification<THandle>(_localQueue) };
         _predicate = predicate;
         _childrenLock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
+        _emptyCounter = new EmptyCounter();
     }
 
     /// <inheritdoc/>
@@ -96,8 +98,7 @@ public sealed class RoundRobinQdisc<THandle, TState> : ClassifyingQdisc<THandle,
             try
             {
                 _childrenLock.EnterReadLock();
-                // TODO: counter generations
-                return Volatile.Read(ref _emptyCounter) >= _children.Length;
+                return _emptyCounter.GetCount() >= _children.Length;
             }
             finally
             {
@@ -131,119 +132,78 @@ public sealed class RoundRobinQdisc<THandle, TState> : ClassifyingQdisc<THandle,
             return true;
         }
         // backtracking failed, or was not requested. We need to iterate over all child qdiscs.
-        // we don't need a lock for dequeueing, since only empty qdiscs can be removed anyway
-        // and new children being read an iteration later is not a problem. The problem only
-        // arises when new workloads are scheduled to a stale child qdisc.
-        // we do need to resample the children array on every iteration though, since it can change
-        // while we're iterating over it.
-        SpinWait spinner = default;
-
-        // repeat until we successfully complete one full iteration over all child qdiscs
-        // without the children array changing
-        while (true)
+        try
         {
-            // we need to keep track of the number of empty child qdiscs we encounter
-            // we do this by incrementing the global empty counter on every iteration in which
-            // any thread encounters an empty child qdisc. the counter is reset to 0 when a workload
-            // is scheduled to any child qdisc, or whenever any thread encounters a non-empty child qdisc.
-            // if the counter reaches the length of the children array, all child qdiscs are empty
+            // TODO: would be cool to do a try enter read lock here, and do other stuff if we can't
+            // makes no sense to block all workers just because someone is modifying the children array
+            // we can't also just try and return false, since our parent may think that we're empty
+            _childrenLock.EnterReadLock();
 
-            int emptyCounter = 0;
-            IChildClassification<THandle>[] children = Volatile.Read(ref _children);
-            do
+            IChildClassification<THandle>[] children = _children;
+
+            // loop until we find a workload or until we meet requirements for worker termination
+            while (true) 
             {
-                // startIndex is not guaranteed to be in range, since we are reading *the original value*
-                // the modulo is only applied after the increment, so we need to check if the index is in range
-                int startIndex = Atomic.IncrementModulo(ref _rrIndex, children.Length);
-                DebugLog.WriteDiagnostic($"{this} Round robin index: {startIndex}.", LogWriter.Blocking);
-                if (startIndex >= children.Length)
-                {
-                    // we're out of range, the old round robin index was stale
-                    // retry with the updated round robin index which is guaranteed to be in range
-                    // (unless the array changed again, but that's unlikely)
-                    DebugLog.WriteDiagnostic($"{this} Round robin index out of range, retrying with updated index.", LogWriter.Blocking);
-                    continue;
-                }
-                // we're in range, try to dequeue from the child qdisc until we find a workload
-                // or we wrap around and end up at the start index again
-                // enter the critical dequeue section
-                Interlocked.Increment(ref _criticalDequeueSectionCounter);
-                IQdisc qdisc = children[startIndex].Qdisc;
+                // this is our local round robin index. it is guaranteed to be in range and that we are the only thread
+                // that has this index assigned (well, unless there's more worker threads than children, but that's unlikely)
+                // NOTE: that the _rrIndex is *post-incremented*, so our index is _rrIndex - 1
+                // (well it would be, if it wasn't for the modulo)
+                int index = Atomic.IncrementModulo(ref _rrIndex, children.Length);
+                uint token = _emptyCounter.GetToken();
+                CriticalSection criticalSection = CriticalSection.Enter(ref _criticalDequeueSection);
+                IQdisc qdisc = children[index].Qdisc;
                 if (qdisc.TryDequeueInternal(backTrack, out workload))
                 {
                     DebugLog.WriteDiagnostic($"{this} Dequeued workload from child qdisc {qdisc}.", LogWriter.Blocking);
                     // we found a workload, update the last child qdisc and reset the empty counter
-                    _localLast.Value = children[startIndex].Qdisc;
-                    if (emptyCounter == children.Length)
-                    {
-                        DebugLog.WriteWarning($"{this} Dude, the greater than operator just saved you... you were about to lose a worker thread.", LogWriter.Blocking);
-                    }
-                    Interlocked.Exchange(ref _emptyCounter, 0);
+                    _localLast.Value = children[index].Qdisc;
+                    // reset the empty counter and start a new counter generation *before* we leave the critical dequeue section
+                    _emptyCounter.Reset();
                     // leave the critical dequeue section
-                    Interlocked.Decrement(ref _criticalDequeueSectionCounter);
+                    criticalSection.Exit();
                     return true;
                 }
-                // we didn't find a workload, increment the empty counter
-                // if the counter reaches the length of the children array, all child qdiscs are empty
-                // and we can return false
-                // TODO: this is the actual problem!!!
-                // we increment the empty counter "from an old counter generation", so:
-                // Thread 1: fails check at emptyCounter = length - 1
-                // Thread 2: succeeds check with next index
-                // Thread 2: resets empty counter to 0
-                // Thread 1: increments empty counter based on outdated decision (the last read value was from Thread 2, which reset the counter)
-                // this will cause the qdisc to be considered empty in the next round of iterations where
-                // emptyCounter == children.Length, even though the very next child could return a workload
-                // this race condition is NOT limited to 2 threads. so no number n will fix the broken check if (emptyCounter + n > children.Length)
-                // TODO: threads should only be allowed to execute the line below if no reset occurred between sampling a child themselves and getting
-                // to this line. this is a critical section that must be protected by a lock or with another atomic "generation" counter that is incremented
-                // whenever the empty counter is reset. the generation counter must be sampled before the empty counter is incremented and compared to the
-                // generation counter after the increment. if they are not equal, the increment must be discarded and the empty counter must be resampled.
-                // this bug occurs in the transition from emptyCounter = 0 to emptyCounter > 0. (so right after the reset)
-                // it manifests itself as a false positive for IsKnownEmptyVolatile, so when emptyCounter approaches children.Length!
-                emptyCounter = Interlocked.Increment(ref _emptyCounter);
                 // leave the critical dequeue section
-                Interlocked.Decrement(ref _criticalDequeueSectionCounter);
-                // we intentionally don't check for emptyCounter == children.Length here
-                // we must re-sample the first element to be sure that everything is really empty
-                // we give the other threads a chance to finish their work and update the empty counter
-                if (emptyCounter > children.Length)
+                criticalSection.Exit();
+                // we didn't find a workload, increment the empty counter
+                if (_emptyCounter.TryIncrement(token) >= children.Length)
                 {
                     // we meet requirements for worker termination
                     // *however* it's possible that one worker just took forever to dequeue a workload and that the 
                     // qdisc is not actually empty. We can't just return false here, since that would cause the worker
                     // to terminate permanently (until a new workload is scheduled). So we need to spin until we're sure
                     // that the qdisc is actually empty (wait for the critical dequeue section to be empty)
-                    // use interlocked for a full fence (volatile could not be enough here)
-                    DebugLog.WriteDiagnostic($"{this} All child qdiscs are empty, waiting for critical dequeue section to be empty.", LogWriter.Blocking);
-                    // we need to do this to establish consensus with the other threads before we declare the qdisc as empty
+                    // we need to do this to establish consensus with the other threads before we declare the qdiscs as empty.
                     // once they are declared empty, we will never check again until new workloads are scheduled. So this is
                     // kind of a big deal.
-                    while (Interlocked.CompareExchange(ref _criticalDequeueSectionCounter, 0, 0) != 0)
-                    {
-                        spinner.SpinOnce();
-                    }
+                    // we don't technically need to wait until it's completely empty, we just need to wait for any threads that
+                    // entered the critical dequeue section while we were in the critical dequeue section to leave it.
+                    // so there is potential for optimization here.
+                    DebugLog.WriteDiagnostic($"{this} All child qdiscs are empty, waiting for critical dequeue section to be empty.", LogWriter.Blocking);
+                    criticalSection.SpinUntilEmpty();
+                    // critical section is empty. RESAMPLE! (the other threads may have dequeued workloads in the meantime)
                     DebugLog.WriteDiagnostic($"{this} Critical dequeue section is empty, resampling children.", LogWriter.Blocking);
-                    // critical section is empty. RESAMPLE!
-                    if (!IsKnownEmptyVolatile)
+                    if (IsKnownEmptyVolatile)
                     {
-                        // the qdisc is not empty! continue with the next iteration
-                        DebugLog.WriteDiagnostic($"{this} Qdisc is not empty, continuing with next iteration.", LogWriter.Blocking);
-                        continue;
+                        // well, we trid our best, but it seems like the qdisc is actually empty
+                        // give up for now we must assume that the other threads did their checks
+                        // correctly and that the qdisc is indeed empty.
+                        // this qdisc is now considered empty until new workloads are scheduled.
+                        workload = null;
+                        _localLast.Value = null;
+                        DebugLog.WriteDiagnostic($"{this} Qdisc is empty, returning false.", LogWriter.Blocking);
+                        return false;
                     }
-                    // well, we trid our best, but it seems like the qdisc is actually empty
-                    // give up for now we must assume that the other threads did their checks
-                    // correctly and that the qdisc is indeed empty
-                    workload = null;
-                    _localLast.Value = null;
-                    DebugLog.WriteDiagnostic($"{this} Qdisc is empty, returning false.", LogWriter.Blocking);
-                    return false;
+
+                    // the qdisc is not empty! continue with the next iteration
+                    DebugLog.WriteDiagnostic($"{this} Qdisc is not empty, continuing with next iteration.", LogWriter.Blocking);
                 }
-                // just try the next child qdisc
+                // the qdisc is not empty, but we didn't find a workload. continue with the next iteration
             }
-            while (ReferenceEquals(children, Volatile.Read(ref _children)));
-            DebugLog.WriteDebug($"{this} Children array changed while iterating over it, resampling children.", LogWriter.Blocking);
-            // the children array changed while we were iterating over it
+        }
+        finally
+        {
+            _childrenLock.ExitReadLock();
         }
     }
 
@@ -466,11 +426,87 @@ public sealed class RoundRobinQdisc<THandle, TState> : ClassifyingQdisc<THandle,
     /// <inheritdoc/>
     protected override void OnWorkScheduled()
     {
-        // we must reset the empty counter before we call the parent scheduler
-        // we need a full fence here, since we need to ensure that the empty counter is reset
-        // before the parent scheduler is notified (Volatile.Write has release semantics)
-        Interlocked.Exchange(ref _emptyCounter, 0);
-        DebugLog.WriteDiagnostic($"{this}: reset empty counter to 0.", LogWriter.Blocking);
+        _emptyCounter.Reset();
         base.OnWorkScheduled();
     }
+
+    private class EmptyCounter
+    {
+        // the emptiness counter is a 64 bit value that is split into two parts:
+        // the first 32 bits are the generation counter, the last 32 bits are the actual counter
+        // the generation counter is incremented whenever the counter is reset
+        // we use a single 64 bit value to allow for atomic operations on both parts
+        private ulong _state;
+
+        public void Reset()
+        {
+            ulong state, newState;
+            do
+            {
+                state = Volatile.Read(ref _state);
+                uint generation = (uint)(state >> 32);
+                newState = (ulong)(generation + 1) << 32;
+            } while (Interlocked.CompareExchange(ref _state, newState, state) != state);
+            DebugLog.WriteDiagnostic($"Reset emptiness counter. Current token: {newState >> 32}.", LogWriter.Blocking);
+        }
+
+        /// <summary>
+        /// Increments the counter if the specified token is valid.
+        /// </summary>
+        /// <param name="token">The token previously obtained from <see cref="GetToken"/>.</param>
+        /// <returns>The actual counter value after the increment. If the token is invalid, the current counter value is returned.</returns>
+        public uint TryIncrement(uint token)
+        {
+            ulong state, newState;
+            do
+            {
+                state = Volatile.Read(ref _state);
+                uint currentGeneration = (uint)(state >> 32);
+                if (currentGeneration != token)
+                {
+                    // the generation changed, so the counter was reset
+                    // we can't increment the counter, since it's not the current generation
+                    DebugLog.WriteDebug($"Ignoring invalid emptiness counter token {token}. Current token is {currentGeneration}.", LogWriter.Blocking);
+                    return (uint)state;
+                }
+                // this is probably safe, if the counter ever overflows into the generation
+                // then you definitely have bigger problems than a broken round robin qdisc :)
+                newState = state + 1;
+            } while (Interlocked.CompareExchange(ref _state, newState, state) != state);
+            DebugLog.WriteDiagnostic($"Incremented emptiness counter to {newState & uint.MaxValue}.", LogWriter.Blocking);
+            return (uint)newState;
+        }
+
+        public uint GetToken() => (uint)(Volatile.Read(ref _state) >> 32);
+
+        public uint GetCount() => (uint)Volatile.Read(ref _state);
+    }
+
+    private readonly ref struct CriticalSection
+    {
+        private readonly ref int _count;
+
+        private CriticalSection(ref int state)
+        {
+            _count = ref state;
+        }
+
+        public static CriticalSection Enter(ref int state)
+        {
+            Interlocked.Increment(ref state);
+            return new CriticalSection(ref state);
+        }
+
+        public void Exit() => Interlocked.Decrement(ref _count);
+
+        public void SpinUntilEmpty()
+        {
+            SpinWait spinner = default;
+            while (Interlocked.CompareExchange(ref _count, 0, 0) != 0)
+            {
+                spinner.SpinOnce();
+            }
+        }
+    }
 }
+

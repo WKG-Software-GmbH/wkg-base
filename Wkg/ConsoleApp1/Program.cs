@@ -1,5 +1,4 @@
-﻿// See https://aka.ms/new-console-template for more information
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using Wkg.Logging;
 using Wkg.Logging.Configuration;
 using Wkg.Logging.Generators;
@@ -100,12 +99,16 @@ if (result3.TryGetResult(out string? value))
     Log.WriteInfo($"Result: {value}");
 }
 
-WorkloadResult result4 = await factory.ScheduleAsync(flag =>
+Workload wl4 = factory.ScheduleAsync(flag =>
 {
     Log.WriteInfo($"Hello from the root scheduler again again again");
     Thread.Sleep(1000);
     throw new Exception("This is an exception.");
 });
+
+WorkloadResult result4 = await wl4;
+
+Log.WriteInfo($"Result: {result4}");
 
 const int WORKLOAD_COUNT = 10;
 AwaitableWorkload[] workloads1 = new AwaitableWorkload[WORKLOAD_COUNT];

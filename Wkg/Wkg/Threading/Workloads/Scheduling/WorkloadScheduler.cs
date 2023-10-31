@@ -32,7 +32,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
     {
         DebugLog.WriteDiagnostic("Workload scheduler was poked.", LogWriter.Blocking);
 
-        // this atomic clamped increment is commital, if we have room for another worker, we must start one
+        // this atomic clamped increment is committing, if we have room for another worker, we must start one
         // we are not allowed to abort the operation, because that could lead to starvation
         int original = Atomic.IncrementClampMaxFast(ref _currentDegreeOfParallelism, _maximumConcurrencyLevel);
         if (original < _maximumConcurrencyLevel)
@@ -128,10 +128,10 @@ internal class WorkloadScheduler : INotifyWorkScheduled
             {
                 // somehow someone else comitted to creating a new worker, that's unfortunate due to the scheduling overhead
                 // but they are committed now, so we must give up and exit
-                DebugLog.WriteDiagnostic($"Worker exiting after encountering maximum concurrency level {_maximumConcurrencyLevel} during restore attempt.", LogWriter.Blocking);
+                DebugLog.WriteDebug($"Worker exiting after encountering maximum concurrency level {_maximumConcurrencyLevel} during restore attempt.", LogWriter.Blocking);
                 return false;
             }
-            DebugLog.WriteDiagnostic($"Worker successfully recovered from termination attempt and will continue attempting to dequeue workloads.", LogWriter.Blocking);
+            DebugLog.WriteDebug($"Worker successfully recovered from termination attempt and will continue attempting to dequeue workloads.", LogWriter.Blocking);
         }
     }
 }

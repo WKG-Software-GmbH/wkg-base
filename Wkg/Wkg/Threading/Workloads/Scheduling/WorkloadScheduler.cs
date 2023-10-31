@@ -175,15 +175,12 @@ internal class WorkloadScheduler : INotifyWorkScheduled
                     DebugLog.WriteDiagnostic($"Worker successfully restored worker count to {restoreTarget}. Continuing dequeue loop.", LogWriter.Blocking);
                     break;
                 }
-                // TODO: do we even need this?
-                // the only way this could happen is if we lost more than one worker
-                // in that case we probably want to stay alive, and break as well.
-                // We'd re-sample the queue, and then exit if there are no more tasks
-
                 // some other worker beat us to restoring the worker count, so we need to try again
+                // attempt to stay alive!
                 workerCountAfterExit = preRestoreWorkerCount;
                 restoreTarget = workerCountAfterExit + 1;
                 // if we would violate the max degree of parallelism, we need to exit
+                // TODO: this is risky!!!!
                 if (restoreTarget > _maximumConcurrencyLevel)
                 {
                     // give up and exit

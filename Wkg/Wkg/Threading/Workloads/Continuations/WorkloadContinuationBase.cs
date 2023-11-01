@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Wkg.Threading.Workloads.Continuations;
+﻿namespace Wkg.Threading.Workloads.Continuations;
 
 internal abstract class WorkloadContinuationBase : IWorkloadContinuation
 {

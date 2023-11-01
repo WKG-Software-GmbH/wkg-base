@@ -1,13 +1,14 @@
 ﻿using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
-using Wkg.Threading.Workloads.Pooling;
 using Wkg.Threading.Workloads.Queuing.Classless;
+using Wkg.Threading.Workloads.WorkloadTypes;
+using Wkg.Threading.Workloads.WorkloadTypes.Pooling;
 
 namespace Wkg.Threading.Workloads.Factories;
 
 public abstract class AbstractClasslessWorkloadFactory<THandle> : WorkloadFactory<THandle> where THandle : unmanaged
 {
-    private protected AbstractClasslessWorkloadFactory(IClasslessQdisc<THandle> root, AnonymousWorkloadPool? pool, WorkloadContextOptions? options) 
+    private protected AbstractClasslessWorkloadFactory(IClasslessQdisc<THandle> root, AnonymousWorkloadPoolManager? pool, WorkloadContextOptions? options) 
         : base(root, pool, options)
     {
     }
@@ -17,7 +18,7 @@ public abstract class AbstractClasslessWorkloadFactory<THandle> : WorkloadFactor
         DebugLog.WriteDiagnostic("Scheduling new anonymous workload.", LogWriter.Blocking);
         AnonymousWorkload workload = SupportsPooling
             ? Pool.Rent(action)
-            : new AnonymousWorkload(action);
+            : new AnonymousWorkloadImpl(action);
         ScheduleCore(workload);
     }
 
@@ -31,7 +32,7 @@ public abstract class AbstractClasslessWorkloadFactory<THandle> : WorkloadFactor
     {
         DebugLog.WriteDiagnostic("Scheduling new workload.", LogWriter.Blocking);
         options ??= DefaultOptions;
-        Workload workload = new(action, options, cancellationToken);
+        Workload workload = new WorkloadImpl(action, options, cancellationToken);
         ScheduleCore(workload);
         return workload;
     }
@@ -46,7 +47,7 @@ public abstract class AbstractClasslessWorkloadFactory<THandle> : WorkloadFactor
     {
         DebugLog.WriteDiagnostic("Scheduling new workload.", LogWriter.Blocking);
         options ??= DefaultOptions;
-        Workload<TResult> workload = new(func, options, cancellationToken);
+        Workload<TResult> workload = new WorkloadImpl<TResult>(func, options, cancellationToken);
         ScheduleCore(workload);
         return workload;
     }

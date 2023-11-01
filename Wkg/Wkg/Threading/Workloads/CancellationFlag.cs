@@ -1,5 +1,6 @@
 ﻿using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
+using Wkg.Threading.Workloads.WorkloadTypes;
 
 namespace Wkg.Threading.Workloads;
 
@@ -8,7 +9,7 @@ namespace Wkg.Threading.Workloads;
 /// </summary>
 public readonly struct CancellationFlag
 {
-    private static readonly AwaitableWorkload _neverCancelledWorkload = new Workload(null!, WorkloadStatus.Invalid, null!, CancellationToken.None);
+    private static readonly AwaitableWorkload _neverCancelledWorkload = new WorkloadImpl(null!, WorkloadStatus.Invalid, null!, CancellationToken.None);
     internal readonly AwaitableWorkload _workload;
 
     internal CancellationFlag(AwaitableWorkload workload)

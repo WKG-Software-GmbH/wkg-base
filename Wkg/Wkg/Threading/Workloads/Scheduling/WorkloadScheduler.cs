@@ -4,7 +4,7 @@ using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
 using Wkg.Threading.Workloads.Queuing;
 
-namespace Wkg.Threading.Workloads.Internals;
+namespace Wkg.Threading.Workloads.Scheduling;
 
 using CommonFlags = WorkloadStatus.CommonFlags;
 
@@ -69,7 +69,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
         }
     }
 
-    private void WorkerLoop(object? state)
+    protected virtual void WorkerLoop(object? state)
     {
         DebugLog.WriteInfo("Worker started.", LogWriter.Blocking);
         bool previousExecutionFailed = false;
@@ -91,7 +91,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
     /// <remarks>
     /// If this method returns <see langword="false"/>, the worker must exit in order to respect the max degree of parallelism.
     /// </remarks>
-    private bool TryDequeueOrExitSafely(bool previousExecutionFailed, [NotNullWhen(true)] out AbstractWorkloadBase? workload)
+    protected bool TryDequeueOrExitSafely(bool previousExecutionFailed, [NotNullWhen(true)] out AbstractWorkloadBase? workload)
     {
         DebugLog.WriteDiagnostic("Worker is attempting to dequeue a workload.", LogWriter.Blocking);
         // race against scheduling threads

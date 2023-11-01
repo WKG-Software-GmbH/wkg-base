@@ -1,7 +1,5 @@
-﻿using Wkg.Common.Extensions;
-using Wkg.Internals.Diagnostic;
+﻿using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
-using Wkg.Unmanaged;
 
 namespace Wkg.Threading.Workloads.Continuations;
 

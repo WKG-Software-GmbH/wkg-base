@@ -1,9 +1,8 @@
 ﻿using Wkg.Threading.Workloads.Factories;
-using Wkg.Threading.Workloads.Internals;
-using Wkg.Threading.Workloads.Pooling;
 using Wkg.Threading.Workloads.Queuing.Classful;
 using Wkg.Threading.Workloads.Queuing.Classifiers;
 using Wkg.Threading.Workloads.Queuing.Classless;
+using Wkg.Threading.Workloads.Scheduling;
 
 namespace Wkg.Threading.Workloads.Configuration;
 

@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using Wkg.Threading.Workloads.Queuing;
 using Wkg.Threading.Workloads.Scheduling;
+using Wkg.Threading.Workloads.DependencyInjection;
 
 namespace Wkg.Threading.Workloads;
 
@@ -35,6 +36,8 @@ public abstract class AbstractWorkloadBase
     /// Indicates whether the workload is in any of the terminal states: <see cref="WorkloadStatus.RanToCompletion"/>, <see cref="WorkloadStatus.Faulted"/>, or <see cref="WorkloadStatus.Canceled"/>.
     /// </summary>
     public virtual bool IsCompleted => Status.IsOneOf(CommonFlags.Completed);
+
+    internal virtual void RegisterServiceProvider(IWorkloadServiceProvider serviceProvider) => Pass();
 
     /// <summary>
     /// Attempts to execute the action associated with this workload.

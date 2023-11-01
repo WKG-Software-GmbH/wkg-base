@@ -5,23 +5,17 @@ namespace Wkg.Threading.Workloads;
 
 using CommonFlags = WorkloadStatus.CommonFlags;
 
-public partial class Workload : AwaitableWorkload
+public abstract partial class Workload : AwaitableWorkload
 {
-    private readonly Action<CancellationFlag> _action;
+    private protected Workload(WorkloadStatus status, WorkloadContextOptions options, CancellationToken cancellationToken)
+        : base(status, options, cancellationToken) => Pass();
 
-    internal Workload(Action<CancellationFlag> action, WorkloadContextOptions options, CancellationToken cancellationToken)
-        : this(action, WorkloadStatus.Created, options, cancellationToken) => Pass();
-
-    internal Workload(Action<CancellationFlag> action, WorkloadStatus status, WorkloadContextOptions options, CancellationToken cancellationToken)
-        : base(status, options, cancellationToken)
-    {
-        _action = action;
-    }
+    private protected abstract void ExecuteCore();
 
     private protected override bool TryExecuteUnsafeCore(out WorkloadStatus preTerminationStatus)
     {
         // execute the workload
-        _action(new CancellationFlag(this));
+        ExecuteCore();
         // if cancellation was requested, but the workload didn't honor it,
         // then we'll just ignore it and treat it as a successful completion
         preTerminationStatus = Atomic.TestAnyFlagsExchange(ref _status, WorkloadStatus.RanToCompletion, CommonFlags.WillCompleteSuccessfully);

@@ -1,24 +1,15 @@
-﻿using System;
-using Wkg.Internals.Diagnostic;
+﻿using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
-using Wkg.Threading.Workloads.Pooling;
 using Wkg.Threading.Workloads.Queuing;
 using Wkg.Threading.Workloads.Scheduling;
 
-namespace Wkg.Threading.Workloads;
+namespace Wkg.Threading.Workloads.WorkloadTypes;
 
 using CommonFlags = WorkloadStatus.CommonFlags;
 
-internal class AnonymousWorkload : AbstractWorkloadBase
+internal abstract class AnonymousWorkload : AbstractWorkloadBase
 {
-    protected Action _action;
-
-    internal AnonymousWorkload(Action action) : this(WorkloadStatus.Created, action) => Pass();
-
-    internal AnonymousWorkload(WorkloadStatus status, Action action) : base(status)
-    {
-        _action = action;
-    }
+    private protected AnonymousWorkload(WorkloadStatus status) : base(status) => Pass();
 
     internal override void InternalRunContinuations() => Pass();
 
@@ -37,12 +28,11 @@ internal class AnonymousWorkload : AbstractWorkloadBase
         return true;
     }
 
+    private protected abstract void ExecuteCore();
+
     internal override bool TryRunSynchronously()
     {
         DebugLog.WriteDiagnostic($"{this}: Attempting to execute workload.", LogWriter.Blocking);
-        // TODO: what about the execution context?
-        // we don't want to capture the execution context of the thread starting the worker loop in the scheduler,
-        // but the one of the caller scheduling the workload in the first place
         WorkloadStatus preTerminationStatus;
         if ((preTerminationStatus = Interlocked.CompareExchange(ref _status, WorkloadStatus.Running, WorkloadStatus.Scheduled)) == WorkloadStatus.Scheduled)
         {
@@ -51,7 +41,7 @@ internal class AnonymousWorkload : AbstractWorkloadBase
             try
             {
                 // execute the workload
-                _action();
+                ExecuteCore();
                 // if cancellation was requested, but the workload didn't honor it,
                 // then we'll just ignore it and treat it as a successful completion
                 preTerminationStatus = Atomic.TestAnyFlagsExchange(ref _status, WorkloadStatus.RanToCompletion, CommonFlags.WillCompleteSuccessfully);
@@ -78,28 +68,5 @@ internal class AnonymousWorkload : AbstractWorkloadBase
         // in any case, we couldn't execute the workload due to some scheduling issue
         // returning false will allow the scheduler to back-track and try again from the previous state if possible
         return false;
-    }
-}
-
-internal class PooledAnonomousWorkload : AnonymousWorkload
-{
-    private readonly AnonymousWorkloadPool _pool;
-
-    internal PooledAnonomousWorkload(AnonymousWorkloadPool pool) : base(null!)
-    {
-        _pool = pool;
-    }
-
-    internal override void InternalRunContinuations()
-    {
-        Volatile.Write(ref _action, null!);
-        Volatile.Write(ref _status, WorkloadStatus.Pooled);
-        _pool.Return(this);
-    }
-
-    internal void Initialize(Action action)
-    {
-        Volatile.Write(ref _action, action);
-        Volatile.Write(ref _status, WorkloadStatus.Created);
     }
 }

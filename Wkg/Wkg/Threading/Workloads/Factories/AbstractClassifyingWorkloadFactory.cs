@@ -1,17 +1,18 @@
 ﻿using System.Runtime.CompilerServices;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
-using Wkg.Threading.Workloads.Pooling;
 using Wkg.Threading.Workloads.Queuing.Classifiers;
 using Wkg.Threading.Workloads.Queuing.Classless;
 using Wkg.Threading.Workloads.Scheduling;
+using Wkg.Threading.Workloads.WorkloadTypes;
+using Wkg.Threading.Workloads.WorkloadTypes.Pooling;
 
 namespace Wkg.Threading.Workloads.Factories;
 
 public abstract class AbstractClassifyingWorkloadFactory<THandle> : AbstractClassfulWorkloadFactory<THandle>
     where THandle : unmanaged
 {
-    private protected AbstractClassifyingWorkloadFactory(IClassifyingQdisc<THandle> root, AnonymousWorkloadPool? pool, WorkloadContextOptions? options) 
+    private protected AbstractClassifyingWorkloadFactory(IClassifyingQdisc<THandle> root, AnonymousWorkloadPoolManager? pool, WorkloadContextOptions? options) 
         : base(root, pool, options)
     {
     }
@@ -23,7 +24,7 @@ public abstract class AbstractClassifyingWorkloadFactory<THandle> : AbstractClas
         DebugLog.WriteDiagnostic("Scheduling new anonymous workload.", LogWriter.Blocking);
         AnonymousWorkload workload = SupportsPooling
             ? Pool.Rent(action)
-            : new AnonymousWorkload(action);
+            : new AnonymousWorkloadImpl(action);
         ClassifyCore(state, workload);
     }
 
@@ -40,7 +41,7 @@ public abstract class AbstractClassifyingWorkloadFactory<THandle> : AbstractClas
     {
         DebugLog.WriteDiagnostic("Scheduling new workload.", LogWriter.Blocking);
         options ??= DefaultOptions;
-        Workload workload = new(action, options, cancellationToken);
+        Workload workload = new WorkloadImpl(action, options, cancellationToken);
         ClassifyCore(state, workload);
         return workload;
     }
@@ -58,7 +59,7 @@ public abstract class AbstractClassifyingWorkloadFactory<THandle> : AbstractClas
     {
         DebugLog.WriteDiagnostic("Scheduling new workload.", LogWriter.Blocking);
         options ??= DefaultOptions;
-        Workload<TResult> workload = new(func, options, cancellationToken);
+        Workload<TResult> workload = new WorkloadImpl<TResult>(func, options, cancellationToken);
         ClassifyCore(state, workload);
         return workload;
     }

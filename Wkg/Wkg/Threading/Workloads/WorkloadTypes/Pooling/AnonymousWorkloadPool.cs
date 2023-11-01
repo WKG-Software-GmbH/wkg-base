@@ -1,13 +1,12 @@
-﻿using System.Runtime.CompilerServices;
-using Wkg.Common.ThrowHelpers;
+﻿using Wkg.Common.ThrowHelpers;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
 
-namespace Wkg.Threading.Workloads.Pooling;
+namespace Wkg.Threading.Workloads.WorkloadTypes.Pooling;
 
-internal class AnonymousWorkloadPool
+internal class AnonymousWorkloadPool<TWorkload> where TWorkload : AnonymousWorkload, IPoolableAnonymousWorkload<TWorkload>
 {
-    private readonly PooledAnonomousWorkload?[] _workloads;
+    private readonly TWorkload?[] _workloads;
 
     /// <summary>
     /// Points to the the next free index in the array.
@@ -17,38 +16,31 @@ internal class AnonymousWorkloadPool
     public AnonymousWorkloadPool(int capacity)
     {
         Throw.ArgumentOutOfRangeException.IfNegativeOrZero(nameof(capacity), capacity);
-        _workloads = new PooledAnonomousWorkload[capacity];
+        _workloads = new TWorkload[capacity];
         _index = 0;
     }
 
     public int Capacity => _workloads.Length;
 
-    public PooledAnonomousWorkload Rent()
+    public TWorkload Rent()
     {
         DebugLog.WriteDiagnostic("Renting a workload from the AnonymousWorkloadPool.", LogWriter.Blocking);
         int original = Atomic.DecrementClampMin(ref _index, 0);
         int myIndex = original - 1;
         if (myIndex < 0)
         {
-            return new PooledAnonomousWorkload(this);
+            return TWorkload.Create(this);
         }
-        PooledAnonomousWorkload? workload = Volatile.Read(ref _workloads[myIndex]);
+        TWorkload? workload = Volatile.Read(ref _workloads[myIndex]);
         if (workload is null)
         {
             DebugLog.WriteError("Workload pool is corrupted! Got a non-negative index, but the workload at that index is null. Check the WorkloadFactory implementations!", LogWriter.Blocking);
-            return new PooledAnonomousWorkload(this);
+            return TWorkload.Create(this);
         }
         return workload;
     }
 
-    public PooledAnonomousWorkload Rent(Action action)
-    {
-        PooledAnonomousWorkload workload = Rent();
-        workload.Initialize(action);
-        return workload;
-    }
-
-    public void Return(PooledAnonomousWorkload workload)
+    public void Return(TWorkload workload)
     {
         DebugLog.WriteDiagnostic("Returning a workload to the AnonymousWorkloadPool.", LogWriter.Blocking);
         // don't need to check for null because that should never happen

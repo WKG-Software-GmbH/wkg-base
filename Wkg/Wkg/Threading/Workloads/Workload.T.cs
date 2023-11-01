@@ -1,31 +1,25 @@
-﻿using System;
-using Wkg.Internals.Diagnostic;
+﻿using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
 
 namespace Wkg.Threading.Workloads;
 
 using CommonFlags = WorkloadStatus.CommonFlags;
 
-public class Workload<TResult> : AwaitableWorkload
+public abstract class Workload<TResult> : AwaitableWorkload
 {
-    private readonly Func<CancellationFlag, TResult> _func;
     private TResult? _result;
 
-    internal Workload(Func<CancellationFlag, TResult> func, WorkloadContextOptions options, CancellationToken cancellationToken)
-        : this(func, WorkloadStatus.Created, options, cancellationToken) => Pass();
-
-    internal Workload(Func<CancellationFlag, TResult> func, WorkloadStatus status, WorkloadContextOptions options, CancellationToken cancellationToken)
-        : base(status, options, cancellationToken)
-    {
-        _func = func;
-    }
+    private protected Workload(WorkloadStatus status, WorkloadContextOptions options, CancellationToken cancellationToken)
+        : base(status, options, cancellationToken) => Pass();
 
     public WorkloadAwaiter<TResult> GetAwaiter() => new(this);
+
+    private protected abstract TResult ExecuteCore();
 
     private protected override bool TryExecuteUnsafeCore(out WorkloadStatus preTerminationStatus)
     {
         // execute the workload
-        TResult result = _func(new CancellationFlag(this));
+        TResult result = ExecuteCore();
 
         // if cancellation was requested, but the workload didn't honor it,
         // then we'll just ignore it and treat it as a successful completion

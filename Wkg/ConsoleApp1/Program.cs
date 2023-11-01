@@ -18,6 +18,41 @@ Log.UseLogger(Logger.Create(LoggerConfiguration.Create()
     .RegisterMainThread(Thread.CurrentThread)
     .UseDefaultLogWriter(LogWriter.Blocking)));
 
+bool someCondition = true;
+
+ClassifyingWorkloadFactory<QdiscType> clubmappFactory = new QdiscBuilder<QdiscType>()
+    // the root scheduler is allowed to run up to 4 workers at the same time
+    .UseMaximumConcurrency(4)
+    // async/await continuations will run in the same async context as the scheduling thread
+    .FlowExecutionContextToContinuations()
+    // async/await continuations will run with the same synchronization context (e.g, UI thread)
+    .RunContinuationsOnCapturedContext()
+    // anonymous workloads will be pooled and reused.
+    // no allocations will be made up until more than 64 workloads are scheduled at the same time
+    // note that this does not apply to awaitable workloads (e.g, workloads that return a result to the caller)
+    .UseAnonymousWorkloadPooling(poolSize: 64) 
+    // the root scheduler will fairly dequeue workloads alternating between the two child schedulers (Round Robin)
+    // a classifying root scheduler can have children and also allows dynamic assignment of workloads to child schedulers
+    // based on some state object
+    .UseClassifyingRoot<RoundRobinQdisc<QdiscType, State>, State>(QdiscType.RoundRobin, state => true)
+        // one child scheduler will dequeue workloads in a First In First Out manner
+        .AddClasslessChild<FifoQdisc<QdiscType>>(QdiscType.Fifo).Build()
+        // the other child scheduler will dequeue workloads in a Last In First Out manner
+        .AddClasslessChild<LifoQdisc<QdiscType>>(QdiscType.Lifo).Build()
+        .Build();
+
+await clubmappFactory.ScheduleAsync(QdiscType.Fifo, flag =>
+{
+    Log.WriteInfo("Starting background work...");
+    for (int i = 0; i < 10; i++)
+    {
+        flag.ThrowIfCancellationRequested();
+        Log.WriteDiagnostic($"doing work ...");
+        Thread.Sleep(100);
+    }
+    Log.WriteInfo("Done with background work.");
+});
+
 ClassifyingWorkloadFactory<int> factory = new QdiscBuilder<int>()
     .UseMaximumConcurrency(4)
     .FlowExecutionContextToContinuations()

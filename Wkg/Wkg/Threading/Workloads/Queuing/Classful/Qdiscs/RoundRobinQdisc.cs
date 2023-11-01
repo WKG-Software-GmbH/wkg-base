@@ -4,19 +4,18 @@ using Wkg.Common.Extensions;
 using Wkg.Common.ThrowHelpers;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
-using Wkg.Threading.Workloads.Queuing.Classful;
-using Wkg.Threading.Workloads.Queuing.Classifiers.Internals;
+using Wkg.Threading.Workloads.Queuing.Classful.Internals;
 using Wkg.Threading.Workloads.Queuing.Classless;
 using Wkg.Threading.Workloads.Queuing.Classless.Qdiscs;
 
-namespace Wkg.Threading.Workloads.Queuing.Classifiers.Qdiscs;
+namespace Wkg.Threading.Workloads.Queuing.Classful.Qdiscs;
 
 /// <summary>
 /// A classful qdisc that implements the Round Robin scheduling algorithm to dequeue workloads from its children.
 /// </summary>
 /// <typeparam name="THandle">The type of the handle.</typeparam>
 /// <typeparam name="TState">The type of the state.</typeparam>
-public sealed class RoundRobinQdisc<THandle, TState> : ClassifyingQdisc<THandle, TState>, IClassifyingQdisc<THandle, TState, RoundRobinQdisc<THandle, TState>>
+public sealed class RoundRobinQdisc<THandle, TState> : ClassfulQdisc<THandle, TState>, IClassfulQdisc<THandle, TState, RoundRobinQdisc<THandle, TState>>
     where THandle : unmanaged
     where TState : class
 {
@@ -303,7 +302,7 @@ public sealed class RoundRobinQdisc<THandle, TState> : ClassifyingQdisc<THandle,
     }
 
     /// <inheritdoc/>
-    public override bool TryAddChild<TOtherState>(IClassifyingQdisc<THandle, TOtherState> child) where TOtherState : class
+    public override bool TryAddChild<TOtherState>(IClassfulQdisc<THandle, TOtherState> child) where TOtherState : class
     {
         IChildClassification<THandle> classifiedChild = new ClassifierChildClassification<THandle, TOtherState>(child);
         return TryAddChildCore(classifiedChild);

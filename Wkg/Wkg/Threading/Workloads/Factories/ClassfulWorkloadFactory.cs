@@ -10,5 +10,6 @@ public class ClassfulWorkloadFactory<THandle> : AbstractClassfulWorkloadFactory<
     {
     }
 
+    // we know that the root is classful, so we can safely do this
     public IClassfulQdisc<THandle> Root => ClassfulRoot;
 }

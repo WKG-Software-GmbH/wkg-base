@@ -1,6 +1,6 @@
 ﻿using Wkg.Threading.Workloads.Queuing.Classless;
 
-namespace Wkg.Threading.Workloads.Queuing.Classifiers.Internals;
+namespace Wkg.Threading.Workloads.Queuing.Classful.Internals;
 
 internal interface IChildClassification<THandle> where THandle : unmanaged
 {

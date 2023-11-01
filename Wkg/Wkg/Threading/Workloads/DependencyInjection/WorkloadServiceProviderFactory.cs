@@ -4,14 +4,25 @@ internal class WorkloadServiceProviderFactory : IWorkloadServiceProviderFactory
 {
     private readonly Dictionary<Type, Func<object>> _serviceFactories = new();
 
-    public bool AddService<T>(Func<T> factory) where T : notnull
+    public bool AddService<TService>(Func<TService> factory) where TService : class
     {
-        if (_serviceFactories.ContainsKey(typeof(T)))
+        if (_serviceFactories.ContainsKey(typeof(TService)))
         {
             return false;
         }
-        FactoryWrapper<T> wrapper = new(factory);
-        _serviceFactories.Add(typeof(T), wrapper.Invoke);
+        FactoryWrapper<TService> wrapper = new(factory);
+        _serviceFactories.Add(typeof(TService), wrapper.Invoke);
+        return true;
+    }
+
+    public bool AddService<TInterface, TService>(Func<TService> factory) where TService : class, TInterface
+    {
+        if (_serviceFactories.ContainsKey(typeof(TInterface)))
+        {
+            return false;
+        }
+        FactoryWrapper<TService> wrapper = new(factory);
+        _serviceFactories.Add(typeof(TInterface), wrapper.Invoke);
         return true;
     }
 

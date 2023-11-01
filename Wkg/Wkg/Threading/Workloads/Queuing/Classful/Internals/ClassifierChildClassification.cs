@@ -1,14 +1,14 @@
 ﻿using Wkg.Threading.Workloads.Queuing.Classless;
 
-namespace Wkg.Threading.Workloads.Queuing.Classifiers.Internals;
+namespace Wkg.Threading.Workloads.Queuing.Classful.Internals;
 
 internal class ClassifierChildClassification<THandle, TState> : IChildClassification<THandle>
     where THandle : unmanaged
     where TState : class
 {
-    private readonly IClassifyingQdisc<THandle, TState> _qdisc;
+    private readonly IClassfulQdisc<THandle, TState> _qdisc;
 
-    public ClassifierChildClassification(IClassifyingQdisc<THandle, TState> child)
+    public ClassifierChildClassification(IClassfulQdisc<THandle, TState> child)
     {
         _qdisc = child;
     }

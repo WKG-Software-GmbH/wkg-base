@@ -19,6 +19,59 @@ public abstract class AbstractClassfulWorkloadFactory<THandle> : AbstractClassle
 
     private protected IClassfulQdisc<THandle> ClassfulRoot => Unsafe.As<IClasslessQdisc<THandle>, IClassfulQdisc<THandle>>(ref RootRef);
 
+    public virtual void Classify<TState>(TState state, Action action) where TState : class
+    {
+        DebugLog.WriteDiagnostic("Scheduling new anonymous workload.", LogWriter.Blocking);
+        AnonymousWorkload workload = SupportsPooling
+            ? Pool.Rent(action)
+            : new AnonymousWorkloadImpl(action);
+        ClassifyCore(state, workload);
+    }
+
+    public virtual Workload ClassifyAsync<TState>(TState state, Action<CancellationFlag> action, WorkloadContextOptions? options = null) 
+        where TState : class =>
+        ClassifyAsync(state, action, options, CancellationToken.None);
+
+    public virtual Workload ClassifyAsync<TState>(TState state, Action<CancellationFlag> action, CancellationToken cancellationToken) 
+        where TState : class =>
+        ClassifyAsync(state, action, null, cancellationToken);
+
+    public virtual Workload ClassifyAsync<TState>(TState state, Action<CancellationFlag> action, WorkloadContextOptions? options, CancellationToken cancellationToken) 
+        where TState : class
+    {
+        DebugLog.WriteDiagnostic("Scheduling new workload.", LogWriter.Blocking);
+        options ??= DefaultOptions;
+        Workload workload = new WorkloadImpl(action, options, cancellationToken);
+        ClassifyCore(state, workload);
+        return workload;
+    }
+
+    public virtual Workload<TResult> ClassifyAsync<TState, TResult>(TState state, Func<CancellationFlag, TResult> func, WorkloadContextOptions? options = null) 
+        where TState : class =>
+        ClassifyAsync(state, func, options, CancellationToken.None);
+
+    public virtual Workload<TResult> ClassifyAsync<TState, TResult>(TState state, Func<CancellationFlag, TResult> func, CancellationToken cancellationToken) 
+        where TState : class =>
+        ClassifyAsync(state, func, null, cancellationToken);
+
+    public virtual Workload<TResult> ClassifyAsync<TState, TResult>(TState state, Func<CancellationFlag, TResult> func, WorkloadContextOptions? options, CancellationToken cancellationToken) 
+        where TState : class
+    {
+        DebugLog.WriteDiagnostic("Scheduling new workload.", LogWriter.Blocking);
+        options ??= DefaultOptions;
+        Workload<TResult> workload = new WorkloadImpl<TResult>(func, options, cancellationToken);
+        ClassifyCore(state, workload);
+        return workload;
+    }
+
+    private protected virtual void ClassifyCore<TState>(TState state, AbstractWorkloadBase workload) where TState : class
+    {
+        if (!ClassfulRoot.TryEnqueue(state, workload) && !ClassfulRoot.TryEnqueueDirect(state, workload))
+        {
+            throw new WorkloadSchedulingException("The workload could not be classified.");
+        }
+    }
+
     public virtual void Schedule(in THandle handle, Action action)
     {
         DebugLog.WriteDiagnostic("Scheduling new workload.", LogWriter.Blocking);

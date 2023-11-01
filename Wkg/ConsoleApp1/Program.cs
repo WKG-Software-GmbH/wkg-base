@@ -8,7 +8,7 @@ using Wkg.Logging.Writers;
 using Wkg.Threading.Workloads;
 using Wkg.Threading.Workloads.Configuration;
 using Wkg.Threading.Workloads.Factories;
-using Wkg.Threading.Workloads.Queuing.Classifiers.Qdiscs;
+using Wkg.Threading.Workloads.Queuing.Classful.Qdiscs;
 using Wkg.Threading.Workloads.Queuing.Classless.Qdiscs;
 
 Log.UseLogger(Logger.Create(LoggerConfiguration.Create()
@@ -18,9 +18,7 @@ Log.UseLogger(Logger.Create(LoggerConfiguration.Create()
     .RegisterMainThread(Thread.CurrentThread)
     .UseDefaultLogWriter(LogWriter.Blocking)));
 
-bool someCondition = true;
-
-ClassifyingWorkloadFactory<QdiscType> clubmappFactory = new QdiscBuilder<QdiscType>()
+ClassfulWorkloadFactory<QdiscType> clubmappFactory = QdiscBuilder.Create<QdiscType>()
     // the root scheduler is allowed to run up to 4 workers at the same time
     .UseMaximumConcurrency(4)
     // async/await continuations will run in the same async context as the scheduling thread
@@ -34,7 +32,7 @@ ClassifyingWorkloadFactory<QdiscType> clubmappFactory = new QdiscBuilder<QdiscTy
     // the root scheduler will fairly dequeue workloads alternating between the two child schedulers (Round Robin)
     // a classifying root scheduler can have children and also allows dynamic assignment of workloads to child schedulers
     // based on some state object
-    .UseClassifyingRoot<RoundRobinQdisc<QdiscType, State>, State>(QdiscType.RoundRobin, state => true)
+    .UseClassfulRoot<RoundRobinQdisc<QdiscType, State>, State>(QdiscType.RoundRobin, state => true)
         // one child scheduler will dequeue workloads in a First In First Out manner
         .AddClasslessChild<FifoQdisc<QdiscType>>(QdiscType.Fifo).Build()
         // the other child scheduler will dequeue workloads in a Last In First Out manner
@@ -53,18 +51,20 @@ await clubmappFactory.ScheduleAsync(QdiscType.Fifo, flag =>
     Log.WriteInfo("Done with background work.");
 });
 
-ClassifyingWorkloadFactory<int> factory = new QdiscBuilder<int>()
+ClassfulWorkloadFactory<int> factory = QdiscBuilder.Create<int>()
     .UseMaximumConcurrency(4)
     .FlowExecutionContextToContinuations()
     .RunContinuationsOnCapturedContext()
+    .UseDependencyInjection(services => services
+        .AddSingleton(new object()))
     .UseAnonymousWorkloadPooling(poolSize: 64)
-    .UseClassifyingRoot<RoundRobinQdisc<int, State>, State>(1, state => state.QdiscType == QdiscType.RoundRobin)
+    .UseClassfulRoot<RoundRobinQdisc<int, State>, State>(1, state => state.QdiscType == QdiscType.RoundRobin)
         .AddClasslessChild<FifoQdisc<int>>(2, state => state.QdiscType == QdiscType.Fifo).Build()
-        .AddClassifyingChild<RoundRobinQdisc<int, SomeOtherState>, SomeOtherState>(3, otherState => true)
-            .AddClassifyingChild<RoundRobinQdisc<int, SomeOtherState>, SomeOtherState>(10, otherState => true)
-                .AddClassifyingChild<RoundRobinQdisc<int, SomeOtherState>, SomeOtherState>(11, otherState => true)
-                    .AddClassifyingChild<RoundRobinQdisc<int, SomeOtherState>, SomeOtherState>(12, otherState => true)
-                        .AddClassifyingChild<RoundRobinQdisc<int, SomeOtherState>, SomeOtherState>(13, otherState => true)
+        .AddClassfulChild<RoundRobinQdisc<int, SomeOtherState>, SomeOtherState>(3, otherState => true)
+            .AddClassfulChild<RoundRobinQdisc<int, SomeOtherState>, SomeOtherState>(10, otherState => true)
+                .AddClassfulChild<RoundRobinQdisc<int, SomeOtherState>, SomeOtherState>(11, otherState => true)
+                    .AddClassfulChild<RoundRobinQdisc<int, SomeOtherState>, SomeOtherState>(12, otherState => true)
+                        .AddClassfulChild<RoundRobinQdisc<int, SomeOtherState>, SomeOtherState>(13, otherState => true)
                             .AddClasslessChild<LifoQdisc<int>>(14).Build()
                             .Build()
                         .Build()
@@ -234,7 +234,7 @@ Log.WriteInfo("Waiting for all workloads to complete...");
 await Workload.WhenAll(wls);
 Log.WriteFatal("DONE WITH TESTS");
 
-ClasslessWorkloadFactory<int> simpleFactory = new QdiscBuilder<int>()
+ClasslessWorkloadFactory<int> simpleFactory = QdiscBuilder.Create<int>()
     .UseMaximumConcurrency(16)
     .FlowExecutionContextToContinuations()
     .RunContinuationsOnCapturedContext()

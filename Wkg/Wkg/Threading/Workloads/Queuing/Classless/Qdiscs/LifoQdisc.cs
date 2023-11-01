@@ -10,7 +10,7 @@ namespace Wkg.Threading.Workloads.Queuing.Classless.Qdiscs;
 /// A qdisc that implements the Last-In-First-Out (LIFO) scheduling algorithm.
 /// </summary>
 /// <typeparam name="THandle">The type of the handle.</typeparam>
-public sealed class LifoQdisc<THandle> : Qdisc<THandle>, IClasslessQdisc<THandle, LifoQdisc<THandle>> where THandle : unmanaged
+public sealed class LifoQdisc<THandle> : ClasslessQdisc<THandle>, IClasslessQdisc<THandle, LifoQdisc<THandle>> where THandle : unmanaged
 {
     private readonly ConcurrentStack<AbstractWorkloadBase> _stack;
 

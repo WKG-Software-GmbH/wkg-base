@@ -45,21 +45,15 @@ public interface IClassfulQdisc<THandle> : IQdisc, INotifyWorkScheduled, IClassl
     internal bool TryEnqueue(object? state, AbstractWorkloadBase workload);
 
     internal bool TryEnqueueDirect(object? state, AbstractWorkloadBase workload);
+
+    bool TryAddChild(IClasslessQdisc<THandle> child, Predicate<object?> predicate);
+
+    bool TryAddChild(IClassfulQdisc<THandle> child);
 }
 
-public interface IClassfulQdisc<THandle, TState> : IClassfulQdisc<THandle>
+public interface IClassfulQdisc<THandle, TQdisc> : IClassfulQdisc<THandle>
     where THandle : unmanaged
-    where TState : class
-{
-    bool TryAddChild(IClasslessQdisc<THandle> child, Predicate<TState> predicate);
-
-    bool TryAddChild<TOtherState>(IClassfulQdisc<THandle, TOtherState> child) where TOtherState : class;
-}
-
-public interface IClassfulQdisc<THandle, TState, TQdisc> : IClassfulQdisc<THandle, TState>
-    where THandle : unmanaged
-    where TState : class
-    where TQdisc : class, IClassfulQdisc<THandle, TState, TQdisc>
+    where TQdisc : class, IClassfulQdisc<THandle, TQdisc>
 {
     /// <summary>
     /// Creates a new <typeparamref name="TQdisc"/> instance with the specified <paramref name="handle"/> and <paramref name="predicate"/>.
@@ -67,12 +61,12 @@ public interface IClassfulQdisc<THandle, TState, TQdisc> : IClassfulQdisc<THandl
     /// <param name="handle">The handle uniquely identifying this qdisc. The handle must not be <c><see langword="default"/>(<typeparamref name="THandle"/>)</c> and must not be used by any other qdisc.</param>
     /// <param name="predicate">The predicate used to determine whether a workload should be enqueued onto this qdisc. Child qdiscs should be considered separately.</param>
     /// <returns>A new <typeparamref name="TQdisc"/> instance with the specified <paramref name="handle"/> and <paramref name="predicate"/>.</returns>
-    static abstract TQdisc Create(THandle handle, Predicate<TState> predicate);
+    static abstract TQdisc Create(THandle handle, Predicate<object?> predicate);
 
     /// <summary>
     /// Creates a new anonymous <typeparamref name="TQdisc"/> instance with the specified <paramref name="predicate"/>. The handle is not used for classification and may be <c><see langword="default"/>(<typeparamref name="THandle"/>)</c>.
     /// </summary>
     /// <param name="predicate">The predicate used to determine whether a workload should be enqueued onto this qdisc. Child qdiscs should be considered separately.</param>
     /// <returns>A new anonymous <typeparamref name="TQdisc"/> instance with the specified <paramref name="predicate"/>.</returns>
-    static abstract TQdisc CreateAnonymous(Predicate<TState> predicate);
+    static abstract TQdisc CreateAnonymous(Predicate<object?> predicate);
 }

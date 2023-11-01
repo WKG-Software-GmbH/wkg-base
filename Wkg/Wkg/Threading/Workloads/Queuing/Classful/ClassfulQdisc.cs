@@ -3,9 +3,8 @@ using Wkg.Threading.Workloads.Queuing.Classless;
 
 namespace Wkg.Threading.Workloads.Queuing.Classful;
 
-public abstract class ClassfulQdisc<THandle, TState> : ClasslessQdisc<THandle>, IClassfulQdisc<THandle, TState>
+public abstract class ClassfulQdisc<THandle> : ClasslessQdisc<THandle>, IClassfulQdisc<THandle>
     where THandle : unmanaged
-    where TState : class
 {
     protected ClassfulQdisc(THandle handle) : base(handle)
     {
@@ -27,10 +26,10 @@ public abstract class ClassfulQdisc<THandle, TState> : ClasslessQdisc<THandle>, 
         child.InternalInitialize(this);
 
     /// <inheritdoc/>
-    public abstract bool TryAddChild(IClasslessQdisc<THandle> child, Predicate<TState> predicate);
+    public abstract bool TryAddChild(IClasslessQdisc<THandle> child, Predicate<object?> predicate);
 
     /// <inheritdoc/>
-    public abstract bool TryAddChild<TOtherState>(IClassfulQdisc<THandle, TOtherState> child) where TOtherState : class;
+    public abstract bool TryAddChild(IClassfulQdisc<THandle> child);
 
     /// <inheritdoc cref="IClassfulQdisc{THandle}.TryEnqueue(object?, AbstractWorkloadBase)"/>"
     protected abstract bool TryEnqueue(object? state, AbstractWorkloadBase workload);

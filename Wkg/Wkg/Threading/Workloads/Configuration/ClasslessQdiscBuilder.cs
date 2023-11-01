@@ -1,4 +1,5 @@
 ﻿using Wkg.Threading.Workloads.Factories;
+using Wkg.Threading.Workloads.Queuing.Classful.Classification;
 using Wkg.Threading.Workloads.Queuing.Classless;
 using Wkg.Threading.Workloads.Scheduling;
 using Wkg.Threading.Workloads.WorkloadTypes.Pooling;
@@ -9,27 +10,35 @@ public abstract class ClasslessQdiscBuilderBase<THandle, TQdisc>
     where THandle : unmanaged
     where TQdisc : class, IClasslessQdisc<THandle, TQdisc>
 {
-    private protected readonly TQdisc _qdisc;
+    private protected readonly THandle _handle;
 
-    private protected ClasslessQdiscBuilderBase(TQdisc qdisc)
+    private protected ClasslessQdiscBuilderBase(THandle handle)
     {
-        _qdisc = qdisc;
+        _handle = handle;
     }
 }
 
-public sealed class ClasslessQdiscBuilder<THandle, TQdisc, TParent> : ClasslessQdiscBuilderBase<THandle, TQdisc>
+public sealed class ClasslessQdiscBuilder<THandle, TQdisc> : ClasslessQdiscBuilderBase<THandle, TQdisc>
     where THandle : unmanaged
     where TQdisc : class, IClasslessQdisc<THandle, TQdisc>
-    where TParent : class
 {
-    private readonly TParent _parent;
+    private readonly IPredicateBuilder _predicateBuilder = new PredicateBuilder();
 
-    internal ClasslessQdiscBuilder(TQdisc qdisc, TParent parent) : base(qdisc)
+    internal Predicate<object?>? Predicate { get; private set; }
+
+    internal ClasslessQdiscBuilder(THandle handle) : base(handle) => Pass();
+
+    public ClasslessQdiscBuilder<THandle, TQdisc> WithClassificationPredicate<TState>(Predicate<TState> predicate) where TState : class
     {
-        _parent = parent;
+        _predicateBuilder.AddPredicate(predicate);
+        return this;
     }
 
-    public TParent Build() => _parent;
+    internal TQdisc Build()
+    {
+        Predicate = _predicateBuilder.Compile();
+        return TQdisc.Create(_handle);
+    }
 }
 
 public sealed class ClasslessQdiscBuilderRoot<THandle, TQdisc> : ClasslessQdiscBuilderBase<THandle, TQdisc>
@@ -38,20 +47,23 @@ public sealed class ClasslessQdiscBuilderRoot<THandle, TQdisc> : ClasslessQdiscB
 {
     private readonly QdiscBuilderContext _context;
 
-    internal ClasslessQdiscBuilderRoot(TQdisc qdisc, QdiscBuilderContext context) : base(qdisc)
+    internal ClasslessQdiscBuilderRoot(THandle handle, QdiscBuilderContext context) : base(handle)
     {
         _context = context;
     }
 
     public ClasslessWorkloadFactory<THandle> Build()
     {
-        WorkloadScheduler scheduler = new(_qdisc, _context.MaximumConcurrency);
-        _qdisc.InternalInitialize(scheduler);
+        TQdisc qdisc = TQdisc.Create(_handle);
+        WorkloadScheduler scheduler = _context.ServiceProviderFactory is null
+            ? new WorkloadScheduler(qdisc, _context.MaximumConcurrency)
+            : new WorkloadSchedulerWithDI(qdisc, _context.MaximumConcurrency, _context.ServiceProviderFactory);
+        qdisc.InternalInitialize(scheduler);
         AnonymousWorkloadPoolManager? pool = null;
         if (_context.UsePooling)
         {
             pool = new AnonymousWorkloadPoolManager(_context.PoolSize);
         }
-        return new ClasslessWorkloadFactory<THandle>(_qdisc, pool, _context.ContextOptions);
+        return new ClasslessWorkloadFactory<THandle>(qdisc, pool, _context.ContextOptions);
     }
 }

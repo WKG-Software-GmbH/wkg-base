@@ -27,4 +27,6 @@ public class WorkloadServiceProviderBuilder
         _factory.AddService<TInterface, TImplementation>(() => singleton);
         return this;
     }
+
+    internal IWorkloadServiceProviderFactory Build() => _factory;
 }

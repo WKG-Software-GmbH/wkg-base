@@ -23,6 +23,7 @@ public class QdiscBuilder<THandle> where THandle : unmanaged
         IWorkloadServiceProviderFactory factoryProvider = new TFactoryProvider();
         WorkloadServiceProviderBuilder builder = new(factoryProvider);
         configurationAction.Invoke(builder);
+        _context.ServiceProviderFactory = builder.Build();
         return this;
     }
 
@@ -56,18 +57,11 @@ public class QdiscBuilder<THandle> where THandle : unmanaged
         return this;
     }
 
-    public ClasslessQdiscBuilderRoot<THandle, TQdisc> UseClasslessRoot<TQdisc>(THandle rootHandle) 
-        where TQdisc : class, IClasslessQdisc<THandle, TQdisc>
-    {
-        TQdisc qdisc = TQdisc.Create(rootHandle);
-        return new ClasslessQdiscBuilderRoot<THandle, TQdisc>(qdisc, _context);
-    }
+    public ClasslessQdiscBuilderRoot<THandle, TQdisc> UseClasslessRoot<TQdisc>(THandle rootHandle)
+        where TQdisc : class, IClasslessQdisc<THandle, TQdisc> => 
+        new(rootHandle, _context);
 
-    public ClassfulQdiscBuilderRoot<THandle, TState, TQdisc> UseClassfulRoot<TQdisc, TState>(THandle rootHandle, Predicate<TState> rootPredicate) 
-        where TQdisc : class, IClassfulQdisc<THandle, TState, TQdisc>
-        where TState : class
-    {
-        TQdisc qdisc = TQdisc.Create(rootHandle, rootPredicate);
-        return new ClassfulQdiscBuilderRoot<THandle, TState, TQdisc>(qdisc, _context);
-    }
+    public ClassfulQdiscBuilderRoot<THandle, TQdisc> UseClassfulRoot<TQdisc>(THandle rootHandle)
+        where TQdisc : class, IClassfulQdisc<THandle, TQdisc> =>
+        new(rootHandle, _context);
 }

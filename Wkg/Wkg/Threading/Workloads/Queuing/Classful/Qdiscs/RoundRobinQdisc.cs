@@ -14,14 +14,12 @@ namespace Wkg.Threading.Workloads.Queuing.Classful.Qdiscs;
 /// A classful qdisc that implements the Round Robin scheduling algorithm to dequeue workloads from its children.
 /// </summary>
 /// <typeparam name="THandle">The type of the handle.</typeparam>
-/// <typeparam name="TState">The type of the state.</typeparam>
-public sealed class RoundRobinQdisc<THandle, TState> : ClassfulQdisc<THandle, TState>, IClassfulQdisc<THandle, TState, RoundRobinQdisc<THandle, TState>>
+public sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassfulQdisc<THandle, RoundRobinQdisc<THandle>>
     where THandle : unmanaged
-    where TState : class
 {
     private readonly ThreadLocal<IQdisc?> _localLast;
     private readonly IClasslessQdisc<THandle> _localQueue;
-    private readonly Predicate<TState> _predicate;
+    private readonly Predicate<object?> _predicate;
 
     private IChildClassification<THandle>[] _children;
     private readonly ReaderWriterLockSlim _childrenLock;
@@ -29,7 +27,7 @@ public sealed class RoundRobinQdisc<THandle, TState> : ClassfulQdisc<THandle, TS
     private int _rrIndex;
     private int _criticalDequeueSection;
 
-    private RoundRobinQdisc(THandle handle, Predicate<TState> predicate) : base(handle)
+    private RoundRobinQdisc(THandle handle, Predicate<object?> predicate) : base(handle)
     {
         _localQueue = FifoQdisc<THandle>.CreateAnonymous();
         _localLast = new ThreadLocal<IQdisc?>(trackAllValues: false);
@@ -40,14 +38,14 @@ public sealed class RoundRobinQdisc<THandle, TState> : ClassfulQdisc<THandle, TS
     }
 
     /// <inheritdoc/>
-    public static RoundRobinQdisc<THandle, TState> Create(THandle handle, Predicate<TState> predicate)
+    public static RoundRobinQdisc<THandle> Create(THandle handle, Predicate<object?> predicate)
     {
         Throw.WorkloadSchedulingException.IfHandleIsDefault(handle);
-        return new RoundRobinQdisc<THandle, TState>(handle, predicate);
+        return new RoundRobinQdisc<THandle>(handle, predicate);
     }
 
     /// <inheritdoc/>
-    public static RoundRobinQdisc<THandle, TState> CreateAnonymous(Predicate<TState> predicate) => 
+    public static RoundRobinQdisc<THandle> CreateAnonymous(Predicate<object?> predicate) => 
         new(default, predicate);
 
     /// <inheritdoc/>
@@ -268,7 +266,7 @@ public sealed class RoundRobinQdisc<THandle, TState> : ClassfulQdisc<THandle, TS
     /// <inheritdoc/>
     protected override bool TryEnqueueDirect(object? state, AbstractWorkloadBase workload)
     {
-        if (state is TState typedState && _predicate(typedState))
+        if (_predicate(state))
         {
             DebugLog.WriteDiagnostic($"Enqueuing workload {workload} directly to round robin qdisc {this}.", LogWriter.Blocking);
             EnqueueDirect(workload);
@@ -295,16 +293,16 @@ public sealed class RoundRobinQdisc<THandle, TState> : ClassfulQdisc<THandle, TS
     }
 
     /// <inheritdoc/>
-    public override bool TryAddChild(IClasslessQdisc<THandle> child, Predicate<TState> predicate)
+    public override bool TryAddChild(IClasslessQdisc<THandle> child, Predicate<object?> predicate)
     {
-        IChildClassification<THandle> classifiedChild = new ChildClassification<THandle, TState>(child, predicate);
+        IChildClassification<THandle> classifiedChild = new ChildClassification<THandle>(child, predicate);
         return TryAddChildCore(classifiedChild);
     }
 
     /// <inheritdoc/>
-    public override bool TryAddChild<TOtherState>(IClassfulQdisc<THandle, TOtherState> child) where TOtherState : class
+    public override bool TryAddChild(IClassfulQdisc<THandle> child)
     {
-        IChildClassification<THandle> classifiedChild = new ClassifierChildClassification<THandle, TOtherState>(child);
+        IChildClassification<THandle> classifiedChild = new ClassfulChildClassification<THandle>(child);
         return TryAddChildCore(classifiedChild);
     }
 

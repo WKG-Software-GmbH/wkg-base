@@ -32,11 +32,12 @@ ClassfulWorkloadFactory<QdiscType> clubmappFactory = QdiscBuilder.Create<QdiscTy
     // the root scheduler will fairly dequeue workloads alternating between the two child schedulers (Round Robin)
     // a classifying root scheduler can have children and also allows dynamic assignment of workloads to child schedulers
     // based on some state object
-    .UseClassfulRoot<RoundRobinQdisc<QdiscType, State>, State>(QdiscType.RoundRobin, state => true)
+    .UseClassfulRoot<RoundRobinQdisc<QdiscType>>(QdiscType.RoundRobin)
+        .AddClassificationPredicate<State>(state => state.QdiscType == QdiscType.RoundRobin)
         // one child scheduler will dequeue workloads in a First In First Out manner
-        .AddClasslessChild<FifoQdisc<QdiscType>>(QdiscType.Fifo).Build()
+        .AddClasslessChild<FifoQdisc<QdiscType>>(QdiscType.Fifo)
         // the other child scheduler will dequeue workloads in a Last In First Out manner
-        .AddClasslessChild<LifoQdisc<QdiscType>>(QdiscType.Lifo).Build()
+        .AddClasslessChild<LifoQdisc<QdiscType>>(QdiscType.Lifo)
         .Build();
 
 await clubmappFactory.ScheduleAsync(QdiscType.Fifo, flag =>
@@ -56,26 +57,25 @@ ClassfulWorkloadFactory<int> factory = QdiscBuilder.Create<int>()
     .FlowExecutionContextToContinuations()
     .RunContinuationsOnCapturedContext()
     .UseDependencyInjection(services => services
-        .AddSingleton(new object()))
+        .AddService<IMyService, MyService>(() => new MyService())
+        .AddService(() => new MyService()))
     .UseAnonymousWorkloadPooling(poolSize: 64)
-    .UseClassfulRoot<RoundRobinQdisc<int, State>, State>(1, state => state.QdiscType == QdiscType.RoundRobin)
-        .AddClasslessChild<FifoQdisc<int>>(2, state => state.QdiscType == QdiscType.Fifo).Build()
-        .AddClassfulChild<RoundRobinQdisc<int, SomeOtherState>, SomeOtherState>(3, otherState => true)
-            .AddClassfulChild<RoundRobinQdisc<int, SomeOtherState>, SomeOtherState>(10, otherState => true)
-                .AddClassfulChild<RoundRobinQdisc<int, SomeOtherState>, SomeOtherState>(11, otherState => true)
-                    .AddClassfulChild<RoundRobinQdisc<int, SomeOtherState>, SomeOtherState>(12, otherState => true)
-                        .AddClassfulChild<RoundRobinQdisc<int, SomeOtherState>, SomeOtherState>(13, otherState => true)
-                            .AddClasslessChild<LifoQdisc<int>>(14).Build()
-                            .Build()
-                        .Build()
-                    .Build()
-                .Build()
-            .AddClasslessChild<LifoQdisc<int>>(4).Build()
-            .AddClasslessChild<FifoQdisc<int>>(5).Build()
-            .AddClasslessChild<LifoQdisc<int>>(6).Build()
-            .Build()
-        .AddClasslessChild<LifoQdisc<int>>(7, state => state.QdiscType == QdiscType.Lifo).Build()
-        .AddClasslessChild<FifoQdisc<int>>(8).Build()
+    .UseClassfulRoot<RoundRobinQdisc<int>>(1)
+        .AddClassificationPredicate<State>(state => state.QdiscType == QdiscType.RoundRobin)
+        .AddClasslessChild<FifoQdisc<int>>(2, child => child
+            .WithClassificationPredicate<State>(state => state.QdiscType == QdiscType.Fifo))
+        .AddClassfulChild<RoundRobinQdisc<int>>(3, child => child
+            .AddClassfulChild<RoundRobinQdisc<int>>(10, child => child
+                .AddClassfulChild<RoundRobinQdisc<int>>(11, child => child
+                    .AddClassfulChild<RoundRobinQdisc<int>>(12, child => child
+                        .AddClassfulChild<RoundRobinQdisc<int>>(13, child => child
+                            .AddClasslessChild<LifoQdisc<int>>(14))))))
+            .AddClasslessChild<LifoQdisc<int>>(4)
+            .AddClasslessChild<FifoQdisc<int>>(5)
+            .AddClasslessChild<LifoQdisc<int>>(6)
+        .AddClasslessChild<LifoQdisc<int>>(7, child => child
+            .WithClassificationPredicate<State>(state => state.QdiscType == QdiscType.Lifo))
+        .AddClasslessChild<FifoQdisc<int>>(8)
         .Build();
 
 AsyncLocal<int> asyncLocal = new()
@@ -285,3 +285,14 @@ class MySynchronizationContext : SynchronizationContext
         d.Invoke(state);
     }, state);
 }
+
+interface IMyService
+{
+
+}
+
+class MyService : IMyService
+{
+
+}
+

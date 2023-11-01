@@ -2,15 +2,14 @@
 
 namespace Wkg.Threading.Workloads.Queuing.Classful.Internals;
 
-internal class ChildClassification<THandle, TState> : IChildClassification<THandle>
+internal class ChildClassification<THandle> : IChildClassification<THandle>
     where THandle : unmanaged
-    where TState : class
 {
-    private readonly Predicate<TState> _predicate;
+    private readonly Predicate<object?> _predicate;
 
     public IClasslessQdisc<THandle> Qdisc { get; }
 
-    public ChildClassification(IClasslessQdisc<THandle> child, Predicate<TState> predicate)
+    public ChildClassification(IClasslessQdisc<THandle> child, Predicate<object?> predicate)
     {
         Qdisc = child;
         _predicate = predicate;
@@ -19,7 +18,7 @@ internal class ChildClassification<THandle, TState> : IChildClassification<THand
     public bool TryEnqueue(object? state, AbstractWorkloadBase workload)
     {
         // supports classification, but only if the predicate matches
-        if (state is TState typedState && _predicate(typedState))
+        if (_predicate(state))
         {
             Qdisc.Enqueue(workload);
             return true;

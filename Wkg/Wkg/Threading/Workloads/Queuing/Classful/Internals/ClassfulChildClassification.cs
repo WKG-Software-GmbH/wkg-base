@@ -2,13 +2,12 @@
 
 namespace Wkg.Threading.Workloads.Queuing.Classful.Internals;
 
-internal class ClassifierChildClassification<THandle, TState> : IChildClassification<THandle>
+internal class ClassfulChildClassification<THandle> : IChildClassification<THandle>
     where THandle : unmanaged
-    where TState : class
 {
-    private readonly IClassfulQdisc<THandle, TState> _qdisc;
+    private readonly IClassfulQdisc<THandle> _qdisc;
 
-    public ClassifierChildClassification(IClassfulQdisc<THandle, TState> child)
+    public ClassfulChildClassification(IClassfulQdisc<THandle> child)
     {
         _qdisc = child;
     }

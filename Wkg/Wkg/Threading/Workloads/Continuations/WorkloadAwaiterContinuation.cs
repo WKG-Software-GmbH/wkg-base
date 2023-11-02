@@ -1,4 +1,5 @@
-﻿using Wkg.Internals.Diagnostic;
+﻿using System.Numerics;
+using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
 
 namespace Wkg.Threading.Workloads.Continuations;
@@ -20,7 +21,10 @@ internal class WorkloadAwaiterContinuation : WorkloadContinuationBase
         if (_capturedContext is null)
         {
             DebugLog.WriteDiagnostic("Queueing await continuation to thread pool", LogWriter.Blocking);
-            ThreadPool.QueueUserWorkItem(TPCallback, this);
+            using (ExecutionContext.SuppressFlow())
+            {
+                ThreadPool.QueueUserWorkItem(TPCallback, this);
+            }
         }
         else
         {

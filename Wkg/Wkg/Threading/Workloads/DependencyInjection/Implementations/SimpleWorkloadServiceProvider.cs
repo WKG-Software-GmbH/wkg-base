@@ -1,14 +1,14 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
-namespace Wkg.Threading.Workloads.DependencyInjection;
+namespace Wkg.Threading.Workloads.DependencyInjection.Implementations;
 
-public class WorkloadServiceProvider : WorkloadServiceProviderBase
+internal class SimpleWorkloadServiceProvider : WorkloadServiceProviderBase
 {
-    private readonly Dictionary<Type, Func<object>> _servicesFactories = new();
-    private readonly Dictionary<Type, object> _services = new();
+    private protected readonly Dictionary<Type, Func<object>> _servicesFactories = new();
+    private protected readonly Dictionary<Type, object> _services = new();
     private bool disposedValue;
 
-    public WorkloadServiceProvider(IEnumerable<KeyValuePair<Type, Func<object>>> serviceFactories)
+    public SimpleWorkloadServiceProvider(IEnumerable<KeyValuePair<Type, Func<object>>> serviceFactories)
     {
         foreach ((Type type, Func<object> factory) in serviceFactories)
         {
@@ -36,7 +36,7 @@ public class WorkloadServiceProvider : WorkloadServiceProviderBase
         throw new InvalidOperationException($"Service of type {serviceType} is not registered.");
     }
 
-    public override object? GetService(Type serviceType) => 
+    public override object? GetService(Type serviceType) =>
         TryGetService(serviceType, out object? service) ? service : default;
 
     public override bool TryGetService<T>([NotNullWhen(true)] out T? service) where T : default

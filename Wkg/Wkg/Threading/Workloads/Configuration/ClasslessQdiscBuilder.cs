@@ -28,7 +28,8 @@ public sealed class ClasslessQdiscBuilder<THandle, TQdisc> : ClasslessQdiscBuild
 
     internal ClasslessQdiscBuilder(THandle handle) : base(handle) => Pass();
 
-    public ClasslessQdiscBuilder<THandle, TQdisc> WithClassificationPredicate<TState>(Predicate<TState> predicate) where TState : class
+    // TODO: add an extension point to allow for dynamicly compiled predicates (e.g., expression trees / IL emit)
+    public ClasslessQdiscBuilder<THandle, TQdisc> WithClassificationPredicate<TState>(Predicate<TState> predicate)
     {
         _predicateBuilder.AddPredicate(predicate);
         return this;
@@ -41,9 +42,10 @@ public sealed class ClasslessQdiscBuilder<THandle, TQdisc> : ClasslessQdiscBuild
     }
 }
 
-public sealed class ClasslessQdiscBuilderRoot<THandle, TQdisc> : ClasslessQdiscBuilderBase<THandle, TQdisc>
+public sealed class ClasslessQdiscBuilderRoot<THandle, TQdisc, TFactory> : ClasslessQdiscBuilderBase<THandle, TQdisc>
     where THandle : unmanaged
     where TQdisc : class, IClasslessQdisc<THandle, TQdisc>
+    where TFactory : AbstractClasslessWorkloadFactory<THandle>, IWorkloadFactory<THandle, TFactory>
 {
     private readonly QdiscBuilderContext _context;
 
@@ -52,7 +54,7 @@ public sealed class ClasslessQdiscBuilderRoot<THandle, TQdisc> : ClasslessQdiscB
         _context = context;
     }
 
-    public ClasslessWorkloadFactory<THandle> Build()
+    public TFactory Build()
     {
         TQdisc qdisc = TQdisc.Create(_handle);
         WorkloadScheduler scheduler = _context.ServiceProviderFactory is null
@@ -64,6 +66,6 @@ public sealed class ClasslessQdiscBuilderRoot<THandle, TQdisc> : ClasslessQdiscB
         {
             pool = new AnonymousWorkloadPoolManager(_context.PoolSize);
         }
-        return new ClasslessWorkloadFactory<THandle>(qdisc, pool, _context.ContextOptions);
+        return TFactory.Create(qdisc, pool, _context.ContextOptions);
     }
 }

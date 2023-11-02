@@ -34,6 +34,18 @@ public abstract partial class Workload : AwaitableWorkload
         return false;
     }
 
+    public WorkloadResult Result
+    {
+        get
+        {
+            if (!IsCompleted)
+            {
+                InternalWait(Timeout.Infinite, CancellationToken.None);
+            }
+            return GetResultUnsafe();
+        }
+    }
+
     /// <summary>
     /// Gets an awaiter used to await this workload.
     /// </summary>

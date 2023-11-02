@@ -12,8 +12,6 @@ public abstract class Workload<TResult> : AwaitableWorkload
     private protected Workload(WorkloadStatus status, WorkloadContextOptions options, CancellationToken cancellationToken)
         : base(status, options, cancellationToken) => Pass();
 
-    public WorkloadAwaiter<TResult> GetAwaiter() => new(this);
-
     private protected abstract TResult ExecuteCore();
 
     private protected override bool TryExecuteUnsafeCore(out WorkloadStatus preTerminationStatus)
@@ -39,6 +37,26 @@ public abstract class Workload<TResult> : AwaitableWorkload
         }
         return false;
     }
+
+    public WorkloadResult<TResult> Result
+    {
+        get
+        {
+            if (!IsCompleted)
+            {
+                InternalWait(Timeout.Infinite, CancellationToken.None);
+            }
+            return GetResultUnsafe();
+        }
+    }
+
+    /// <summary>
+    /// Gets an awaiter used to await this workload.
+    /// </summary>
+    /// <remarks>
+    /// <see langword="WARNING"/>: Do not modify or remove this method. It is used by compiler generated code.
+    /// </remarks>
+    public WorkloadAwaiter<TResult> GetAwaiter() => new(this);
 
     private protected override void SetCanceledResultUnsafe()
     {

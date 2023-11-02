@@ -18,7 +18,10 @@ internal class SynchronizationContextAwareWorkloadAwaiterContinuation : Workload
         if (_capturedContext is null)
         {
             DebugLog.WriteDiagnostic("Posting SCCallback to synchronization context", LogWriter.Blocking);
-            _synchronizationContext.Post(SCCallback, this);
+            using (ExecutionContext.SuppressFlow())
+            {
+                _synchronizationContext.Post(SCCallback, this);
+            }
         }
         else
         {

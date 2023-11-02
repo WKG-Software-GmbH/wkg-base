@@ -1,4 +1,6 @@
-﻿using Wkg.Threading.Workloads.DependencyInjection;
+﻿using Wkg.Internals.Diagnostic;
+using Wkg.Logging.Writers;
+using Wkg.Threading.Workloads.DependencyInjection;
 
 namespace Wkg.Threading.Workloads.WorkloadTypes.Pooling;
 
@@ -26,6 +28,7 @@ internal class AnonymousWorkloadPoolManager
                     pool = Volatile.Read(ref _pool);
                     if (pool is null)
                     {
+                        DebugLog.WriteDiagnostic("Creating new anonymous workload pool.", LogWriter.Blocking);
                         pool = new AnonymousWorkloadPool<AnonymousWorkloadImpl>(_capacity);
                         Volatile.Write(ref _pool, pool);
                     }
@@ -47,6 +50,7 @@ internal class AnonymousWorkloadPoolManager
                     pool = Volatile.Read(ref _poolWithDI);
                     if (pool is null)
                     {
+                        DebugLog.WriteDiagnostic("Creating new anonymous workload pool with DI.", LogWriter.Blocking);
                         pool = new AnonymousWorkloadPool<AnonymousWorkloadImplWithDI>(_capacity);
                         Volatile.Write(ref _poolWithDI, pool);
                     }

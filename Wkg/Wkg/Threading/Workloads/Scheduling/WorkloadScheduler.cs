@@ -50,22 +50,9 @@ internal class WorkloadScheduler : INotifyWorkScheduled
 
     private void DispatchWorkerNonCapturing()
     {
-        bool restoreFlow = false;
-        try
+        using (ExecutionContext.SuppressFlow())
         {
-            if (!ExecutionContext.IsFlowSuppressed())
-            {
-                ExecutionContext.SuppressFlow();
-                restoreFlow = true;
-            }
             ThreadPool.QueueUserWorkItem(WorkerLoop, null);
-        }
-        finally
-        {
-            if (restoreFlow)
-            {
-                ExecutionContext.RestoreFlow();
-            }
         }
     }
 

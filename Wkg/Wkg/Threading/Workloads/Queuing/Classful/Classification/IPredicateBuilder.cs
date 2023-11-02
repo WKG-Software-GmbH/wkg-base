@@ -2,7 +2,7 @@
 
 internal interface IPredicateBuilder
 {
-    void AddPredicate<TState>(Predicate<TState> predicate) where TState : class;
+    void AddPredicate<TState>(Predicate<TState> predicate);
 
     Predicate<object?>? Compile();
 }

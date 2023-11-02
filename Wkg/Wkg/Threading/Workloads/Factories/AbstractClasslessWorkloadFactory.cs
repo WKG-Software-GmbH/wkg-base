@@ -22,11 +22,18 @@ public abstract class AbstractClasslessWorkloadFactory<THandle> : WorkloadFactor
         ScheduleCore(workload);
     }
 
+    public virtual void Schedule<TState>(TState state, Action<TState> action)
+    {
+        DebugLog.WriteDiagnostic("Scheduling new anonymous workload.", LogWriter.Blocking);
+        AnonymousWorkload workload = new AnonymousWorkloadImplWithState<TState>(state, action);
+        ScheduleCore(workload);
+    }
+
     public virtual Workload ScheduleAsync(Action<CancellationFlag> action, WorkloadContextOptions? options = null) =>
         ScheduleAsync(action, options, CancellationToken.None);
 
     public virtual Workload ScheduleAsync(Action<CancellationFlag> action, CancellationToken cancellationToken) =>
-        ScheduleAsync(action, null, cancellationToken);
+        ScheduleAsync(action, default(WorkloadContextOptions), cancellationToken);
 
     public virtual Workload ScheduleAsync(Action<CancellationFlag> action, WorkloadContextOptions? options, CancellationToken cancellationToken)
     {
@@ -37,17 +44,47 @@ public abstract class AbstractClasslessWorkloadFactory<THandle> : WorkloadFactor
         return workload;
     }
 
+    public virtual Workload ScheduleAsync<TState>(TState state, Action<TState, CancellationFlag> action, WorkloadContextOptions? options = null) =>
+        ScheduleAsync(state, action, options, CancellationToken.None);
+
+    public virtual Workload ScheduleAsync<TState>(TState state, Action<TState, CancellationFlag> action, CancellationToken cancellationToken) =>
+        ScheduleAsync(state, action, default, cancellationToken);
+
+    public virtual Workload ScheduleAsync<TState>(TState state, Action<TState, CancellationFlag> action, WorkloadContextOptions? options, CancellationToken cancellationToken)
+    {
+        DebugLog.WriteDiagnostic("Scheduling new workload.", LogWriter.Blocking);
+        options ??= DefaultOptions;
+        Workload workload = new WorkloadImplWithState<TState>(state, action, options, cancellationToken);
+        ScheduleCore(workload);
+        return workload;
+    }
+
     public virtual Workload<TResult> ScheduleAsync<TResult>(Func<CancellationFlag, TResult> func, WorkloadContextOptions? options = null) =>
         ScheduleAsync(func, options, CancellationToken.None);
 
     public virtual Workload<TResult> ScheduleAsync<TResult>(Func<CancellationFlag, TResult> func, CancellationToken cancellationToken) =>
-        ScheduleAsync(func, null, cancellationToken);
+        ScheduleAsync(func, default(WorkloadContextOptions), cancellationToken);
 
     public virtual Workload<TResult> ScheduleAsync<TResult>(Func<CancellationFlag, TResult> func, WorkloadContextOptions? options, CancellationToken cancellationToken)
     {
         DebugLog.WriteDiagnostic("Scheduling new workload.", LogWriter.Blocking);
         options ??= DefaultOptions;
         Workload<TResult> workload = new WorkloadImpl<TResult>(func, options, cancellationToken);
+        ScheduleCore(workload);
+        return workload;
+    }
+
+    public virtual Workload<TResult> ScheduleAsync<TState, TResult>(TState state, Func<TState, CancellationFlag, TResult> func, WorkloadContextOptions? options = null) =>
+        ScheduleAsync(state, func, options, CancellationToken.None);
+
+    public virtual Workload<TResult> ScheduleAsync<TState, TResult>(TState state, Func<TState, CancellationFlag, TResult> func, CancellationToken cancellationToken) =>
+        ScheduleAsync(state, func, default, cancellationToken);
+
+    public virtual Workload<TResult> ScheduleAsync<TState, TResult>(TState state, Func<TState, CancellationFlag, TResult> func, WorkloadContextOptions? options, CancellationToken cancellationToken)
+    {
+        DebugLog.WriteDiagnostic("Scheduling new workload.", LogWriter.Blocking);
+        options ??= DefaultOptions;
+        Workload<TResult> workload = new WorkloadImplWithState<TState, TResult>(state, func, options, cancellationToken);
         ScheduleCore(workload);
         return workload;
     }

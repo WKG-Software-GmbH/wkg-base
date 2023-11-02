@@ -1,4 +1,5 @@
 ﻿using Wkg.Threading.Workloads.Factories;
+using Wkg.Threading.Workloads.Queuing;
 using Wkg.Threading.Workloads.Queuing.Classful;
 using Wkg.Threading.Workloads.Queuing.Classful.Classification;
 using Wkg.Threading.Workloads.Queuing.Classless;
@@ -71,7 +72,7 @@ public sealed class ClassfulQdiscBuilder<THandle, TQdisc> : ClassfulQdiscBuilder
     {
         Predicate = _predicateBuilder.Compile();
         // TODO: this sucks
-        Predicate<object?> predicate = _predicateBuilder.Compile() ?? new Predicate<object?>(_ => true);
+        Predicate<object?> predicate = _predicateBuilder.Compile() ?? new Predicate<object?>(_ => false);
         TQdisc qdisc = TQdisc.Create(_handle, predicate);
         foreach ((IClasslessQdisc<THandle> child, Predicate<object?>? childPredicate) in _children)
         {
@@ -92,9 +93,10 @@ public sealed class ClassfulQdiscBuilder<THandle, TQdisc> : ClassfulQdiscBuilder
     }
 }
 
-public sealed class ClassfulQdiscBuilderRoot<THandle, TQdisc> : ClassfulQdiscBuilderBase<THandle, TQdisc>
+public sealed class ClassfulQdiscBuilderRoot<THandle, TQdisc, TFactory> : ClassfulQdiscBuilderBase<THandle, TQdisc>
     where THandle : unmanaged
     where TQdisc : class, IClassfulQdisc<THandle, TQdisc>
+    where TFactory : AbstractClassfulWorkloadFactory<THandle>, IWorkloadFactory<THandle, TFactory>
 {
     private readonly QdiscBuilderContext _context;
     private readonly IPredicateBuilder _predicateBuilder = new PredicateBuilder();
@@ -105,10 +107,10 @@ public sealed class ClassfulQdiscBuilderRoot<THandle, TQdisc> : ClassfulQdiscBui
         _context = context;
     }
 
-    public ClassfulWorkloadFactory<THandle> Build()
+    public TFactory Build()
     {
         // TODO: this sucks
-        Predicate<object?> predicate = _predicateBuilder.Compile() ?? new Predicate<object?>(_ => true);
+        Predicate<object?> predicate = _predicateBuilder.Compile() ?? new Predicate<object?>(_ => false);
         TQdisc qdisc = TQdisc.Create(_handle, predicate);
         foreach ((IClasslessQdisc<THandle> child, Predicate<object?>? childPredicate) in _children)
         {
@@ -134,16 +136,16 @@ public sealed class ClassfulQdiscBuilderRoot<THandle, TQdisc> : ClassfulQdiscBui
         {
             pool = new AnonymousWorkloadPoolManager(_context.PoolSize);
         }
-        return new ClassfulWorkloadFactory<THandle>(qdisc, pool, _context.ContextOptions);
+        return TFactory.Create(qdisc, pool, _context.ContextOptions);
     }
 
-    public ClassfulQdiscBuilderRoot<THandle, TQdisc> AddClassificationPredicate<TState>(Predicate<TState> predicate) where TState : class
+    public ClassfulQdiscBuilderRoot<THandle, TQdisc, TFactory> AddClassificationPredicate<TState>(Predicate<TState> predicate) where TState : class
     {
         _predicateBuilder.AddPredicate(predicate);
         return this;
     }
 
-    public ClassfulQdiscBuilderRoot<THandle, TQdisc> AddClasslessChild<TChildQdisc>(THandle childHandle)
+    public ClassfulQdiscBuilderRoot<THandle, TQdisc, TFactory> AddClasslessChild<TChildQdisc>(THandle childHandle)
         where TChildQdisc : class, IClasslessQdisc<THandle, TChildQdisc>
     {
         ClasslessQdiscBuilder<THandle, TChildQdisc> childBuilder = new(childHandle);
@@ -152,7 +154,7 @@ public sealed class ClassfulQdiscBuilderRoot<THandle, TQdisc> : ClassfulQdiscBui
         return this;
     }
 
-    public ClassfulQdiscBuilderRoot<THandle, TQdisc> AddClasslessChild<TChildQdisc>(THandle childHandle, Action<ClasslessQdiscBuilder<THandle, TChildQdisc>> configureChild)
+    public ClassfulQdiscBuilderRoot<THandle, TQdisc, TFactory> AddClasslessChild<TChildQdisc>(THandle childHandle, Action<ClasslessQdiscBuilder<THandle, TChildQdisc>> configureChild)
         where TChildQdisc : class, IClasslessQdisc<THandle, TChildQdisc>
     {
         ClasslessQdiscBuilder<THandle, TChildQdisc> childBuilder = new(childHandle);
@@ -162,7 +164,7 @@ public sealed class ClassfulQdiscBuilderRoot<THandle, TQdisc> : ClassfulQdiscBui
         return this;
     }
 
-    public ClassfulQdiscBuilderRoot<THandle, TQdisc> AddClassfulChild<TChildQdisc>(THandle childHandle, Action<ClassfulQdiscBuilder<THandle, TChildQdisc>> configureChild)
+    public ClassfulQdiscBuilderRoot<THandle, TQdisc, TFactory> AddClassfulChild<TChildQdisc>(THandle childHandle, Action<ClassfulQdiscBuilder<THandle, TChildQdisc>> configureChild)
         where TChildQdisc : class, IClassfulQdisc<THandle, TChildQdisc>
     {
         ClassfulQdiscBuilder<THandle, TChildQdisc> builder = new(childHandle);

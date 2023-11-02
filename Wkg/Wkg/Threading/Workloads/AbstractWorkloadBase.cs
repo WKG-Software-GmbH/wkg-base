@@ -84,5 +84,9 @@ file static class WorkloadIdGenerator
 {
     private static ulong _nextId;
 
+    // this is a simple, fast, and thread-safe way to generate unique IDs.
+    // it is possible for the IDs to be reused, but only after 2^64 IDs have been generated
+    // and it is highly unlikely that someone keeps a workload alive for so long
+    // that there are any collisions
     public static ulong Generate() => Interlocked.Increment(ref _nextId);
 }

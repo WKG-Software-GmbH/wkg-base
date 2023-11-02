@@ -4,19 +4,19 @@ using Wkg.Threading.Workloads.WorkloadTypes.Pooling;
 
 namespace Wkg.Threading.Workloads.Factories;
 
-public class ClassfulWorkloadFactory<THandle> : AbstractClassfulWorkloadFactory<THandle>, 
-    IWorkloadFactory<THandle, ClassfulWorkloadFactory<THandle>>, 
+public class ClassfulWorkloadFactoryWithDI<THandle> : AbstractClassfulWorkloadFactoryWithDI<THandle>, 
+    IWorkloadFactory<THandle, ClassfulWorkloadFactoryWithDI<THandle>>, 
     IClassfulWorkloadFactory<THandle> 
     where THandle : unmanaged
 {
-    private ClassfulWorkloadFactory(IClassfulQdisc<THandle> root, AnonymousWorkloadPoolManager? pool, WorkloadContextOptions? options) 
+    private ClassfulWorkloadFactoryWithDI(IClassfulQdisc<THandle> root, AnonymousWorkloadPoolManager? pool, WorkloadContextOptions? options) 
         : base(root, pool, options)
     {
     }
 
     public IClassfulQdisc<THandle> Root => ClassfulRoot;
 
-    static ClassfulWorkloadFactory<THandle> IWorkloadFactory<THandle, ClassfulWorkloadFactory<THandle>>
+    static ClassfulWorkloadFactoryWithDI<THandle> IWorkloadFactory<THandle, ClassfulWorkloadFactoryWithDI<THandle>>
         .Create(IClasslessQdisc<THandle> root, AnonymousWorkloadPoolManager? pool, WorkloadContextOptions? options) => 
             new((IClassfulQdisc<THandle>)root, pool, options);
 }

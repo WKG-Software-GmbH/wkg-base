@@ -4,7 +4,7 @@ internal class PredicateBuilder : IPredicateBuilder
 {
     private readonly List<IPredicate> _predicates = new();
 
-    public void AddPredicate<TState>(Predicate<TState> predicate) where TState : class => 
+    public void AddPredicate<TState>(Predicate<TState> predicate) => 
         _predicates.Add(new PredicateWrapper<TState>(predicate));
 
     public Predicate<object?>? Compile() => _predicates.Count switch

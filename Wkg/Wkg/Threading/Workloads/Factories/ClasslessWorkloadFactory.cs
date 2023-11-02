@@ -3,7 +3,8 @@ using Wkg.Threading.Workloads.WorkloadTypes.Pooling;
 
 namespace Wkg.Threading.Workloads.Factories;
 
-public class ClasslessWorkloadFactory<THandle> : AbstractClasslessWorkloadFactory<THandle> where THandle : unmanaged
+public class ClasslessWorkloadFactory<THandle> : AbstractClasslessWorkloadFactory<THandle>, IWorkloadFactory<THandle, ClasslessWorkloadFactory<THandle>>, IClasslessWorkloadFactory<THandle>
+    where THandle : unmanaged
 {
     internal ClasslessWorkloadFactory(IClasslessQdisc<THandle> root, AnonymousWorkloadPoolManager? pool, WorkloadContextOptions? options) 
         : base(root, pool, options)
@@ -11,4 +12,8 @@ public class ClasslessWorkloadFactory<THandle> : AbstractClasslessWorkloadFactor
     }
 
     public IClasslessQdisc<THandle> Root => _root;
+
+    static ClasslessWorkloadFactory<THandle> IWorkloadFactory<THandle, ClasslessWorkloadFactory<THandle>>
+        .Create(IClasslessQdisc<THandle> root, AnonymousWorkloadPoolManager? pool, WorkloadContextOptions? options) => 
+            new(root, pool, options);
 }

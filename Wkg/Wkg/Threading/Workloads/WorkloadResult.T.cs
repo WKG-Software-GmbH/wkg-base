@@ -38,7 +38,7 @@ public readonly struct WorkloadResult<TResult>
         }
     }
 
-    public readonly bool TryGetResult(out TResult? result)
+    public readonly bool TryGetResult([NotNullWhen(true)] out TResult? result)
     {
         result = Result;
         return IsSuccess;

@@ -7,6 +7,7 @@ using Wkg.Logging.Sinks;
 using Wkg.Logging.Writers;
 using Wkg.Threading.Workloads;
 using Wkg.Threading.Workloads.Configuration;
+using Wkg.Threading.Workloads.DependencyInjection.Implementations;
 using Wkg.Threading.Workloads.Factories;
 using Wkg.Threading.Workloads.Queuing.Classful.Qdiscs;
 using Wkg.Threading.Workloads.Queuing.Classless.Qdiscs;
@@ -18,7 +19,7 @@ Log.UseLogger(Logger.Create(LoggerConfiguration.Create()
     .RegisterMainThread(Thread.CurrentThread)
     .UseDefaultLogWriter(LogWriter.Blocking)));
 
-ClassfulWorkloadFactory<QdiscType> clubmappFactory = QdiscBuilder.Create<QdiscType>()
+ClassfulWorkloadFactory<QdiscType> clubmappFactory = WorkloadFactoryBuilder.Create<QdiscType>()
     // the root scheduler is allowed to run up to 4 workers at the same time
     .UseMaximumConcurrency(4)
     // async/await continuations will run in the same async context as the scheduling thread
@@ -28,6 +29,7 @@ ClassfulWorkloadFactory<QdiscType> clubmappFactory = QdiscBuilder.Create<QdiscTy
     // anonymous workloads will be pooled and reused.
     // no allocations will be made up until more than 64 workloads are scheduled at the same time
     // note that this does not apply to awaitable workloads (e.g, workloads that return a result to the caller)
+    // or to stateful workloads (e.g, workloads that capture state)
     .UseAnonymousWorkloadPooling(poolSize: 64) 
     // the root scheduler will fairly dequeue workloads alternating between the two child schedulers (Round Robin)
     // a classifying root scheduler can have children and also allows dynamic assignment of workloads to child schedulers
@@ -52,18 +54,19 @@ await clubmappFactory.ScheduleAsync(QdiscType.Fifo, flag =>
     Log.WriteInfo("Done with background work.");
 });
 
-ClassfulWorkloadFactory<int> factory = QdiscBuilder.Create<int>()
+ClassfulWorkloadFactoryWithDI<int> factory = WorkloadFactoryBuilder.Create<int>()
     .UseMaximumConcurrency(4)
     .FlowExecutionContextToContinuations()
     .RunContinuationsOnCapturedContext()
-    .UseDependencyInjection(services => services
+    .UseDependencyInjection<PooledWorkloadServiceProviderFactory>(services => services
         .AddService<IMyService, MyService>(() => new MyService())
         .AddService(() => new MyService()))
     .UseAnonymousWorkloadPooling(poolSize: 64)
     .UseClassfulRoot<RoundRobinQdisc<int>>(1)
         .AddClassificationPredicate<State>(state => state.QdiscType == QdiscType.RoundRobin)
         .AddClasslessChild<FifoQdisc<int>>(2, child => child
-            .WithClassificationPredicate<State>(state => state.QdiscType == QdiscType.Fifo))
+            .WithClassificationPredicate<State>(state => state.QdiscType == QdiscType.Fifo)
+            .WithClassificationPredicate<int>(i => (i & 1) == 0))
         .AddClassfulChild<RoundRobinQdisc<int>>(3, child => child
             .AddClassfulChild<RoundRobinQdisc<int>>(10, child => child
                 .AddClassfulChild<RoundRobinQdisc<int>>(11, child => child
@@ -74,31 +77,25 @@ ClassfulWorkloadFactory<int> factory = QdiscBuilder.Create<int>()
             .AddClasslessChild<FifoQdisc<int>>(5)
             .AddClasslessChild<LifoQdisc<int>>(6)
         .AddClasslessChild<LifoQdisc<int>>(7, child => child
-            .WithClassificationPredicate<State>(state => state.QdiscType == QdiscType.Lifo))
+            .WithClassificationPredicate<State>(state => state.QdiscType == QdiscType.Lifo)
+            .WithClassificationPredicate<int>(i => (i & 1) == 1))
         .AddClasslessChild<FifoQdisc<int>>(8)
         .Build();
 
-AsyncLocal<int> asyncLocal = new()
-{
-    Value = 1337
-};
-Log.WriteInfo($"ThreadLocal: {asyncLocal.Value}");
+List<int> myData = Enumerable.Range(0, 1000).ToList();
+int sum = myData.Sum();
+Log.WriteInfo($"Sum: {sum}");
 
-SynchronizationContext.SetSynchronizationContext(new MySynchronizationContext());
+List<int> result = await factory.TransformAllAsync(myData, (data, cancellationFlag) => data * 100);
 
-Log.WriteInfo(SynchronizationContext.Current?.ToString() ?? "null");
+Log.WriteInfo($"Result Sum 1: {result.Select(i => (long)i).Sum()}");
+await Task.Delay(2500);
+Log.WriteInfo($"Sum: {sum}");
 
-WorkloadResult<int> result = await factory.ScheduleAsync(flag =>
-{
-    Log.WriteInfo($"Hello from the root scheduler. The async local value is {asyncLocal.Value}.");
-    Thread.Sleep(1000);
-    Log.WriteInfo("Goodbye from the root scheduler!");
-    return 42;
-});
-Log.WriteInfo($"Result: {result}");
+List<int> resultClassified = await factory.ClassifyAndTransformAllAsync(myData, (data, cancellationFlag) => data * 100);
 
-Log.WriteInfo($"ThreadLocal: {asyncLocal.Value}");
-Log.WriteInfo(SynchronizationContext.Current?.ToString() ?? "null");
+Log.WriteInfo($"Result Sum 2: {resultClassified.Select(i => (long)i).Sum()}");
+await Task.Delay(2500);
 
 CancellationTokenSource cts = new();
 Workload workload = factory.ScheduleAsync(flag =>
@@ -234,7 +231,7 @@ Log.WriteInfo("Waiting for all workloads to complete...");
 await Workload.WhenAll(wls);
 Log.WriteFatal("DONE WITH TESTS");
 
-ClasslessWorkloadFactory<int> simpleFactory = QdiscBuilder.Create<int>()
+ClasslessWorkloadFactory<int> simpleFactory = WorkloadFactoryBuilder.Create<int>()
     .UseMaximumConcurrency(16)
     .FlowExecutionContextToContinuations()
     .RunContinuationsOnCapturedContext()
@@ -288,11 +285,18 @@ class MySynchronizationContext : SynchronizationContext
 
 interface IMyService
 {
-
+    int GetNext();
 }
 
 class MyService : IMyService
 {
+    private int _counter;
 
+    public MyService()
+    {
+        _counter = 0;
+    }
+
+    public int GetNext() => Interlocked.Increment(ref _counter);
 }
 

@@ -7,6 +7,13 @@ using static ConcurrentBoolean;
 public partial class Workload
 {
     #region WhenAll
+
+    public static ValueTask WhenAll(IEnumerable<AwaitableWorkload> workloads)
+    {
+        AwaitableWorkload[] array = workloads.ToArray();
+        return WhenAllCore(new WhenAllAwaiterState(array.Length), array);
+    }
+
     public static ValueTask WhenAll(params AwaitableWorkload[] workloads) => WhenAllCore(new WhenAllAwaiterState(workloads.Length), workloads);
 
     private static ValueTask WhenAllCore(WhenAllAwaiterState state, AwaitableWorkload[] workloads)

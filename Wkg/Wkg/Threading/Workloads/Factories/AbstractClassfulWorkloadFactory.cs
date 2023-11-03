@@ -96,79 +96,79 @@ public abstract class AbstractClassfulWorkloadFactory<THandle> : AbstractClassle
         return workload;
     }
 
-    public virtual void Schedule(in THandle handle, Action action)
+    public virtual void Schedule(THandle handle, Action action)
     {
         DebugLog.WriteDiagnostic("Scheduling new workload.", LogWriter.Blocking);
         AnonymousWorkload workload = SupportsPooling
             ? Pool.Rent(action)
             : new AnonymousWorkloadImpl(action);
-        ScheduleCore(in handle, workload);
+        ScheduleCore(handle, workload);
     }
 
-    public virtual void Schedule<TState>(in THandle handle, TState state, Action<TState> action)
+    public virtual void Schedule<TState>(THandle handle, TState state, Action<TState> action)
     {
         DebugLog.WriteDiagnostic("Scheduling new workload.", LogWriter.Blocking);
         AnonymousWorkload workload = new AnonymousWorkloadImplWithState<TState>(state, action);
-        ScheduleCore(in handle, workload);
+        ScheduleCore(handle, workload);
     }
 
-    public virtual Workload ScheduleAsync(in THandle handle, Action<CancellationFlag> action, WorkloadContextOptions? options = null) =>
-        ScheduleAsync(in handle, action, CancellationToken.None);
+    public virtual Workload ScheduleAsync(THandle handle, Action<CancellationFlag> action, WorkloadContextOptions? options = null) =>
+        ScheduleAsync(handle, action, CancellationToken.None);
 
-    public virtual Workload ScheduleAsync(in THandle handle, Action<CancellationFlag> action, CancellationToken cancellationToken) =>
-        ScheduleAsync(in handle, action, default(WorkloadContextOptions), cancellationToken);
+    public virtual Workload ScheduleAsync(THandle handle, Action<CancellationFlag> action, CancellationToken cancellationToken) =>
+        ScheduleAsync(handle, action, default(WorkloadContextOptions), cancellationToken);
 
-    public virtual Workload ScheduleAsync(in THandle handle, Action<CancellationFlag> action, WorkloadContextOptions? options, CancellationToken cancellationToken)
+    public virtual Workload ScheduleAsync(THandle handle, Action<CancellationFlag> action, WorkloadContextOptions? options, CancellationToken cancellationToken)
     {
         DebugLog.WriteDiagnostic("Scheduling new workload.", LogWriter.Blocking);
         options ??= DefaultOptions;
         Workload workload = new WorkloadImpl(action, options, cancellationToken);
-        ScheduleCore(in handle, workload);
+        ScheduleCore(handle, workload);
         return workload;
     }
 
-    public virtual Workload ScheduleAsync<TState>(in THandle handle, TState state, Action<TState, CancellationFlag> action, WorkloadContextOptions? options = null) =>
-        ScheduleAsync(in handle, state, action, CancellationToken.None);
+    public virtual Workload ScheduleAsync<TState>(THandle handle, TState state, Action<TState, CancellationFlag> action, WorkloadContextOptions? options = null) =>
+        ScheduleAsync(handle, state, action, CancellationToken.None);
 
-    public virtual Workload ScheduleAsync<TState>(in THandle handle, TState state, Action<TState, CancellationFlag> action, CancellationToken cancellationToken) =>
-        ScheduleAsync(in handle, state, action, null, cancellationToken);
+    public virtual Workload ScheduleAsync<TState>(THandle handle, TState state, Action<TState, CancellationFlag> action, CancellationToken cancellationToken) =>
+        ScheduleAsync(handle, state, action, null, cancellationToken);
 
-    public virtual Workload ScheduleAsync<TState>(in THandle handle, TState state, Action<TState, CancellationFlag> action, WorkloadContextOptions? options, CancellationToken cancellationToken)
+    public virtual Workload ScheduleAsync<TState>(THandle handle, TState state, Action<TState, CancellationFlag> action, WorkloadContextOptions? options, CancellationToken cancellationToken)
     {
         DebugLog.WriteDiagnostic("Scheduling new workload.", LogWriter.Blocking);
         options ??= DefaultOptions;
         Workload workload = new WorkloadImplWithState<TState>(state, action, options, cancellationToken);
-        ScheduleCore(in handle, workload);
+        ScheduleCore(handle, workload);
         return workload;
     }
 
-    public virtual Workload<TResult> ScheduleAsync<TResult>(in THandle handle, Func<CancellationFlag, TResult> func, WorkloadContextOptions? options = null) =>
-        ScheduleAsync(in handle, func, options, CancellationToken.None);
+    public virtual Workload<TResult> ScheduleAsync<TResult>(THandle handle, Func<CancellationFlag, TResult> func, WorkloadContextOptions? options = null) =>
+        ScheduleAsync(handle, func, options, CancellationToken.None);
 
-    public virtual Workload<TResult> ScheduleAsync<TResult>(in THandle handle, Func<CancellationFlag, TResult> func, CancellationToken cancellationToken) =>
-        ScheduleAsync(in handle, func, default(WorkloadContextOptions), cancellationToken);
+    public virtual Workload<TResult> ScheduleAsync<TResult>(THandle handle, Func<CancellationFlag, TResult> func, CancellationToken cancellationToken) =>
+        ScheduleAsync(handle, func, default(WorkloadContextOptions), cancellationToken);
 
-    public virtual Workload<TResult> ScheduleAsync<TResult>(in THandle handle, Func<CancellationFlag, TResult> func, WorkloadContextOptions? options, CancellationToken cancellationToken)
+    public virtual Workload<TResult> ScheduleAsync<TResult>(THandle handle, Func<CancellationFlag, TResult> func, WorkloadContextOptions? options, CancellationToken cancellationToken)
     {
         DebugLog.WriteDiagnostic("Scheduling new workload.", LogWriter.Blocking);
         options ??= DefaultOptions;
         Workload<TResult> workload = new WorkloadImpl<TResult>(func, options, cancellationToken);
-        ScheduleCore(in handle, workload);
+        ScheduleCore(handle, workload);
         return workload;
     }
 
-    public virtual Workload<TResult> ScheduleAsync<TState, TResult>(in THandle handle, TState state, Func<TState, CancellationFlag, TResult> func, WorkloadContextOptions? options = null) =>
-        ScheduleAsync(in handle, state, func, options, CancellationToken.None);
+    public virtual Workload<TResult> ScheduleAsync<TState, TResult>(THandle handle, TState state, Func<TState, CancellationFlag, TResult> func, WorkloadContextOptions? options = null) =>
+        ScheduleAsync(handle, state, func, options, CancellationToken.None);
 
-    public virtual Workload<TResult> ScheduleAsync<TState, TResult>(in THandle handle, TState state, Func<TState, CancellationFlag, TResult> func, CancellationToken cancellationToken) =>
-        ScheduleAsync(in handle, state, func, null, cancellationToken);
+    public virtual Workload<TResult> ScheduleAsync<TState, TResult>(THandle handle, TState state, Func<TState, CancellationFlag, TResult> func, CancellationToken cancellationToken) =>
+        ScheduleAsync(handle, state, func, null, cancellationToken);
 
-    public virtual Workload<TResult> ScheduleAsync<TState, TResult>(in THandle handle, TState state, Func<TState, CancellationFlag, TResult> func, WorkloadContextOptions? options, CancellationToken cancellationToken)
+    public virtual Workload<TResult> ScheduleAsync<TState, TResult>(THandle handle, TState state, Func<TState, CancellationFlag, TResult> func, WorkloadContextOptions? options, CancellationToken cancellationToken)
     {
         DebugLog.WriteDiagnostic("Scheduling new workload.", LogWriter.Blocking);
         options ??= DefaultOptions;
         Workload<TResult> workload = new WorkloadImplWithState<TState, TResult>(state, func, options, cancellationToken);
-        ScheduleCore(in handle, workload);
+        ScheduleCore(handle, workload);
         return workload;
     }
 
@@ -180,13 +180,13 @@ public abstract class AbstractClassfulWorkloadFactory<THandle> : AbstractClassle
         }
     }
 
-    private protected virtual void ScheduleCore(in THandle handle, AbstractWorkloadBase workload)
+    private protected virtual void ScheduleCore(THandle handle, AbstractWorkloadBase workload)
     {
         if (_root.Handle.Equals(handle))
         {
             _root.Enqueue(workload);
         }
-        else if (ClassfulRoot.TryFindChild(in handle, out IClasslessQdisc<THandle>? child))
+        else if (ClassfulRoot.TryFindChild(handle, out IClasslessQdisc<THandle>? child))
         {
             child.Enqueue(workload);
         }

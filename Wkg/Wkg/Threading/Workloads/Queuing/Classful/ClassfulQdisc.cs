@@ -46,20 +46,20 @@ public abstract class ClassfulQdisc<THandle> : ClasslessQdisc<THandle>, IClassfu
     /// <inheritdoc/>
     public abstract bool TryRemoveChild(IClasslessQdisc<THandle> child);
 
-    /// <inheritdoc cref="IClassfulQdisc{THandle}.ContainsChild(in THandle)"/>"
-    protected abstract bool ContainsChild(in THandle handle);
+    /// <inheritdoc cref="IClassfulQdisc{THandle}.ContainsChild(THandle)"/>"
+    protected abstract bool ContainsChild(THandle handle);
 
-    /// <inheritdoc cref="IClassfulQdisc{THandle}.TryFindChild(in THandle, out IClasslessQdisc{THandle}?)"/>
-    protected abstract bool TryFindChild(in THandle handle, [NotNullWhen(true)] out IClasslessQdisc<THandle>? child);
+    /// <inheritdoc cref="IClassfulQdisc{THandle}.TryFindChild(THandle, out IClasslessQdisc{THandle}?)"/>
+    protected abstract bool TryFindChild(THandle handle, [NotNullWhen(true)] out IClasslessQdisc<THandle>? child);
 
     bool IClassfulQdisc<THandle>.TryEnqueue(object? state, AbstractWorkloadBase workload) => TryEnqueue(state, workload);
 
     bool IClassfulQdisc<THandle>.TryEnqueueDirect(object? state, AbstractWorkloadBase workload) => TryEnqueueDirect(state, workload);
 
-    bool IClassfulQdisc<THandle>.ContainsChild(in THandle handle) => ContainsChild(in handle);
+    bool IClassfulQdisc<THandle>.ContainsChild(THandle handle) => ContainsChild(handle);
 
     void INotifyWorkScheduled.OnWorkScheduled() => OnWorkScheduled();
 
-    bool IClassfulQdisc<THandle>.TryFindChild(in THandle handle, [NotNullWhen(true)] out IClasslessQdisc<THandle>? child) =>
-        TryFindChild(in handle, out child);
+    bool IClassfulQdisc<THandle>.TryFindChild(THandle handle, [NotNullWhen(true)] out IClasslessQdisc<THandle>? child) =>
+        TryFindChild(handle, out child);
 }

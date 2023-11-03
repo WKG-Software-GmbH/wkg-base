@@ -33,14 +33,14 @@ public interface IClassfulQdisc<THandle> : IQdisc, INotifyWorkScheduled, IClassl
     /// <param name="handle">The handle of the child to find.</param>
     /// <param name="child">The child with the given handle, if found.</param>
     /// <returns><see langword="true"/> if the child was found, <see langword="false"/> if the child was not found.</returns>
-    internal bool TryFindChild(in THandle handle, [NotNullWhen(true)] out IClasslessQdisc<THandle>? child);
+    internal bool TryFindChild(THandle handle, [NotNullWhen(true)] out IClasslessQdisc<THandle>? child);
 
     /// <summary>
     /// Checks if the qdisc contains the child with the given handle.
     /// </summary>
     /// <param name="handle">The handle of the child to find.</param>
     /// <returns><see langword="true"/> if the child was found, <see langword="false"/> if the child was not found.</returns>
-    internal bool ContainsChild(in THandle handle);
+    internal bool ContainsChild(THandle handle);
 
     internal bool TryEnqueue(object? state, AbstractWorkloadBase workload);
 

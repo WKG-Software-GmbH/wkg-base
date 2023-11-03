@@ -158,6 +158,12 @@ public sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassful
         // backtracking failed, or was not requested. We need to iterate over all child qdiscs.
         while (true)
         {
+            // we operate lock-free on a local snapshot of the children array
+            // by contract, elements in the children array are immutable, so we don't need to worry about them changing
+            // however, the children array itself may change via a CAS operation, so we must only operate on the local snapshot
+            // of the reference. If the reference changes, we need to start over, since we don't know which child qdiscs we already
+            // iterated over.
+            // however, reference changes are rare, so we can afford the risk of having to start over.
             IChildClassification<THandle>[] children = Volatile.Read(ref _children);
 
             // loop until we find a workload or until we meet requirements for worker termination
@@ -175,10 +181,19 @@ public sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassful
                     // retry with the updated round robin index which is guaranteed to be in range
                     // (unless the array changed again, but that's unlikely)
                     DebugLog.WriteDiagnostic($"Round robin index out of range, retrying with updated index.", LogWriter.Blocking);
-                    continue;
+                    // we need to break here to ensure that we update our local snapshot of the children array as well!
+                    break;
                 }
+                // the empty counter may be reset by another thread between the time we read it and the time we increment it.
+                // for this reason, we need to get a token equivalent to the current "counter generation". we then use this token
+                // as a ticket to increment the counter. if the counter generation changed while we were incrementing the counter,
+                // the increment will fail and we need to start over.
                 uint token = _emptyCounter.GetToken();
+                // we need to enter a critical section to keep track of how many threads are currently attempting to dequeue a workload.
+                // if we assume that the qdisc is empty, we need to wait until all threads that entered the critical section before us
+                // have left it. otherwise, slower but valid dequeue operations may be missed.
                 CriticalSection criticalSection = CriticalSection.Enter(ref _criticalDequeueSection);
+                // get our assigned child qdisc
                 IQdisc qdisc = children[index].Qdisc;
                 if (qdisc.TryDequeueInternal(backTrack, out workload))
                 {
@@ -194,6 +209,9 @@ public sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassful
                 // leave the critical dequeue section
                 criticalSection.Exit();
                 // we didn't find a workload, increment the empty counter
+                // this increment may fail if the counter generation changed while we were dequeuing from the child qdisc
+                // however, if the incremented value exceeds the number of children, we can assume that the qdisc is empty
+                // (after we establish consensus with the other threads, that is)
                 if (_emptyCounter.TryIncrement(token) >= children.Length)
                 {
                     // we meet requirements for worker termination
@@ -356,7 +374,7 @@ public sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassful
     {
         DebugLog.WriteDiagnostic($"Trying to remove child qdisc {child} from round robin qdisc {this}.", LogWriter.Blocking);
         // before locking, check if the child is even present. if it's not, we can return early
-        if (!this.To<IClassfulQdisc<THandle>>().ContainsChild(in child.Handle))
+        if (!this.To<IClassfulQdisc<THandle>>().ContainsChild(child.Handle))
         {
             DebugLog.WriteDiagnostic($"Quickly returning false, child qdisc {child} not present in round robin qdisc {this}.", LogWriter.Blocking);
             return false;
@@ -416,11 +434,11 @@ public sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassful
     }
 
     /// <inheritdoc/>
-    protected override bool ContainsChild(in THandle handle) =>
+    protected override bool ContainsChild(THandle handle) =>
         TryFindChild(handle, out _);
 
     /// <inheritdoc/>
-    protected override bool TryFindChild(in THandle handle, [NotNullWhen(true)] out IClasslessQdisc<THandle>? child)
+    protected override bool TryFindChild(THandle handle, [NotNullWhen(true)] out IClasslessQdisc<THandle>? child)
     {
         try
         {

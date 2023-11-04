@@ -18,7 +18,7 @@ public abstract class ClasslessQdiscBuilderBase<THandle, TQdisc>
     }
 }
 
-public sealed class ClasslessQdiscBuilder<THandle, TQdisc> : ClasslessQdiscBuilderBase<THandle, TQdisc>
+public class ClasslessQdiscBuilder<THandle, TQdisc> : ClasslessQdiscBuilderBase<THandle, TQdisc>
     where THandle : unmanaged
     where TQdisc : class, IClasslessQdisc<THandle, TQdisc>
 {

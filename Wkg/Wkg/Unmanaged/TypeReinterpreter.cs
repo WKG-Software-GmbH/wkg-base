@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 
 namespace Wkg.Unmanaged;
 
@@ -28,6 +29,7 @@ public static class TypeReinterpreter
     /// <param name="from">The value to reinterpret cast.</param>
     /// <returns>The specified <paramref name="from"/> object reinterpreted as the specified <typeparamref name="T"/> reference type.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    [return: NotNullIfNotNull(nameof(from))]
     public static T? ReinterpretCast<T>(object? from) where T : class =>
         Unsafe.As<T>(from);
 

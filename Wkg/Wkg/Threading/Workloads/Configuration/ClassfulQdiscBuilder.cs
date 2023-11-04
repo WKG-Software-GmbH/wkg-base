@@ -49,6 +49,18 @@ public sealed class ClassfulQdiscBuilder<THandle, TQdisc> : ClassfulQdiscBuilder
         configureChild(childBuilder);
         TChildQdisc qdisc = childBuilder.Build();
         _children.Add((qdisc, childBuilder.Predicate));
+        AddClasslessChild(childHandle, new TestQdisc<THandle>());
+        return this;
+    }
+
+    public ClassfulQdiscBuilder<THandle, TQdisc> AddClasslessChild<TChildQdisc, TBuilder>(THandle childHandle, TChildQdisc child)
+        where TChildQdisc : IClasslessQdiscProvider<THandle, TBuilder>
+        where TBuilder : class
+    {
+        TBuilder builder = TChildQdisc.CreateBuilderFactory(childHandle);
+        configureChild(childBuilder);
+        TChildQdisc qdisc = childBuilder.Build();
+        _children.Add((qdisc, childBuilder.Predicate));
         return this;
     }
 

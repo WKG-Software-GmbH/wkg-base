@@ -1,4 +1,8 @@
-﻿namespace Wkg.Threading.Workloads.Queuing.Classless;
+﻿using Wkg.Threading.Workloads.Configuration;
+using Wkg.Threading.Workloads.Queuing.Classful.Classification;
+using Wkg.Threading.Workloads.Queuing.Classless.Qdiscs;
+
+namespace Wkg.Threading.Workloads.Queuing.Classless;
 
 public interface IClasslessQdisc : IQdisc
 {
@@ -30,4 +34,82 @@ public interface IClasslessQdisc<THandle, TQdisc> : IClasslessQdisc<THandle>
     /// </summary>
     /// <returns>A new anonymous <typeparamref name="TQdisc"/> instance.</returns>
     static abstract TQdisc CreateAnonymous();
+}
+
+abstract class ClasslessQdiscBuilder<TSelf> where TSelf : ClasslessQdiscBuilder<TSelf>
+{
+    private readonly IPredicateBuilder _predicateBuilder = new PredicateBuilder();
+
+    internal Predicate<object?>? Predicate { get; private set; }
+
+    protected ClasslessQdiscBuilder()
+    {
+    }
+
+    // TODO: add an extension point to allow for dynamicly compiled predicates (e.g., expression trees / IL emit)
+    public TSelf WithClassificationPredicate<TState>(Predicate<TState> predicate)
+    {
+        _predicateBuilder.AddPredicate(predicate);
+        return ReinterpretCast<TSelf>(this);
+    }
+
+    protected abstract IClasslessQdisc<THandle> BuildInternal<THandle>(THandle handle) where THandle : unmanaged;
+
+    internal IClasslessQdisc<THandle> Build<THandle>(THandle handle) where THandle : unmanaged
+    {
+        Predicate = _predicateBuilder.Compile();
+        return BuildInternal(handle);
+    }
+}
+
+interface IClasslessQdiscBuilder<TSelf> where TSelf : ClasslessQdiscBuilder<TSelf>, IClasslessQdiscBuilder<TSelf>
+{
+    static abstract TSelf CreateBuilder();
+}
+
+class QFQ : ClasslessQdiscBuilder<QFQ>, IClasslessQdiscBuilder<QFQ>
+{
+    internal QFQ() : base()
+    {
+    }
+
+    public QFQ ConfigureFoo(int foo)
+    {
+        return this;
+    }
+
+    public QFQ ConfigureBar(string bar)
+    {
+        return this;
+    }
+
+    protected override IClasslessQdisc<THandle> BuildInternal<THandle>(THandle handle)
+    {
+        return FifoQdisc<THandle>.Create(handle);
+    }
+
+    public static QFQ CreateBuilder() => new();
+}
+
+class TestStuff<THandle> where THandle : unmanaged
+{
+    public TestStuff<THandle> AddClasslessChild<TChild>(THandle childHandle, Action<TChild> childConfigurationAction)
+        where TChild : ClasslessQdiscBuilder<TChild>, IClasslessQdiscBuilder<TChild>
+    {
+        TChild childBuilder = TChild.CreateBuilder();
+        childConfigurationAction(childBuilder);
+        IClasslessQdisc<THandle> qdisc = childBuilder.Build(childHandle);
+        return this;
+    }
+}
+
+class ASdf
+{
+    void A()
+    {
+        TestStuff<int> builder = new();
+        builder.AddClasslessChild<QFQ>(1, qfq => qfq
+            .ConfigureFoo(1)
+            .ConfigureBar("asdf"));
+    }
 }

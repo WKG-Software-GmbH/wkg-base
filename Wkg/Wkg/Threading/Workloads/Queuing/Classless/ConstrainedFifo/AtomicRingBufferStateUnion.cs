@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace Wkg.Threading.Workloads.Queuing.Classless.ConstrainedFifo;
 
@@ -30,5 +31,9 @@ internal struct AtomicRingBufferStateUnion
     public ushort Head;
     // two bytes padding to align the whole thing to be loaded and stored atomically (64 bits)
 
-    public AtomicRingBufferStateUnion(ulong state) : this() => __State = state;
+    // we ideally don't want any constructor calls.
+    // the JIT should be smart enough to just reinterpret_cast this whole thing from a ulong.
+    // we can help it a bit by telling it that this should be inlined if possible.
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public AtomicRingBufferStateUnion(ulong state) => __State = state;
 }

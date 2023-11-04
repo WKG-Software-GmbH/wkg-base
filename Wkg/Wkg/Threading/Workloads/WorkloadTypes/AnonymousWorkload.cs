@@ -13,6 +13,21 @@ internal abstract class AnonymousWorkload : AbstractWorkloadBase
 
     internal override void InternalRunContinuations() => Pass();
 
+    internal override void InternalAbort()
+    {
+        DebugLog.WriteDiagnostic($"{this}: Forcing internal cancellation.", LogWriter.Blocking);
+        // we're forcing cancellation, so we can just set the status to canceled
+        if (Atomic.TryTestAnyFlagsExchange(ref _status, WorkloadStatus.Canceled, ~CommonFlags.Completed))
+        {
+            DebugLog.WriteDiagnostic($"{this}: Successfully forced internal cancellation.", LogWriter.Blocking);
+            InternalRunContinuations();
+        }
+        else
+        {
+            DebugLog.WriteDiagnostic($"{this}: Failed to force internal cancellation. Status is '{Status}'.", LogWriter.Blocking);
+        }
+    }
+
     // Only used for cancellation. Anonymous workloads are not bound to a qdisc.
     internal override bool TryInternalBindQdisc(IQdisc qdisc)
     {

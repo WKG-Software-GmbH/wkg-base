@@ -1,20 +1,20 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Wkg.Common.Extensions;
-using Wkg.Common.ThrowHelpers;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
+using Wkg.Threading.Workloads.Configuration;
 using Wkg.Threading.Workloads.Queuing.Classful.Internals;
 using Wkg.Threading.Workloads.Queuing.Classless;
-using Wkg.Threading.Workloads.Queuing.Classless.Qdiscs;
+using Wkg.Threading.Workloads.Queuing.Classless.Fifo;
 
-namespace Wkg.Threading.Workloads.Queuing.Classful.Qdiscs;
+namespace Wkg.Threading.Workloads.Queuing.Classful.RoundRobin;
 
 /// <summary>
 /// A classful qdisc that implements the Round Robin scheduling algorithm to dequeue workloads from its children.
 /// </summary>
 /// <typeparam name="THandle">The type of the handle.</typeparam>
-public sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassfulQdisc<THandle, RoundRobinQdisc<THandle>>
+internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassfulQdisc<THandle>
     where THandle : unmanaged
 {
     private readonly ThreadLocal<IQdisc?> _localLast;
@@ -27,26 +27,16 @@ public sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassful
     private int _rrIndex;
     private int _criticalDequeueSection;
 
-    private RoundRobinQdisc(THandle handle, Predicate<object?> predicate) : base(handle)
+    public RoundRobinQdisc(THandle handle, Predicate<object?> predicate, IClasslessQdiscBuilder? localQueueBuilder) : base(handle)
     {
-        _localQueue = FifoQdisc<THandle>.CreateAnonymous();
+        localQueueBuilder ??= Fifo.CreateBuilder();
+        _localQueue = localQueueBuilder.BuildUnsafe(default(THandle));
         _localLast = new ThreadLocal<IQdisc?>(trackAllValues: false);
         _children = new IChildClassification<THandle>[] { new NoChildClassification<THandle>(_localQueue) };
         _predicate = predicate;
         _childrenLock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
         _emptyCounter = new EmptyCounter();
     }
-
-    /// <inheritdoc/>
-    public static RoundRobinQdisc<THandle> Create(THandle handle, Predicate<object?> predicate)
-    {
-        Throw.WorkloadSchedulingException.IfHandleIsDefault(handle);
-        return new RoundRobinQdisc<THandle>(handle, predicate);
-    }
-
-    /// <inheritdoc/>
-    public static RoundRobinQdisc<THandle> CreateAnonymous(Predicate<object?> predicate) => 
-        new(default, predicate);
 
     /// <inheritdoc/>
     protected override void OnInternalInitialize(INotifyWorkScheduled parentScheduler) =>

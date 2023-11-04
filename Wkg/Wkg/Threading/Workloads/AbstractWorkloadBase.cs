@@ -15,7 +15,6 @@ using CommonFlags = WorkloadStatus.CommonFlags;
 public abstract class AbstractWorkloadBase
 {
     private protected uint _status;
-    private object? _state;
 
     private protected AbstractWorkloadBase(WorkloadStatus status)
     {
@@ -50,6 +49,8 @@ public abstract class AbstractWorkloadBase
     /// Also allows the workload to be returned to a pool, if applicable.
     /// </summary>
     internal abstract void InternalRunContinuations();
+
+    internal abstract void InternalAbort();
 
     /// <summary>
     /// Attempts to bind the workload to the specified qdisc.

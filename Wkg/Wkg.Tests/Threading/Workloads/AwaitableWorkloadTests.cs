@@ -1,7 +1,7 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Wkg.Threading.Workloads.Factories;
 using Wkg.Threading.Workloads.Configuration;
-using Wkg.Threading.Workloads.Queuing.Classless.Qdiscs;
+using Wkg.Threading.Workloads.Queuing.Classless.Fifo;
 
 namespace Wkg.Threading.Workloads.Tests;
 
@@ -11,8 +11,7 @@ public class AwaitableWorkloadTests
     private static ClasslessWorkloadFactory<int> CreateDefaultFactory() => WorkloadFactoryBuilder.Create<int>()
         .UseAnonymousWorkloadPooling(4)
         .UseMaximumConcurrency(1)
-        .UseClasslessRoot<FifoQdisc<int>>(1)
-        .Build();
+        .UseClasslessRoot<Fifo>(1);
 
     [TestMethod]
     public async Task TestAwait1()

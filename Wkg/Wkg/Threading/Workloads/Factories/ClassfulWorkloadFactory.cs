@@ -9,7 +9,7 @@ public class ClassfulWorkloadFactory<THandle> : AbstractClassfulWorkloadFactory<
     IClassfulWorkloadFactory<THandle> 
     where THandle : unmanaged
 {
-    private ClassfulWorkloadFactory(IClassfulQdisc<THandle> root, AnonymousWorkloadPoolManager? pool, WorkloadContextOptions? options) 
+    internal ClassfulWorkloadFactory(IClassfulQdisc<THandle> root, AnonymousWorkloadPoolManager? pool, WorkloadContextOptions? options) 
         : base(root, pool, options)
     {
     }

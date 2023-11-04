@@ -1,9 +1,9 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Wkg.Threading.Workloads.Factories;
 using Wkg.Threading.Workloads.Configuration;
-using Wkg.Threading.Workloads.Queuing.Classless.Qdiscs;
 using Microsoft.VisualStudio.TestPlatform.ObjectModel;
 using Wkg.Common.Extensions;
+using Wkg.Threading.Workloads.Queuing.Classless.Fifo;
 
 namespace Wkg.Threading.Workloads.Tests;
 
@@ -14,8 +14,7 @@ public class WorkloadSynchronizationContextTests
         .UseAnonymousWorkloadPooling(4)
         .UseMaximumConcurrency(1)
         .RunContinuationsOnCapturedContext(continueOnCapturedContext)
-        .UseClasslessRoot<FifoQdisc<int>>(1)
-        .Build();
+        .UseClasslessRoot<Fifo>(1);
 
     [TestMethod]
     public async Task TestContinueOnCapturedContextFalse()

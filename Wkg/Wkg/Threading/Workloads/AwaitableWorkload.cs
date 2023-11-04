@@ -113,6 +113,22 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
     internal bool InternalTryMarkAborted() =>
         Interlocked.CompareExchange(ref _status, WorkloadStatus.Canceled, WorkloadStatus.CancellationRequested) == WorkloadStatus.CancellationRequested;
 
+    internal override void InternalAbort()
+    {
+        DebugLog.WriteDiagnostic($"{this}: Forcing internal cancellation.", LogWriter.Blocking);
+        // we're forcing cancellation, so we can just set the status to canceled
+        if (Atomic.TryTestAnyFlagsExchange(ref _status, WorkloadStatus.Canceled, ~CommonFlags.Completed))
+        {
+            DebugLog.WriteDiagnostic($"{this}: Successfully forced internal cancellation.", LogWriter.Blocking);
+            SetCanceledResultUnsafe();
+            InternalRunContinuations();
+        }
+        else
+        {
+            DebugLog.WriteDiagnostic($"{this}: Failed to force internal cancellation. Status is '{Status}'.", LogWriter.Blocking);
+        }
+    }
+
     internal override bool TryInternalBindQdisc(IQdisc qdisc)
     {
         DebugLog.WriteDiagnostic($"{this}: Attempting to bind workload to qdisc.", LogWriter.Blocking);
@@ -508,7 +524,7 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
 
     internal bool InternalWait(int millisecondsTimeout, CancellationToken token)
     {
-        Throw.ArgumentOutOfRangeException.IfLessThan(nameof(millisecondsTimeout), millisecondsTimeout, -1);
+        Throw.ArgumentOutOfRangeException.IfLessThan(millisecondsTimeout, -1, nameof(millisecondsTimeout));
 
         if (IsCompleted)
         {

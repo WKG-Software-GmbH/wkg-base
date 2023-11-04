@@ -1,71 +1,30 @@
-﻿using Wkg.Threading.Workloads.Factories;
-using Wkg.Threading.Workloads.Queuing.Classful.Classification;
+﻿using Wkg.Common.ThrowHelpers;
 using Wkg.Threading.Workloads.Queuing.Classless;
-using Wkg.Threading.Workloads.Scheduling;
-using Wkg.Threading.Workloads.WorkloadTypes.Pooling;
 
 namespace Wkg.Threading.Workloads.Configuration;
 
-public abstract class ClasslessQdiscBuilderBase<THandle, TQdisc>
-    where THandle : unmanaged
-    where TQdisc : class, IClasslessQdisc<THandle, TQdisc>
+public interface IClasslessQdiscBuilder
 {
-    private protected readonly THandle _handle;
+    IClasslessQdisc<THandle> Build<THandle>(THandle handle) where THandle : unmanaged;
 
-    private protected ClasslessQdiscBuilderBase(THandle handle)
-    {
-        _handle = handle;
-    }
+    IClasslessQdisc<THandle> BuildUnsafe<THandle>(THandle handle = default) where THandle : unmanaged;
 }
 
-public class ClasslessQdiscBuilder<THandle, TQdisc> : ClasslessQdiscBuilderBase<THandle, TQdisc>
-    where THandle : unmanaged
-    where TQdisc : class, IClasslessQdisc<THandle, TQdisc>
+public interface IClasslessQdiscBuilder<TSelf> : IClasslessQdiscBuilder where TSelf : ClasslessQdiscBuilder<TSelf>, IClasslessQdiscBuilder<TSelf>
 {
-    private readonly IPredicateBuilder _predicateBuilder = new PredicateBuilder();
-
-    internal Predicate<object?>? Predicate { get; private set; }
-
-    internal ClasslessQdiscBuilder(THandle handle) : base(handle) => Pass();
-
-    // TODO: add an extension point to allow for dynamicly compiled predicates (e.g., expression trees / IL emit)
-    public ClasslessQdiscBuilder<THandle, TQdisc> WithClassificationPredicate<TState>(Predicate<TState> predicate)
-    {
-        _predicateBuilder.AddPredicate(predicate);
-        return this;
-    }
-
-    internal TQdisc Build()
-    {
-        Predicate = _predicateBuilder.Compile();
-        return TQdisc.Create(_handle);
-    }
+    static abstract TSelf CreateBuilder();
 }
 
-public sealed class ClasslessQdiscBuilderRoot<THandle, TQdisc, TFactory> : ClasslessQdiscBuilderBase<THandle, TQdisc>
-    where THandle : unmanaged
-    where TQdisc : class, IClasslessQdisc<THandle, TQdisc>
-    where TFactory : AbstractClasslessWorkloadFactory<THandle>, IWorkloadFactory<THandle, TFactory>
+public abstract class ClasslessQdiscBuilder<TSelf> : IClasslessQdiscBuilder where TSelf : ClasslessQdiscBuilder<TSelf>, IClasslessQdiscBuilder<TSelf>
 {
-    private readonly QdiscBuilderContext _context;
+    protected abstract IClasslessQdisc<THandle> BuildInternal<THandle>(THandle handle) where THandle : unmanaged;
 
-    internal ClasslessQdiscBuilderRoot(THandle handle, QdiscBuilderContext context) : base(handle)
-    {
-        _context = context;
-    }
+    IClasslessQdisc<THandle> IClasslessQdiscBuilder.BuildUnsafe<THandle>(THandle handle) => BuildInternal(handle);
 
-    public TFactory Build()
+    IClasslessQdisc<THandle> IClasslessQdiscBuilder.Build<THandle>(THandle handle)
     {
-        TQdisc qdisc = TQdisc.Create(_handle);
-        WorkloadScheduler scheduler = _context.ServiceProviderFactory is null
-            ? new WorkloadScheduler(qdisc, _context.MaximumConcurrency)
-            : new WorkloadSchedulerWithDI(qdisc, _context.MaximumConcurrency, _context.ServiceProviderFactory);
-        qdisc.InternalInitialize(scheduler);
-        AnonymousWorkloadPoolManager? pool = null;
-        if (_context.UsePooling)
-        {
-            pool = new AnonymousWorkloadPoolManager(_context.PoolSize);
-        }
-        return TFactory.Create(qdisc, pool, _context.ContextOptions);
+        Throw.WorkloadSchedulingException.IfHandleIsDefault(handle);
+
+        return BuildInternal(handle);
     }
 }

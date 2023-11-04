@@ -15,7 +15,7 @@ internal class AnonymousWorkloadPool<TWorkload> where TWorkload : AnonymousWorkl
 
     public AnonymousWorkloadPool(int capacity)
     {
-        Throw.ArgumentOutOfRangeException.IfNegativeOrZero(nameof(capacity), capacity);
+        Throw.ArgumentOutOfRangeException.IfNegativeOrZero(capacity, nameof(capacity));
         _workloads = new TWorkload[capacity];
         _index = 0;
     }

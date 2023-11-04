@@ -1,33 +1,22 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
-using Wkg.Common.ThrowHelpers;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
 
-namespace Wkg.Threading.Workloads.Queuing.Classless.Qdiscs;
+namespace Wkg.Threading.Workloads.Queuing.Classless.Lifo;
 
 /// <summary>
 /// A qdisc that implements the Last-In-First-Out (LIFO) scheduling algorithm.
 /// </summary>
 /// <typeparam name="THandle">The type of the handle.</typeparam>
-public sealed class LifoQdisc<THandle> : ClasslessQdisc<THandle>, IClasslessQdisc<THandle, LifoQdisc<THandle>> where THandle : unmanaged
+internal sealed class LifoQdisc<THandle> : ClasslessQdisc<THandle>, IClasslessQdisc<THandle> where THandle : unmanaged
 {
     private readonly ConcurrentStack<AbstractWorkloadBase> _stack;
 
-    private LifoQdisc(THandle handle) : base(handle)
+    public LifoQdisc(THandle handle) : base(handle)
     {
         _stack = new ConcurrentStack<AbstractWorkloadBase>();
     }
-
-    /// <inheritdoc/>
-    public static LifoQdisc<THandle> Create(THandle handle)
-    {
-        Throw.WorkloadSchedulingException.IfHandleIsDefault(handle);
-        return new LifoQdisc<THandle>(handle);
-    }
-
-    /// <inheritdoc/>
-    public static LifoQdisc<THandle> CreateAnonymous() => new(default);
 
     /// <inheritdoc/>
     public override bool IsEmpty => _stack.IsEmpty;

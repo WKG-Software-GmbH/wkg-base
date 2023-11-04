@@ -70,4 +70,10 @@ public static class SyntacticSugar
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void Pass() { }
+
+    /// <summary>
+    /// Explicitly does nothing. Useful for using expression bodied syntax for empty methods. Also explicitly indicates that methods are *supposed* to be empty (as opposed to a missing implementation).
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void Pass<T>(T _) { }
 }

@@ -12,73 +12,22 @@ using Wkg.Threading.Workloads;
 using Wkg.Threading.Workloads.Configuration;
 using Wkg.Threading.Workloads.DependencyInjection.Implementations;
 using Wkg.Threading.Workloads.Factories;
-using Wkg.Threading.Workloads.Queuing.Classful.Qdiscs;
-using Wkg.Threading.Workloads.Queuing.Classless.Qdiscs;
+using Wkg.Threading.Workloads.Queuing.Classful.RoundRobin;
+using Wkg.Threading.Workloads.Queuing.Classless.ConstrainedFifo;
+using Wkg.Threading.Workloads.Queuing.Classless.ConstrainedLifo;
+using Wkg.Threading.Workloads.Queuing.Classless.Fifo;
+using Wkg.Threading.Workloads.Queuing.Classless.Lifo;
 
 internal class Program
 {
-    int a = 0;
-
-    private void Asdf() => a++;
-
-    private static unsafe void Test()
-    {
-        Program p = new();
-        Action action1 = p.Asdf;
-        Stopwatch sw = new();
-        nint handle = default;
-        for (int i = 0; i < 100; i++)
-        {
-            sw.Start();
-            handle = action1.Method.MethodHandle.GetFunctionPointer();
-            sw.Stop();
-            Console.WriteLine(sw.Elapsed.ToString());
-            sw.Reset();
-        }
-        Log.WriteInfo($"Static instance handle: {handle}");
-        for (int i = 0; i < 100; i++)
-        {
-            if (i == 50)
-            {
-                Console.WriteLine("new test");
-                sw.Start();
-                Action a = Test;
-                handle = a.Method.MethodHandle.GetFunctionPointer();
-                sw.Stop();
-                Console.WriteLine(sw.Elapsed.ToString());
-                sw.Reset();
-            }
-            else
-            {
-                sw.Start();
-                Action a = p.Asdf;
-                handle = a.Method.MethodHandle.GetFunctionPointer();
-                sw.Stop();
-                Console.WriteLine(sw.Elapsed.ToString());
-                sw.Reset();
-            }
-        }
-        // "this" pointer (arg0 for all instance methods in .NET's calling convention)
-        // we can also just pass any other arbitrary object reference here for extra fun :)
-        delegate*<Program, void> ptr1 = (delegate*<Program, void>)handle;
-        ptr1(p);
-    }
-
     private static async Task Main(string[] args)
     {
-        BenchmarkRunner.Run<Tests>();
-        Console.ReadLine();
-        return;
-
         Log.UseLogger(Logger.Create(LoggerConfiguration.Create()
             //.AddSink<ColoredThreadBasedConsoleSink>()
             .AddSink<ColoredConsoleSink>()
             .UseEntryGenerator<TracingLogEntryGenerator>()
             .RegisterMainThread(Thread.CurrentThread)
             .UseDefaultLogWriter(LogWriter.Blocking)));
-
-        Test();
-        return;
 
         ClassfulWorkloadFactory<QdiscType> clubmappFactory = WorkloadFactoryBuilder.Create<QdiscType>()
             // the root scheduler is allowed to run up to 4 workers at the same time
@@ -95,13 +44,14 @@ internal class Program
             // the root scheduler will fairly dequeue workloads alternating between the two child schedulers (Round Robin)
             // a classifying root scheduler can have children and also allows dynamic assignment of workloads to child schedulers
             // based on some state object
-            .UseClassfulRoot<RoundRobinQdisc<QdiscType>>(QdiscType.RoundRobin)
-                .AddClassificationPredicate<State>(state => state.QdiscType == QdiscType.RoundRobin)
+            .UseClassfulRoot<RoundRobin>(QdiscType.RoundRobin, roundRobinClassBuilder => roundRobinClassBuilder
+                .ConfigureClassificationPredicates(classificationBuilder => classificationBuilder
+                    .AddPredicate<State>(state => state.QdiscType == QdiscType.RoundRobin))
                 // one child scheduler will dequeue workloads in a First In First Out manner
-                .AddClasslessChild<FifoQdisc<QdiscType>>(QdiscType.Fifo)
+                .AddClasslessChild<Fifo>(QdiscType.Fifo)
                 // the other child scheduler will dequeue workloads in a Last In First Out manner
-                .AddClasslessChild<LifoQdisc<QdiscType>>(QdiscType.Lifo)
-                .Build();
+                .AddClasslessChild<ConstrainedLifo>(QdiscType.Lifo, qdisc => qdisc
+                    .WithCapacity(16)));
 
         await clubmappFactory.ScheduleAsync(QdiscType.Fifo, flag =>
         {
@@ -123,25 +73,26 @@ internal class Program
                 .AddService<IMyService, MyService>(() => new MyService())
                 .AddService(() => new MyService()))
             .UseAnonymousWorkloadPooling(poolSize: 64)
-            .UseClassfulRoot<RoundRobinQdisc<int>>(1)
-                .AddClassificationPredicate<State>(state => state.QdiscType == QdiscType.RoundRobin)
-                .AddClasslessChild<FifoQdisc<int>>(2, child => child
-                    .WithClassificationPredicate<State>(state => state.QdiscType == QdiscType.Fifo)
-                    .WithClassificationPredicate<int>(i => (i & 1) == 0))
-                .AddClassfulChild<RoundRobinQdisc<int>>(3, child => child
-                    .AddClassfulChild<RoundRobinQdisc<int>>(10, child => child
-                        .AddClassfulChild<RoundRobinQdisc<int>>(11, child => child
-                            .AddClassfulChild<RoundRobinQdisc<int>>(12, child => child
-                                .AddClassfulChild<RoundRobinQdisc<int>>(13, child => child
-                                    .AddClasslessChild<LifoQdisc<int>>(14))))))
-                    .AddClasslessChild<LifoQdisc<int>>(4)
-                    .AddClasslessChild<FifoQdisc<int>>(5)
-                    .AddClasslessChild<LifoQdisc<int>>(6)
-                .AddClasslessChild<LifoQdisc<int>>(7, child => child
-                    .WithClassificationPredicate<State>(state => state.QdiscType == QdiscType.Lifo)
-                    .WithClassificationPredicate<int>(i => (i & 1) == 1))
-                .AddClasslessChild<FifoQdisc<int>>(8)
-                .Build();
+            .UseClassfulRoot<RoundRobin>(1, roundRobinRootBuilder => roundRobinRootBuilder
+                .ConfigureClassificationPredicates(classifier => classifier
+                    .AddPredicate<State>(state => state.QdiscType == QdiscType.RoundRobin))
+                .ConfigureQdisc(rootQdisc => rootQdisc.WithLocalQueue<Lifo>())
+                .AddClasslessChild<Fifo>(2, classifier => classifier
+                    .AddPredicate<State>(state => state.QdiscType == QdiscType.Fifo)
+                    .AddPredicate<int>(i => (i & 1) == 0))
+                .AddClassfulChild<RoundRobin>(3, child => child
+                    .AddClassfulChild<RoundRobin>(10, child => child
+                        .AddClassfulChild<RoundRobin>(11, child => child
+                            .AddClassfulChild<RoundRobin>(12, child => child
+                                .AddClassfulChild<RoundRobin>(13, child => child
+                                    .AddClasslessChild<Lifo>(14))))))
+                    .AddClasslessChild<Lifo>(4)
+                    .AddClasslessChild<Fifo>(5)
+                    .AddClasslessChild<Lifo>(6)
+                .AddClasslessChild<Lifo>(7, classifier => classifier
+                    .AddPredicate<State>(state => state.QdiscType == QdiscType.Lifo)
+                    .AddPredicate<int>(i => (i & 1) == 1))
+                .AddClasslessChild<ConstrainedFifo>(8));
 
         List<int> myData = Enumerable.Range(0, 1000).ToList();
         int sum = myData.Sum();
@@ -297,8 +248,7 @@ internal class Program
             .FlowExecutionContextToContinuations()
             .RunContinuationsOnCapturedContext()
             .UseAnonymousWorkloadPooling(poolSize: 64)
-            .UseClasslessRoot<FifoQdisc<int>>(1)
-            .Build();
+            .UseClasslessRoot<Fifo>(1);
 
         Log.WriteInfo("Starting simple tests...");
         AwaitableWorkload[] wls2 = new AwaitableWorkload[80];

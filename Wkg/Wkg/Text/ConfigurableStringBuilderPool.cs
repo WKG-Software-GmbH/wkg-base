@@ -20,8 +20,8 @@ internal sealed class ConfigurableStringBuilderPool : StringBuilderPool
 
     internal ConfigurableStringBuilderPool(int maxStringBuilderCapacity, int maxStringBuildersPerBucket)
     {
-        Throw.ArgumentOutOfRangeException.IfNegativeOrZero(nameof(maxStringBuilderCapacity), maxStringBuilderCapacity);
-        Throw.ArgumentOutOfRangeException.IfNegativeOrZero(nameof(maxStringBuildersPerBucket), maxStringBuildersPerBucket);
+        Throw.ArgumentOutOfRangeException.IfNegativeOrZero(maxStringBuilderCapacity, nameof(maxStringBuilderCapacity));
+        Throw.ArgumentOutOfRangeException.IfNegativeOrZero(maxStringBuildersPerBucket, nameof(maxStringBuildersPerBucket));
 
         // Our bucketing algorithm has a min capactity of 2^4 and a max capactity of 2^30.
         // Constrain the actual max used to those values.
@@ -48,7 +48,7 @@ internal sealed class ConfigurableStringBuilderPool : StringBuilderPool
     public override StringBuilder Rent(int minimumCapacity)
     {
         // StringBuilders can't be smaller than 1.
-        Throw.ArgumentOutOfRangeException.IfNegativeOrZero(nameof(minimumCapacity), minimumCapacity);
+        Throw.ArgumentOutOfRangeException.IfNegativeOrZero(minimumCapacity, nameof(minimumCapacity));
 
         StringBuilder? builder;
 

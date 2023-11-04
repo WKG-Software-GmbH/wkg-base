@@ -1,11 +1,14 @@
 ﻿namespace Wkg.Threading.Workloads.Queuing.Classful.Classification;
 
-internal class PredicateBuilder : IPredicateBuilder
+public class SimplePredicateBuilder : IPredicateBuilder
 {
     private readonly List<IPredicate> _predicates = new();
 
-    public void AddPredicate<TState>(Predicate<TState> predicate) => 
+    public SimplePredicateBuilder AddPredicate<TState>(Predicate<TState> predicate)
+    {
         _predicates.Add(new PredicateWrapper<TState>(predicate));
+        return this;
+    }
 
     public Predicate<object?>? Compile() => _predicates.Count switch
     {
@@ -18,7 +21,7 @@ internal class PredicateBuilder : IPredicateBuilder
     {
         private readonly IPredicate[] _predicates;
 
-        public CompiledPredicates(PredicateBuilder predicates) => _predicates = predicates._predicates.ToArray();
+        public CompiledPredicates(SimplePredicateBuilder predicates) => _predicates = predicates._predicates.ToArray();
 
         public bool Invoke(object? state)
         {

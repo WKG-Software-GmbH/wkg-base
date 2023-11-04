@@ -4,7 +4,7 @@ using Wkg.Threading.Workloads.Configuration;
 using Wkg.Threading.Workloads.DependencyInjection;
 using Wkg.Threading.Workloads.DependencyInjection.Implementations;
 using Wkg.Threading.Workloads.Factories;
-using Wkg.Threading.Workloads.Queuing.Classless.Qdiscs;
+using Wkg.Threading.Workloads.Queuing.Classless.Fifo;
 
 namespace Wkg.Threading.Workloads.Tests;
 
@@ -18,8 +18,7 @@ public class WorkloadServiceProviderTests
         .UseDependencyInjection<TServiceProviderFactory>(di => di
             .AddSingleton(new MySingletonService(42))
             .AddService<IMyService, MyService>(() => new MyService()))
-        .UseClasslessRoot<FifoQdisc<int>>(1)
-        .Build();
+        .UseClasslessRoot<Fifo>(1);
 
     [TestMethod]
     public async Task TestSimpleServiceProvider1()

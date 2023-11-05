@@ -44,6 +44,8 @@ public interface IQdisc
     /// </remarks>
     internal bool TryDequeueInternal(int workerId, bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload);
 
+    internal bool TryPeekUnsafe(int workerId, [NotNullWhen(true)] out AbstractWorkloadBase? workload);
+
     /// <summary>
     /// Notifies the qdisc that a worker thread has been terminated.
     /// </summary>

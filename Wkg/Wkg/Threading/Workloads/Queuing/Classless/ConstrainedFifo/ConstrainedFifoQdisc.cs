@@ -1,7 +1,5 @@
 ﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
 
@@ -116,6 +114,25 @@ internal class ConstrainedFifoQdisc<THandle> : ClasslessQdisc<THandle>, IClassle
             state.IsEmpty = state.Head == state.Tail;
             newState = state.__State;
         } while (Interlocked.CompareExchange(ref _state, newState, currentState) != currentState);
+        Debug.Assert(workload is not null);
+        return true;
+    }
+
+    protected override bool TryPeekUnsafe(int workerId, [NotNullWhen(true)] out AbstractWorkloadBase? workload)
+    {
+        ulong currentState;
+        do
+        {
+            currentState = Volatile.Read(ref _state);
+            AtomicRingBufferStateUnion state = new(currentState);
+            if (state.Head == state.Tail && state.IsEmpty)
+            {
+                // Queue is empty
+                workload = null;
+                return false;
+            }
+            workload = Volatile.Read(ref _workloads[state.Head]);
+        } while (Volatile.Read(ref _state) != currentState);
         Debug.Assert(workload is not null);
         return true;
     }

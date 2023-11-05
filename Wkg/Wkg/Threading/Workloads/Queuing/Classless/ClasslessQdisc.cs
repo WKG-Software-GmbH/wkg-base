@@ -57,6 +57,9 @@ public abstract class ClasslessQdisc<THandle> : IClasslessQdisc<THandle> where T
     /// <inheritdoc cref="IQdisc.TryDequeueInternal(int, bool, out AbstractWorkloadBase?)"/>"
     protected abstract bool TryDequeueInternal(int workerId, bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload);
 
+    /// <inheritdoc cref="IQdisc.TryPeekUnsafe(int, out AbstractWorkloadBase?)"/>"
+    protected abstract bool TryPeekUnsafe(int workerId, [NotNullWhen(true)] out AbstractWorkloadBase? workload);
+
     /// <inheritdoc cref="IQdisc.TryRemoveInternal(AwaitableWorkload)"/>"
     protected abstract bool TryRemoveInternal(AwaitableWorkload workload);
 
@@ -104,6 +107,8 @@ public abstract class ClasslessQdisc<THandle> : IClasslessQdisc<THandle> where T
     void IClasslessQdisc.Enqueue(AbstractWorkloadBase workload) => EnqueueDirect(workload);
 
     void IQdisc.OnWorkerTerminated(int workerId) => OnWorkerTerminated(workerId);
+
+    bool IQdisc.TryPeekUnsafe(int workerId, [NotNullWhen(true)] out AbstractWorkloadBase? workload) => TryPeekUnsafe(workerId, out workload);
 
     /// <inheritdoc/>
     public override string ToString() => $"{GetType().Name} ({Handle})";

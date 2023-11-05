@@ -161,7 +161,7 @@ public static class WorkloadFactoryExtensions
         List<Exception> errors = new();
         for (int i = 0; i < workloads.Length; i++)
         {
-            WorkloadResult<TResult> result = workloads[i].GetAwaiter().GetResult();
+            WorkloadResult<TResult> result = workloads[i].Result;
             if (result.TryGetResult(out TResult? value))
             {
                 results.Add(value);

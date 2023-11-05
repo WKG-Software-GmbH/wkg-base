@@ -35,4 +35,24 @@ internal sealed class ConstrainedLifoQdisc<THandle> : ConstrainedFifoQdisc<THand
         Debug.Assert(workload is not null);
         return true;
     }
+
+    protected override bool TryPeekUnsafe(int workerId, [NotNullWhen(true)] out AbstractWorkloadBase? workload)
+    {
+        ulong currentState;
+        do
+        {
+            currentState = Volatile.Read(ref _state);
+            AtomicRingBufferStateUnion state = new(currentState);
+            if (state.Head == state.Tail && state.IsEmpty)
+            {
+                // Queue is empty
+                workload = null;
+                return false;
+            }
+            int index = MathExtensions.Modulo(state.Tail - 1, _workloads.Length);
+            workload = Volatile.Read(ref _workloads[index]);
+        } while (Volatile.Read(ref _state) != currentState);
+        Debug.Assert(workload is not null);
+        return true;
+    }
 }

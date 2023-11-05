@@ -239,6 +239,48 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
         }
     }
 
+    protected override bool TryPeekUnsafe(int workerId, [NotNullWhen(true)] out AbstractWorkloadBase? workload)
+    {
+        if (IsKnownEmptyVolatile)
+        {
+            // we know that all children are empty, so we can return false immediately
+            DebugLog.WriteDiagnostic($"{this} qdisc is known to be empty, taking shortcut and returning false.", LogWriter.Blocking);
+            workload = null;
+            return false;
+        }
+        // backtracking failed, or was not requested. We need to iterate over all child qdiscs.
+        while (true)
+        {
+            // we operate lock-free on a local snapshot of the children array
+            // by contract, elements in the children array are immutable, so we don't need to worry about them changing
+            // however, the children array itself may change via a CAS operation, so we must only operate on the local snapshot
+            // of the reference. If the reference changes, we need to start over, since we don't know which child qdiscs we already
+            // iterated over.
+            // however, reference changes are rare, so we can afford the risk of having to start over.
+            IChildClassification<THandle>[] children = Volatile.Read(ref _children);
+
+            // this one is easier than TryDequeueInternal, since we operate entirely read-only
+            // in theory, we could participate in the empty counter tracking, but that's not necessary
+            int index = Volatile.Read(ref _rrIndex);
+            int i;
+            for (i = 0; i < children.Length && ReferenceEquals(children, Volatile.Read(ref _children)); i++, index = (index + 1) % children.Length)
+            {
+                IQdisc qdisc = children[index].Qdisc;
+                if (qdisc.TryPeekUnsafe(workerId, out workload))
+                {
+                    return true;
+                }
+            }
+            if (i >= children.Length)
+            {
+                workload = null;
+                return false;
+            }
+            // the children array changed while we were iterating over it
+            DebugLog.WriteDebug($"Children array changed while iterating over it, resampling children.", LogWriter.Blocking);
+        }
+    }
+
     /// <inheritdoc/>
     protected override bool TryEnqueue(object? state, AbstractWorkloadBase workload)
     {

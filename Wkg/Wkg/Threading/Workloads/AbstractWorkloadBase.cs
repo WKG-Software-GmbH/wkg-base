@@ -294,6 +294,7 @@ public abstract class AbstractWorkloadBase
         bool IQdisc.TryRemoveInternal(AwaitableWorkload workload) => ThrowHelper<bool>();
         void IQdisc.InternalInitialize(INotifyWorkScheduled parentScheduler) => ThrowHelper<bool>();
         void IQdisc.Complete() => ThrowHelper<bool>();
+        public void OnWorkerTerminated(int workerId) => ThrowHelper<bool>();
 
         [DoesNotReturn]
         [StackTraceHidden]

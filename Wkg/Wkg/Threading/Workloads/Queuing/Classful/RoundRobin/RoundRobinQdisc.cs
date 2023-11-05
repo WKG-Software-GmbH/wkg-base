@@ -6,7 +6,6 @@ using Wkg.Logging.Writers;
 using Wkg.Threading.Workloads.Configuration;
 using Wkg.Threading.Workloads.Queuing.Classful.Internals;
 using Wkg.Threading.Workloads.Queuing.Classless;
-using Wkg.Threading.Workloads.Queuing.Classless.Fifo;
 
 namespace Wkg.Threading.Workloads.Queuing.Classful.RoundRobin;
 
@@ -17,7 +16,7 @@ namespace Wkg.Threading.Workloads.Queuing.Classful.RoundRobin;
 internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassfulQdisc<THandle>
     where THandle : unmanaged
 {
-    private readonly ThreadLocal<IQdisc?> _localLast;
+    private readonly IQdisc?[] _localLasts;
     private readonly IClasslessQdisc<THandle> _localQueue;
     private readonly Predicate<object?> _predicate;
 
@@ -27,10 +26,10 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
     private int _rrIndex;
     private int _criticalDequeueSection;
 
-    public RoundRobinQdisc(THandle handle, Predicate<object?> predicate, IClasslessQdiscBuilder localQueueBuilder) : base(handle)
+    public RoundRobinQdisc(THandle handle, Predicate<object?> predicate, IClasslessQdiscBuilder localQueueBuilder, int maxConcurrency) : base(handle)
     {
         _localQueue = localQueueBuilder.BuildUnsafe(default(THandle));
-        _localLast = new ThreadLocal<IQdisc?>(trackAllValues: false);
+        _localLasts = new IQdisc[maxConcurrency];
         _children = new IChildClassification<THandle>[] { new NoChildClassification<THandle>(_localQueue) };
         _predicate = predicate;
         _childrenLock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
@@ -139,10 +138,9 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
         // if we have to backtrack, we can do so by dequeuing from the last child qdisc
         // that was dequeued from. If the last child qdisc is empty, we can't backtrack and continue
         // with the next child qdisc.
-        // TODO: replace thread locals with worker ID based indexing
-        if (backTrack && _localLast.IsValueCreated && _localLast.Value?.TryDequeueInternal(workerId, backTrack, out workload) is true)
+        if (backTrack && _localLasts[workerId]?.TryDequeueInternal(workerId, backTrack, out workload) is true)
         {
-            DebugLog.WriteDiagnostic($"{this} Backtracking to last child qdisc {_localLast.Value.GetType().Name} ({_localLast.Value}).", LogWriter.Blocking);
+            DebugLog.WriteDiagnostic($"{this} Backtracking to last child qdisc {_localLasts[workerId]!.GetType().Name} ({_localLasts[workerId]}).", LogWriter.Blocking);
             return true;
         }
         // backtracking failed, or was not requested. We need to iterate over all child qdiscs.
@@ -189,7 +187,7 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
                 {
                     DebugLog.WriteDiagnostic($"{this} Dequeued workload from child qdisc {qdisc}.", LogWriter.Blocking);
                     // we found a workload, update the last child qdisc and reset the empty counter
-                    _localLast.Value = children[index].Qdisc;
+                    _localLasts[workerId] = children[index].Qdisc;
                     // reset the empty counter and start a new counter generation *before* we leave the critical dequeue section
                     _emptyCounter.Reset();
                     // leave the critical dequeue section
@@ -226,7 +224,7 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
                         // correctly and that the qdisc is indeed empty.
                         // this qdisc is now considered empty until new workloads are scheduled.
                         workload = null;
-                        _localLast.Value = null;
+                        _localLasts[workerId] = null;
                         DebugLog.WriteDiagnostic($"{this} Qdisc is empty, returning false.", LogWriter.Blocking);
                         return false;
                     }
@@ -454,6 +452,22 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
         {
             _childrenLock.ExitReadLock();
         }
+    }
+
+    protected override void OnWorkerTerminated(int workerId)
+    {
+        // reset the last child qdisc for this worker
+        Volatile.Write(ref _localLasts[workerId], null);
+
+        // forward to children, no lock needed. if children are removed then they don't need to be notified
+        // and if new children are added, they shouldn't know about the worker anyway
+        IChildClassification<THandle>[] children = Volatile.Read(ref _children);
+        for (int i = 0; i < children.Length; i++)
+        {
+            children[i].Qdisc.OnWorkerTerminated(workerId);
+        }
+
+        base.OnWorkerTerminated(workerId);
     }
 
     /// <inheritdoc/>

@@ -102,6 +102,9 @@ internal class WorkloadScheduler : INotifyWorkScheduled
             // we are about to exit, so we must release the worker slot
             // by contract, we can only pass our own worker id to this method
             // once the worker slot is released, we must no longer assume that the worker id is valid
+            // before we release the worker slot, we must allow the qdiscs to clean up worker-local states
+            _rootQdisc.OnWorkerTerminated(workerId);
+            // now we can release the worker slot
             _state.ResignWorker(workerId);
             // re-sample the queue
             DebugLog.WriteDiagnostic($"Worker holding ID {workerId} previously found no tasks, resampling root qdisc to ensure true emptiness.", LogWriter.Blocking);

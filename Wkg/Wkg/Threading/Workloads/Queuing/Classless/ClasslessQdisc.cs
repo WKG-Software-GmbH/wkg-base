@@ -83,6 +83,9 @@ public abstract class ClasslessQdisc<THandle> : IClasslessQdisc<THandle> where T
     /// </remarks>
     protected void NotifyWorkScheduled() => ParentScheduler.OnWorkScheduled();
 
+    /// <inheritdoc cref="IQdisc.OnWorkerTerminated(int)"/>
+    protected virtual void OnWorkerTerminated(int workerId) => Pass();
+
     bool IQdisc.TryDequeueInternal(int workerId, bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload) => TryDequeueInternal(workerId, backTrack, out workload);
 
     bool IQdisc.TryRemoveInternal(AwaitableWorkload workload) => TryRemoveInternal(workload);
@@ -99,6 +102,8 @@ public abstract class ClasslessQdisc<THandle> : IClasslessQdisc<THandle> where T
     }
 
     void IClasslessQdisc.Enqueue(AbstractWorkloadBase workload) => EnqueueDirect(workload);
+
+    void IQdisc.OnWorkerTerminated(int workerId) => OnWorkerTerminated(workerId);
 
     /// <inheritdoc/>
     public override string ToString() => $"{GetType().Name} ({Handle})";

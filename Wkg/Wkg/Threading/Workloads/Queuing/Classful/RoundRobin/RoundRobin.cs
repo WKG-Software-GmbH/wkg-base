@@ -41,6 +41,6 @@ public sealed class RoundRobin : ClassfulQdiscBuilder<RoundRobin>, IClassfulQdis
     protected internal override IClassfulQdisc<THandle> BuildInternal<THandle>(THandle handle, Predicate<object?> predicate)
     {
         _localQueueBuilder ??= Fifo.CreateBuilder(_context);
-        return new RoundRobinQdisc<THandle>(handle, predicate, _localQueueBuilder);
+        return new RoundRobinQdisc<THandle>(handle, predicate, _localQueueBuilder, _context.MaximumConcurrency);
     }
 }

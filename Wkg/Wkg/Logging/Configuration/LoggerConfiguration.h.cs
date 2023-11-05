@@ -24,6 +24,14 @@ public partial class LoggerConfiguration
     public partial LoggerConfiguration AddSink(ILogSink sink);
 
     /// <summary>
+    /// Specifies that the provided <paramref name="logLevel"/> should be used as the minimum log level for the <see cref="ILogger"/>.
+    /// All log entries with a log level lower than the provided <paramref name="logLevel"/> will be ignored.
+    /// </summary>
+    /// <param name="logLevel">The minimum log level to be used by the <see cref="ILogger"/>.</param>
+    /// <returns>This <see cref="LoggerConfiguration"/> instance to enable fluent configuration.</returns>
+    public partial LoggerConfiguration SetMinimumLogLevel(LogLevel logLevel);
+
+    /// <summary>
     /// Specifies that the provided <typeparamref name="TGenerator"/> should be used by the <see cref="ILogger"/> as the default <see cref="ILogEntryGenerator"/>.
     /// </summary>
     /// <typeparam name="TGenerator">The type of the <see cref="ILogEntryGenerator"/> to be used.</typeparam>

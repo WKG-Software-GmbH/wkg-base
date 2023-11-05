@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using Wkg.Internals.Diagnostic;
@@ -13,7 +14,10 @@ internal class WorkloadScheduler : INotifyWorkScheduled
 {
     private readonly IQdisc _rootQdisc;
     private readonly int _maximumConcurrencyLevel;
-    private readonly WorkerState _state;
+
+    // do not mark as readonly, this struct is mutable
+    // tracks the current degree of parallelism and the worker ids that are currently in use
+    private WorkerState _state;
 
     public WorkloadScheduler(IQdisc rootQdisc, int maximumConcurrencyLevel)
     {
@@ -41,7 +45,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
         if (state.CallerClaimedWorkerSlot)
         {
             // we have room for another worker, so we'll start one
-            DebugLog.WriteWarning($"Successfully queued new worker {state.CallerWorkerId}. Worker count incremented: {state.WorkerCount - 1} -> {state.WorkerCount}.", LogWriter.Blocking);
+            DebugLog.WriteDiagnostic($"Successfully queued new worker {state.CallerWorkerId}. Worker count incremented: {state.WorkerCount - 1} -> {state.WorkerCount}.", LogWriter.Blocking);
             // do not flow the execution context to the worker
             DispatchWorkerNonCapturing(state.CallerWorkerId);
             // we successfully started a worker, so we can exit
@@ -62,7 +66,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
     protected virtual void WorkerLoop(object? state)
     {
         int workerId = (int)state!;
-        DebugLog.WriteWarning($"Started worker {workerId}", LogWriter.Blocking);
+        DebugLog.WriteInfo($"Started worker {workerId}", LogWriter.Blocking);
         bool previousExecutionFailed = false;
         while (TryDequeueOrExitSafely(ref workerId, previousExecutionFailed, out AbstractWorkloadBase? workload))
         {
@@ -70,7 +74,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
             Debug.Assert(workload.Status.IsOneOf(CommonFlags.Completed));
             workload.InternalRunContinuations();
         }
-        DebugLog.WriteWarning($"Terminated worker with previous ID {workerId}.", LogWriter.Blocking);
+        DebugLog.WriteInfo($"Terminated worker with previous ID {workerId}.", LogWriter.Blocking);
     }
 
     /// <summary>
@@ -105,7 +109,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
             if (_rootQdisc.IsEmpty)
             {
                 // no more tasks, exit
-                DebugLog.WriteWarning($"Worker holding ID {workerId} previously found no tasks, exiting.", LogWriter.Blocking);
+                DebugLog.WriteDebug($"Worker holding ID {workerId} previously found no tasks, exiting.", LogWriter.Blocking);
                 return false;
             }
             DebugLog.WriteDiagnostic($"Worker holding ID {workerId} previously was interrupted while exiting due to new scheduling activity. Attempting to restore worker count.", LogWriter.Blocking);
@@ -119,92 +123,54 @@ internal class WorkloadScheduler : INotifyWorkScheduled
             {
                 // somehow someone else comitted to creating a new worker, that's unfortunate due to the scheduling overhead
                 // but they are committed now, so we must give up and exit
-                DebugLog.WriteWarning($"Worker holding ID {workerId} previously is exiting after encountering maximum concurrency level {_maximumConcurrencyLevel} during restore attempt.", LogWriter.Blocking);
+                DebugLog.WriteDebug($"Worker holding ID {workerId} previously is exiting after encountering maximum concurrency level {_maximumConcurrencyLevel} during restore attempt.", LogWriter.Blocking);
                 return false;
             }
-            DebugLog.WriteWarning($"Worker holding ID {workerId} previously is resuming with new ID {state.CallerWorkerId} after successfully restoring worker count.", LogWriter.Blocking);
+            DebugLog.WriteDebug($"Worker holding ID {workerId} previously is resuming with new ID {state.CallerWorkerId} after successfully restoring worker count.", LogWriter.Blocking);
             workerId = state.CallerWorkerId;
         }
     }
 
-    private protected class WorkerState
+    private protected struct WorkerState
     {
-        private readonly int[] _workerIds;
-        private readonly int[] _writeRequestPriorities;
+        private readonly ConcurrentBag<int> _workerIds;
+        private readonly int _maximumConcurrencyLevel;
         private int _currentDegreeOfParallelism;
 
         public WorkerState(int maximumConcurrencyLevel)
         {
-            _writeRequestPriorities = new int[maximumConcurrencyLevel];
-            _workerIds = new int[maximumConcurrencyLevel];
-            for (int i = 0; i < _workerIds.Length; i++)
-            {
-                _workerIds[i] = i;
-            }
+            _maximumConcurrencyLevel = maximumConcurrencyLevel;
+            _workerIds = new ConcurrentBag<int>(Enumerable.Range(0, maximumConcurrencyLevel));
             _currentDegreeOfParallelism = 0;
         }
 
         public WorkerStateSnapshot ClaimWorkerSlot()
         {
-            DebugLog.WriteDiagnostic("Attempting to claim worker slot.", LogWriter.Blocking);
             // post increment, so we start at 0
-            int index = Atomic.IncrementClampMaxFast(ref _currentDegreeOfParallelism, _workerIds.Length);
             int workerId = -1;
-            if (index < _workerIds.Length)
+            int original = Atomic.IncrementClampMaxFast(ref _currentDegreeOfParallelism, _maximumConcurrencyLevel);
+            if (original < _maximumConcurrencyLevel)
             {
-                DebugLog.WriteWarning($"Attempting to claim worker slot {index}.", LogWriter.Blocking);
+                DebugLog.WriteDiagnostic($"Attempting to claim worker slot {original}.", LogWriter.Blocking);
                 SpinWait spinner = default;
-                workerId = Interlocked.Exchange(ref _workerIds[index], -1);
-                for (int i = 0; workerId == -1; i++)
+                for (int i = 0; !_workerIds.TryTake(out workerId); i++)
                 {
-                    DebugLog.WriteFatal($"Worker slot {index} is not yet available, spinning {i}.", LogWriter.Blocking);
+                    DebugLog.WriteWarning($"Worker slot is not yet available, spinning ({i} times so far).", LogWriter.Blocking);
                     spinner.SpinOnce();
-                    workerId = Interlocked.Exchange(ref _workerIds[index], -1);
                 }
             }
-            return new WorkerStateSnapshot(workerId, index + 1);
+            return new WorkerStateSnapshot(workerId, original + 1);
         }
 
         public void ResignWorker(int workerId)
         {
-            SpinWait spinner = default;
+            DebugLog.WriteDiagnostic($"Resigning worker {workerId}.", LogWriter.Blocking);
             // pre-decrement, so we start at the maximum value - 1
-            int index = Interlocked.Decrement(ref _currentDegreeOfParallelism);
-            DebugLog.WriteWarning($"Resigning worker {workerId} to slot {index}.", LogWriter.Blocking);
-            int myPriority = 0;
-            int currentPriority = Volatile.Read(ref _writeRequestPriorities[index]);
-            while (currentPriority > myPriority)
-            {
-                DebugLog.WriteError($"Worker {workerId} is waiting for slot {index} to be released for write request priority {currentPriority} to be lower than or equal to {myPriority}.", LogWriter.Blocking);
-                spinner.SpinOnce();
-                myPriority++;
-                currentPriority = Volatile.Read(ref _writeRequestPriorities[index]);
-            }
-            int oldValue = -1;
-            if (currentPriority == 0)
-            {
-                oldValue = Interlocked.CompareExchange(ref _workerIds[index], workerId, -1);
-            }
-            for (; oldValue != -1; myPriority++)
-            {
-                DebugLog.WriteFatal($"Worker slot {index} is not yet empty (read {oldValue}), spinning {myPriority}.", LogWriter.Blocking);
-                if (Atomic.WriteMaxFast(ref _writeRequestPriorities[index], myPriority) <= myPriority)
-                {
-                    DebugLog.WriteError($"Worker {workerId} is attempting to claim slot {index} for write request priority {myPriority}.", LogWriter.Blocking);
-                    oldValue = Interlocked.CompareExchange(ref _workerIds[index], workerId, -1);
-                    if (oldValue != -1)
-                    {
-                        Interlocked.Exchange(ref _writeRequestPriorities[index], 0);
-                        break;
-                    }
-                }
-                else
-                {
-                    DebugLog.WriteError($"Worker {workerId} is waiting for slot {index} to be released for write request priority {myPriority} to be lower than or equal to {myPriority}.", LogWriter.Blocking);
-                }
-                spinner.SpinOnce();
-            }
-            DebugLog.WriteError($"Worker {workerId} successfully resigned to slot {index}.", LogWriter.Blocking);
+            int workerCount = Interlocked.Decrement(ref _currentDegreeOfParallelism);
+            _workerIds.Add(workerId);
+            int[] workerIds;
+            Debug.Assert(workerCount >= 0);
+            Debug.Assert((workerIds = _workerIds.ToArray()) != null && workerIds.Length == workerIds.Distinct().Count());
         }
     }
 

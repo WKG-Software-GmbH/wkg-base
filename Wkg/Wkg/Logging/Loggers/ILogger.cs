@@ -8,6 +8,8 @@ namespace Wkg.Logging.Loggers;
 /// </summary>
 public interface ILogger
 {
+    LogLevel MinimumLogLevel { get; }
+
     /// <summary>
     /// Writes the provided <paramref name="message"/> with the specified <paramref name="logLevel"/> to the <see cref="ILogSink"/>s configured for this <see cref="ILogger"/> using the configured default <see cref="ILogWriter"/>.
     /// </summary>

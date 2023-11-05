@@ -25,6 +25,7 @@ internal class Program
         Log.UseLogger(Logger.Create(LoggerConfiguration.Create()
             //.AddSink<ColoredThreadBasedConsoleSink>()
             .AddSink<ColoredConsoleSink>()
+            .SetMinimumLogLevel(LogLevel.Debug)
             .UseEntryGenerator<TracingLogEntryGenerator>()
             .RegisterMainThread(Thread.CurrentThread)
             .UseDefaultLogWriter(LogWriter.Blocking)));

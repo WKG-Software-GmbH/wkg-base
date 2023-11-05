@@ -13,6 +13,7 @@ namespace Wkg.Logging.Configuration;
 /// <param name="GeneratorFactory">A factory function that creates an <see cref="ILogEntryGenerator"/> from a <see cref="CompiledLoggerConfiguration"/>.</param>
 public record CompiledLoggerConfiguration
 (
+    LogLevel MinimumLogLevel,
     ConcurrentSinkCollection LoggingSinks, 
     int MainThreadId, 
     ILogWriter DefaultLogWriter,

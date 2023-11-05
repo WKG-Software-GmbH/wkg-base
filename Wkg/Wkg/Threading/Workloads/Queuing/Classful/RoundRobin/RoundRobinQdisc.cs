@@ -27,9 +27,8 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
     private int _rrIndex;
     private int _criticalDequeueSection;
 
-    public RoundRobinQdisc(THandle handle, Predicate<object?> predicate, IClasslessQdiscBuilder? localQueueBuilder) : base(handle)
+    public RoundRobinQdisc(THandle handle, Predicate<object?> predicate, IClasslessQdiscBuilder localQueueBuilder) : base(handle)
     {
-        localQueueBuilder ??= Fifo.CreateBuilder();
         _localQueue = localQueueBuilder.BuildUnsafe(default(THandle));
         _localLast = new ThreadLocal<IQdisc?>(trackAllValues: false);
         _children = new IChildClassification<THandle>[] { new NoChildClassification<THandle>(_localQueue) };

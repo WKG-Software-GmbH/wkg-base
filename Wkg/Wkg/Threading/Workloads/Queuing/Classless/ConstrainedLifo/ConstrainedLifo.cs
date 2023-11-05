@@ -7,7 +7,7 @@ public sealed class ConstrainedLifo : ClasslessQdiscBuilder<ConstrainedLifo>, IC
 {
     private int _capacity = -1;
 
-    public static ConstrainedLifo CreateBuilder() => new();
+    public static ConstrainedLifo CreateBuilder(IQdiscBuilderContext context) => new();
 
     public ConstrainedLifo WithCapacity(int capacity)
     {

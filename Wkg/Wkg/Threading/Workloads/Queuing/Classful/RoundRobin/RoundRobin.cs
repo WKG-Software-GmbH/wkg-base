@@ -1,4 +1,5 @@
 ﻿using Wkg.Threading.Workloads.Configuration;
+using Wkg.Threading.Workloads.Queuing.Classless.Fifo;
 
 namespace Wkg.Threading.Workloads.Queuing.Classful.RoundRobin;
 
@@ -7,9 +8,12 @@ namespace Wkg.Threading.Workloads.Queuing.Classful.RoundRobin;
 /// </summary>
 public sealed class RoundRobin : ClassfulQdiscBuilder<RoundRobin>, IClassfulQdiscBuilder<RoundRobin>
 {
+    private readonly IQdiscBuilderContext _context;
     private IClasslessQdiscBuilder? _localQueueBuilder;
 
-    public static RoundRobin CreateBuilder() => new();
+    private RoundRobin(IQdiscBuilderContext context) => _context = context;
+
+    public static RoundRobin CreateBuilder(IQdiscBuilderContext context) => new(context);
 
     public RoundRobin WithLocalQueue<TLocalQueue>() 
         where TLocalQueue : ClasslessQdiscBuilder<TLocalQueue>, IClasslessQdiscBuilder<TLocalQueue> =>
@@ -27,13 +31,16 @@ public sealed class RoundRobin : ClassfulQdiscBuilder<RoundRobin>, IClassfulQdis
             throw new InvalidOperationException("Local queue has already been configured.");
         }
 
-        TLocalQueue localQueueBuilder = TLocalQueue.CreateBuilder();
+        TLocalQueue localQueueBuilder = TLocalQueue.CreateBuilder(_context);
         configureLocalQueue?.Invoke(localQueueBuilder);
         _localQueueBuilder = localQueueBuilder;
 
         return this;
     }
 
-    protected internal override IClassfulQdisc<THandle> BuildInternal<THandle>(THandle handle, Predicate<object?> predicate) => 
-        new RoundRobinQdisc<THandle>(handle, predicate, _localQueueBuilder);
+    protected internal override IClassfulQdisc<THandle> BuildInternal<THandle>(THandle handle, Predicate<object?> predicate)
+    {
+        _localQueueBuilder ??= Fifo.CreateBuilder(_context);
+        return new RoundRobinQdisc<THandle>(handle, predicate, _localQueueBuilder);
+    }
 }

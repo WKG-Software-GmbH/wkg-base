@@ -7,7 +7,7 @@ namespace Wkg.Threading.Workloads.Queuing.Classless.Lifo;
 /// </summary>
 public sealed class Lifo : ClasslessQdiscBuilder<Lifo>, IClasslessQdiscBuilder<Lifo>
 {
-    public static Lifo CreateBuilder() => new();
+    public static Lifo CreateBuilder(IQdiscBuilderContext context) => new();
 
     protected override IClasslessQdisc<THandle> BuildInternal<THandle>(THandle handle) => new LifoQdisc<THandle>(handle);
 }

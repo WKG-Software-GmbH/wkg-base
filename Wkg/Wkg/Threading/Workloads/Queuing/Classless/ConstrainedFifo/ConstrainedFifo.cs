@@ -7,7 +7,7 @@ public sealed class ConstrainedFifo : ClasslessQdiscBuilder<ConstrainedFifo>, IC
 {
     private int _capacity = -1;
 
-    public static ConstrainedFifo CreateBuilder() => new();
+    public static ConstrainedFifo CreateBuilder(IQdiscBuilderContext context) => new();
 
     public ConstrainedFifo WithCapacity(int capacity)
     {

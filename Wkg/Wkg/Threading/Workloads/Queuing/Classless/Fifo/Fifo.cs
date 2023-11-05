@@ -7,7 +7,7 @@ namespace Wkg.Threading.Workloads.Queuing.Classless.Fifo;
 /// </summary>
 public sealed class Fifo : ClasslessQdiscBuilder<Fifo>, IClasslessQdiscBuilder<Fifo>
 {
-    public static Fifo CreateBuilder() => new();
+    public static Fifo CreateBuilder(IQdiscBuilderContext context) => new();
 
     protected override IClasslessQdisc<THandle> BuildInternal<THandle>(THandle handle) => 
         new FifoQdisc<THandle>(handle);

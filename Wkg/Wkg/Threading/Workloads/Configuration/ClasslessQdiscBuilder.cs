@@ -12,7 +12,7 @@ public interface IClasslessQdiscBuilder
 
 public interface IClasslessQdiscBuilder<TSelf> : IClasslessQdiscBuilder where TSelf : ClasslessQdiscBuilder<TSelf>, IClasslessQdiscBuilder<TSelf>
 {
-    static abstract TSelf CreateBuilder();
+    static abstract TSelf CreateBuilder(IQdiscBuilderContext context);
 }
 
 public abstract class ClasslessQdiscBuilder<TSelf> : IClasslessQdiscBuilder where TSelf : ClasslessQdiscBuilder<TSelf>, IClasslessQdiscBuilder<TSelf>

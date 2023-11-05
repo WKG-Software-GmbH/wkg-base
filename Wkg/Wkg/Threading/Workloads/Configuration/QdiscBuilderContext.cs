@@ -2,7 +2,16 @@
 
 namespace Wkg.Threading.Workloads.Configuration;
 
-internal class QdiscBuilderContext
+public interface IQdiscBuilderContext
+{
+    int MaximumConcurrency { get; }
+
+    int PoolSize { get; }
+
+    bool UsePooling { get; }
+}
+
+internal class QdiscBuilderContext : IQdiscBuilderContext
 {
     public int MaximumConcurrency { get; set; } = 2;
 

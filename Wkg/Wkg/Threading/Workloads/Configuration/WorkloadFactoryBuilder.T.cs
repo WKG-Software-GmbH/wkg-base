@@ -61,7 +61,7 @@ public abstract class WorkloadFactoryBuilderBase<THandle, TPredicateBuilder, TSe
         where TRoot : ClasslessQdiscBuilder<TRoot>, IClasslessQdiscBuilder<TRoot>
         where TWorkloadFactory : AbstractClasslessWorkloadFactory<THandle>, IWorkloadFactory<THandle, TWorkloadFactory>
     {
-        TRoot childBuilder = TRoot.CreateBuilder();
+        TRoot childBuilder = TRoot.CreateBuilder(_context);
         rootConfiguration(childBuilder);
         IClasslessQdisc<THandle> qdisc = childBuilder.Build(rootHandle);
         WorkloadScheduler scheduler = _context.ServiceProviderFactory is null
@@ -80,7 +80,7 @@ public abstract class WorkloadFactoryBuilderBase<THandle, TPredicateBuilder, TSe
         where TRoot : ClassfulQdiscBuilder<TRoot>, IClassfulQdiscBuilder<TRoot>
         where TWorkloadFactory : AbstractClassfulWorkloadFactory<THandle>, IWorkloadFactory<THandle, TWorkloadFactory>
     {
-        ClassfulQdiscBuilder<THandle, TPredicateBuilder, TRoot> rootClassBuilder = new(rootHandle);
+        ClassfulQdiscBuilder<THandle, TPredicateBuilder, TRoot> rootClassBuilder = new(rootHandle, _context);
         rootClassConfiguration(rootClassBuilder);
         IClassfulQdisc<THandle> rootQdisc = rootClassBuilder.Build();
 

@@ -8,9 +8,11 @@ namespace Wkg.Threading.Workloads.Queuing.Classless.ConstrainedFifo.Tests;
 [TestClass]
 public class ConstrainedFifoQdiscTests
 {
+    private static readonly IQdiscBuilderContext _context = new QdiscBuilderContext();
+
     private static IClasslessQdisc<int> CreateDefaultQdisc(int capacity)
     {
-        IClasslessQdisc<int> qdisc = ConstrainedFifo.CreateBuilder()
+        IClasslessQdisc<int> qdisc = ConstrainedFifo.CreateBuilder(_context)
             .WithCapacity(capacity)
             .To<IClasslessQdiscBuilder>()
             .BuildUnsafe<int>();
@@ -22,21 +24,21 @@ public class ConstrainedFifoQdiscTests
     public void TestBuilder()
     {
         Assert.ThrowsException<InvalidOperationException>(() => 
-            ConstrainedFifo.CreateBuilder().To<IClasslessQdiscBuilder>().Build(1));
+            ConstrainedFifo.CreateBuilder(_context).To<IClasslessQdiscBuilder>().Build(1));
 
         Assert.ThrowsException<ArgumentOutOfRangeException>(() =>
-            ConstrainedFifo.CreateBuilder().WithCapacity(0).To<IClasslessQdiscBuilder>().Build(1));
+            ConstrainedFifo.CreateBuilder(_context).WithCapacity(0).To<IClasslessQdiscBuilder>().Build(1));
 
         Assert.ThrowsException<ArgumentOutOfRangeException>(() =>
-            ConstrainedFifo.CreateBuilder().WithCapacity(1).WithCapacity(0).To<IClasslessQdiscBuilder>().Build(1));
+            ConstrainedFifo.CreateBuilder(_context).WithCapacity(1).WithCapacity(0).To<IClasslessQdiscBuilder>().Build(1));
 
         Assert.ThrowsException<InvalidOperationException>(() =>
-            ConstrainedFifo.CreateBuilder().WithCapacity(1).WithCapacity(3).To<IClasslessQdiscBuilder>().Build(1));
+            ConstrainedFifo.CreateBuilder(_context).WithCapacity(1).WithCapacity(3).To<IClasslessQdiscBuilder>().Build(1));
 
         Assert.ThrowsException<ArgumentOutOfRangeException>(() => 
-            ConstrainedFifo.CreateBuilder().WithCapacity(-1).To<IClasslessQdiscBuilder>().Build(1));
+            ConstrainedFifo.CreateBuilder(_context).WithCapacity(-1).To<IClasslessQdiscBuilder>().Build(1));
 
-        IClasslessQdisc<int> qdisc = ConstrainedFifo.CreateBuilder().WithCapacity(8).To<IClasslessQdiscBuilder>().Build(1);
+        IClasslessQdisc<int> qdisc = ConstrainedFifo.CreateBuilder(_context).WithCapacity(8).To<IClasslessQdiscBuilder>().Build(1);
         Assert.IsNotNull(qdisc);
         Assert.IsInstanceOfType<ConstrainedFifoQdisc<int>>(qdisc);
     }

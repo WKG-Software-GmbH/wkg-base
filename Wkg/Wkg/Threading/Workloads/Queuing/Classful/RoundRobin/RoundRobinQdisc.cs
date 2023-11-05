@@ -127,7 +127,7 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
     protected override bool TryRemoveInternal(AwaitableWorkload workload) => false;
 
     /// <inheritdoc/>
-    protected override bool TryDequeueInternal(bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload)
+    protected override bool TryDequeueInternal(int workerId, bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload)
     {
         if (IsKnownEmptyVolatile)
         {
@@ -139,7 +139,8 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
         // if we have to backtrack, we can do so by dequeuing from the last child qdisc
         // that was dequeued from. If the last child qdisc is empty, we can't backtrack and continue
         // with the next child qdisc.
-        if (backTrack && _localLast.IsValueCreated && _localLast.Value?.TryDequeueInternal(backTrack, out workload) is true)
+        // TODO: replace thread locals with worker ID based indexing
+        if (backTrack && _localLast.IsValueCreated && _localLast.Value?.TryDequeueInternal(workerId, backTrack, out workload) is true)
         {
             DebugLog.WriteDiagnostic($"{this} Backtracking to last child qdisc {_localLast.Value.GetType().Name} ({_localLast.Value}).", LogWriter.Blocking);
             return true;
@@ -184,7 +185,7 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
                 CriticalSection criticalSection = CriticalSection.Enter(ref _criticalDequeueSection);
                 // get our assigned child qdisc
                 IQdisc qdisc = children[index].Qdisc;
-                if (qdisc.TryDequeueInternal(backTrack, out workload))
+                if (qdisc.TryDequeueInternal(workerId, backTrack, out workload))
                 {
                     DebugLog.WriteDiagnostic($"{this} Dequeued workload from child qdisc {qdisc}.", LogWriter.Blocking);
                     // we found a workload, update the last child qdisc and reset the empty counter

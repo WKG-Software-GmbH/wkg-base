@@ -72,6 +72,89 @@ public static class Atomic
 
     #endregion
 
+    #region WriteMax
+
+    /// <summary>
+    /// Atomically writes the maximum of the value stored in the specified location and the specified value.
+    /// </summary>
+    /// <remarks>
+    /// The input values must satisfy the following precondition:
+    /// <c>int.MinValue &lt;= location - value - 1 &lt;= int.MaxValue</c>
+    /// </remarks>
+    /// <param name="location">A reference to the integer value to write to.</param>
+    /// <param name="value">The value to write if it is greater than the value stored in <paramref name="location"/>.</param>
+    /// <returns>The original value stored in <paramref name="location"/> before writing.</returns>
+    public static int WriteMaxFast(ref int location, int value)
+    {
+        int original, newValue;
+        do
+        {
+            original = Volatile.Read(ref location);
+            newValue = FastMath.Max(original, value);
+        }
+        while (Interlocked.CompareExchange(ref location, newValue, original) != original);
+        return original;
+    }
+
+    /// <summary>
+    /// Atomically writes the maximum of the value stored in the specified location and the specified value.
+    /// </summary>
+    /// <param name="location">A reference to the integer value to write to.</param>
+    /// <param name="value">The value to write if it is greater than the value stored in <paramref name="location"/>.</param>
+    /// <returns>The original value stored in <paramref name="location"/> before writing.</returns>
+    public static int WriteMax(ref int location, int value)
+    {
+        int original, newValue;
+        do
+        {
+            original = Volatile.Read(ref location);
+            newValue = Math.Max(original, value);
+        }
+        while (Interlocked.CompareExchange(ref location, newValue, original) != original);
+        return original;
+    }
+
+    /// <inheritdoc cref="WriteMax(ref int, int)"/>"
+    public static uint WriteMax(ref uint location, uint value)
+    {
+        uint original, newValue;
+        do
+        {
+            original = Volatile.Read(ref location);
+            newValue = Math.Max(original, value);
+        }
+        while (Interlocked.CompareExchange(ref location, newValue, original) != original);
+        return original;
+    }
+
+    /// <inheritdoc cref="WriteMax(ref int, int)"/>"
+    public static long WriteMax(ref long location, long value)
+    {
+        long original, newValue;
+        do
+        {
+            original = Volatile.Read(ref location);
+            newValue = Math.Max(original, value);
+        }
+        while (Interlocked.CompareExchange(ref location, newValue, original) != original);
+        return original;
+    }
+
+    /// <inheritdoc cref="WriteMax(ref int, int)"/>"
+    public static ulong WriteMax(ref ulong location, ulong value)
+    {
+        ulong original, newValue;
+        do
+        {
+            original = Volatile.Read(ref location);
+            newValue = Math.Max(original, value);
+        }
+        while (Interlocked.CompareExchange(ref location, newValue, original) != original);
+        return original;
+    }
+
+    #endregion WriteMax
+
     #region IncrementClampMax
 
     /// <summary>

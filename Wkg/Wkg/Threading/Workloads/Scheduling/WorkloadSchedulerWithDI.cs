@@ -20,17 +20,18 @@ internal class WorkloadSchedulerWithDI : WorkloadScheduler
 
     protected override void WorkerLoop(object? state)
     {
-        DebugLog.WriteInfo("Worker started.", LogWriter.Blocking);
-        using IWorkloadServiceProvider serviceProvider = _serviceProviderFactory.GetInstance();
+        int workerId = (int)state!;
+        DebugLog.WriteInfo($"Started worker {workerId}", LogWriter.Blocking);
 
+        using IWorkloadServiceProvider serviceProvider = _serviceProviderFactory.GetInstance();
         bool previousExecutionFailed = false;
-        while (TryDequeueOrExitSafely(previousExecutionFailed, out AbstractWorkloadBase? workload))
+        while (TryDequeueOrExitSafely(ref workerId, previousExecutionFailed, out AbstractWorkloadBase? workload))
         {
             workload.RegisterServiceProvider(serviceProvider);
             previousExecutionFailed = !workload.TryRunSynchronously();
             Debug.Assert(workload.Status.IsOneOf(CommonFlags.Completed));
             workload.InternalRunContinuations();
         }
-        DebugLog.WriteInfo("Worker exited.", LogWriter.Blocking);
+        DebugLog.WriteInfo($"Terminated worker with previous ID {workerId}.", LogWriter.Blocking);
     }
 }

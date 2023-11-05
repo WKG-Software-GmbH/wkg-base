@@ -11,7 +11,7 @@ internal sealed class ConstrainedLifoQdisc<THandle> : ConstrainedFifoQdisc<THand
     {
     }
 
-    protected override bool TryDequeueInternal(bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload)
+    protected override bool TryDequeueInternal(int workerId, bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload)
     {
         // the only between this stack and the queue is that we dequeue from the end of the array
         ulong currentState, newState;

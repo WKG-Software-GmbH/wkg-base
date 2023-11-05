@@ -43,7 +43,7 @@ internal sealed class FifoQdisc<THandle> : ClasslessQdisc<THandle>, IClasslessQd
     }
 
     /// <inheritdoc/>
-    protected override bool TryDequeueInternal(bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload) => _queue.TryDequeue(out workload);
+    protected override bool TryDequeueInternal(int workerId, bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload) => _queue.TryDequeue(out workload);
 
     /// <inheritdoc/>
     protected override bool TryRemoveInternal(AwaitableWorkload workload) => false;

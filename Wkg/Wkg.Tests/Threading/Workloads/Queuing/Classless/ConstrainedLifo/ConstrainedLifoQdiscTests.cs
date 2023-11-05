@@ -67,22 +67,22 @@ public class ConstrainedLifoQdiscTests
         qdisc.Enqueue(workload3);
         Assert.AreEqual(3, qdisc.Count);
 
-        Assert.IsTrue(qdisc.TryDequeueInternal(false, out AbstractWorkloadBase? result3));
+        Assert.IsTrue(qdisc.TryDequeueInternal(0, false, out AbstractWorkloadBase? result3));
         Assert.AreEqual(id3, result3!.Id);
         Assert.AreEqual(2, qdisc.Count);
         Assert.IsFalse(qdisc.IsEmpty);
 
-        Assert.IsTrue(qdisc.TryDequeueInternal(false, out AbstractWorkloadBase? result2));
+        Assert.IsTrue(qdisc.TryDequeueInternal(0, false, out AbstractWorkloadBase? result2));
         Assert.AreEqual(id2, result2!.Id);
         Assert.AreEqual(1, qdisc.Count);
         Assert.IsFalse(qdisc.IsEmpty);
 
-        Assert.IsTrue(qdisc.TryDequeueInternal(false, out AbstractWorkloadBase? result1));
+        Assert.IsTrue(qdisc.TryDequeueInternal(0, false, out AbstractWorkloadBase? result1));
         Assert.AreEqual(id1, result1!.Id);
         Assert.AreEqual(0, qdisc.Count);
         Assert.IsTrue(qdisc.IsEmpty);
 
-        Assert.IsFalse(qdisc.TryDequeueInternal(false, out AbstractWorkloadBase? result0));
+        Assert.IsFalse(qdisc.TryDequeueInternal(0, false, out AbstractWorkloadBase? result0));
         Assert.IsNull(result0);
         Assert.AreEqual(0, qdisc.Count);
         Assert.IsTrue(qdisc.IsEmpty);
@@ -93,7 +93,7 @@ public class ConstrainedLifoQdiscTests
         Assert.AreEqual(1, qdisc.Count);
         Assert.IsFalse(qdisc.IsEmpty);
 
-        Assert.IsTrue(qdisc.TryDequeueInternal(false, out AbstractWorkloadBase? result4));
+        Assert.IsTrue(qdisc.TryDequeueInternal(0, false, out AbstractWorkloadBase? result4));
         Assert.AreEqual(id4, result4!.Id);
         Assert.AreEqual(0, qdisc.Count);
         Assert.IsTrue(qdisc.IsEmpty);
@@ -107,7 +107,6 @@ public class ConstrainedLifoQdiscTests
         Assert.IsTrue(qdisc.IsEmpty);
 
         AbstractWorkloadBase workload1 = NewDummyWorkload();
-        ulong id1 = workload1.Id;
         qdisc.Enqueue(workload1);
         Assert.AreEqual(1, qdisc.Count);
         Assert.IsFalse(qdisc.IsEmpty);
@@ -131,7 +130,7 @@ public class ConstrainedLifoQdiscTests
         Assert.AreEqual(4, count);
         Assert.IsFalse(qdisc.IsEmpty);
 
-        bool success = qdisc.TryDequeueInternal(false, out AbstractWorkloadBase? result4);
+        bool success = qdisc.TryDequeueInternal(0, false, out AbstractWorkloadBase? result4);
         Assert.IsTrue(success);
         Assert.AreEqual(id4, result4!.Id);
         Assert.AreEqual(3, qdisc.Count);
@@ -149,27 +148,27 @@ public class ConstrainedLifoQdiscTests
         Assert.AreEqual(4, qdisc.Count);
         Assert.IsFalse(qdisc.IsEmpty);
 
-        Assert.IsTrue(qdisc.TryDequeueInternal(false, out AbstractWorkloadBase? result6));
+        Assert.IsTrue(qdisc.TryDequeueInternal(0, false, out AbstractWorkloadBase? result6));
         Assert.AreEqual(id6, result6!.Id);
         Assert.AreEqual(3, qdisc.Count);
         Assert.IsFalse(qdisc.IsEmpty);
 
-        Assert.IsTrue(qdisc.TryDequeueInternal(false, out AbstractWorkloadBase? result5));
+        Assert.IsTrue(qdisc.TryDequeueInternal(0, false, out AbstractWorkloadBase? result5));
         Assert.AreEqual(id5, result5!.Id);
         Assert.AreEqual(2, qdisc.Count);
         Assert.IsFalse(qdisc.IsEmpty);
 
-        Assert.IsTrue(qdisc.TryDequeueInternal(false, out AbstractWorkloadBase? result3));
+        Assert.IsTrue(qdisc.TryDequeueInternal(0, false, out AbstractWorkloadBase? result3));
         Assert.AreEqual(id3, result3!.Id);
         Assert.AreEqual(1, qdisc.Count);
         Assert.IsFalse(qdisc.IsEmpty);
 
-        Assert.IsTrue(qdisc.TryDequeueInternal(false, out AbstractWorkloadBase? result2));
+        Assert.IsTrue(qdisc.TryDequeueInternal(0, false, out AbstractWorkloadBase? result2));
         Assert.AreEqual(id2, result2!.Id);
         Assert.AreEqual(0, qdisc.Count);
         Assert.IsTrue(qdisc.IsEmpty);
 
-        Assert.IsFalse(qdisc.TryDequeueInternal(false, out AbstractWorkloadBase? result7));
+        Assert.IsFalse(qdisc.TryDequeueInternal(0, false, out AbstractWorkloadBase? result7));
         Assert.IsNull(result7);
         Assert.AreEqual(0, qdisc.Count);
         Assert.IsTrue(qdisc.IsEmpty);

@@ -54,8 +54,8 @@ public abstract class ClasslessQdisc<THandle> : IClasslessQdisc<THandle> where T
         OnInternalInitialize(parentScheduler);
     }
 
-    /// <inheritdoc cref="IQdisc.TryDequeueInternal(bool, out AbstractWorkloadBase?)"/>"
-    protected abstract bool TryDequeueInternal(bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload);
+    /// <inheritdoc cref="IQdisc.TryDequeueInternal(int, bool, out AbstractWorkloadBase?)"/>"
+    protected abstract bool TryDequeueInternal(int workerId, bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload);
 
     /// <inheritdoc cref="IQdisc.TryRemoveInternal(AwaitableWorkload)"/>"
     protected abstract bool TryRemoveInternal(AwaitableWorkload workload);
@@ -83,7 +83,7 @@ public abstract class ClasslessQdisc<THandle> : IClasslessQdisc<THandle> where T
     /// </remarks>
     protected void NotifyWorkScheduled() => ParentScheduler.OnWorkScheduled();
 
-    bool IQdisc.TryDequeueInternal(bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload) => TryDequeueInternal(backTrack, out workload);
+    bool IQdisc.TryDequeueInternal(int workerId, bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload) => TryDequeueInternal(workerId, backTrack, out workload);
 
     bool IQdisc.TryRemoveInternal(AwaitableWorkload workload) => TryRemoveInternal(workload);
 

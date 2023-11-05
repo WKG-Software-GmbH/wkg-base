@@ -66,7 +66,7 @@ internal class Program
         });
 
         ClassfulWorkloadFactoryWithDI<int> factory = WorkloadFactoryBuilder.Create<int>()
-            .UseMaximumConcurrency(4)
+            .UseMaximumConcurrency(16)
             .FlowExecutionContextToContinuations()
             .RunContinuationsOnCapturedContext()
             .UseDependencyInjection<PooledWorkloadServiceProviderFactory>(services => services
@@ -92,19 +92,20 @@ internal class Program
                 .AddClasslessChild<Lifo>(7, classifier => classifier
                     .AddPredicate<State>(state => state.QdiscType == QdiscType.Lifo)
                     .AddPredicate<int>(i => (i & 1) == 1))
-                .AddClasslessChild<ConstrainedFifo>(8));
+                .AddClasslessChild<ConstrainedFifo>(8, qdisc => qdisc
+                    .WithCapacity(8)));
 
-        List<int> myData = Enumerable.Range(0, 1000).ToList();
+        List<int> myData = Enumerable.Range(0, 10000).ToList();
         int sum = myData.Sum();
         Log.WriteInfo($"Sum: {sum}");
 
-        List<int> result = await factory.TransformAllAsync(myData, (data, cancellationFlag) => data * 100);
+        List<int> result = await factory.TransformAllAsync(myData, (data, cancellationFlag) => data * 10);
 
         Log.WriteInfo($"Result Sum 1: {result.Select(i => (long)i).Sum()}");
         await Task.Delay(2500);
         Log.WriteInfo($"Sum: {sum}");
 
-        List<int> resultClassified = await factory.ClassifyAndTransformAllAsync(myData, (data, cancellationFlag) => data * 100);
+        List<int> resultClassified = await factory.ClassifyAndTransformAllAsync(myData, (data, cancellationFlag) => data * 10);
 
         Log.WriteInfo($"Result Sum 2: {resultClassified.Select(i => (long)i).Sum()}");
         await Task.Delay(2500);
@@ -262,7 +263,6 @@ internal class Program
         Log.WriteInfo("Waiting for all workloads to complete...");
         await Workload.WhenAll(wls2);
         Log.WriteInfo("Done with simple tests.");
-
     }
 
     private static void DoStuff(CancellationFlag cancellationFlag)

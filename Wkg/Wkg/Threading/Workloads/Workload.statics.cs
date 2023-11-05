@@ -111,12 +111,14 @@ public partial class Workload
 
         public bool IsCompleted => Volatile.Read(ref _completed) == TRUE;
 
-        public void Invoke(AwaitableWorkload workload)
+        public void Invoke(AbstractWorkloadBase workload)
         {
             // fire the TCS only once (the first time this method is invoked)
             if (Interlocked.CompareExchange(ref _completed, TRUE, FALSE) == FALSE)
             {
-                _tcs.TrySetResult(workload);
+                // we know that the workload is an AwaitableWorkload because that's the only type
+                // we subscribe to continuations on
+                _tcs.TrySetResult((AwaitableWorkload)workload);
                 // schedule a cleanup task to remove the continuations from the remaining workloads
                 // do this on a threadpool thread to avoid blocking the worker thread that will invoke
                 // this continuation inlined

@@ -26,10 +26,16 @@ internal class AnonymousWorkloadImpl : AnonymousWorkload, IPoolableAnonymousWork
 
     internal override void InternalRunContinuations()
     {
+        base.InternalRunContinuations();
+
         if (_pool is not null)
         {
             Volatile.Write(ref _action, null!);
             Volatile.Write(ref _status, WorkloadStatus.Pooled);
+            // this is usually very risky, but we should be the only ones with a reference to this workload
+            // so we can safely do this. otherwise, this would be illegal as it would violate the allowed
+            // state transitions of the workload continuations.
+            Volatile.Write(ref _continuation, null);
             _pool.Return(this);
         }
     }

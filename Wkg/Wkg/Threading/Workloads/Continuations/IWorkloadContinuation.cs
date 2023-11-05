@@ -2,5 +2,5 @@
 
 internal interface IWorkloadContinuation
 {
-    public void Invoke(AwaitableWorkload workload);
+    public void Invoke(AbstractWorkloadBase workload);
 }

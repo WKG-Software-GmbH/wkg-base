@@ -15,16 +15,12 @@ using CommonFlags = WorkloadStatus.CommonFlags;
 /// </summary>
 public abstract class AwaitableWorkload : AbstractWorkloadBase
 {
-    private protected static readonly IQdisc _qdiscCompletionSentinel = new QdiscCompletionSentinel();
     private protected IQdisc? _qdisc;
 
     // result fields
     private protected Exception? _exception;
     private protected CancellationTokenRegistration? _cancellationTokenRegistration;
 
-    // continuations
-    private static readonly object _workloadCompletionSentinel = new();
-    private protected object? _continuation;
     private readonly WorkloadContextOptions _continuationOptions;
 
     private protected AwaitableWorkload(WorkloadStatus status, WorkloadContextOptions continuationOptions, CancellationToken cancellationToken) : base(status)
@@ -46,8 +42,6 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
     /// Indicates whether the result has been set and that the workload is in any of the terminal states: <see cref="WorkloadStatus.RanToCompletion"/>, <see cref="WorkloadStatus.Faulted"/>, or <see cref="WorkloadStatus.Canceled"/>.
     /// </summary>
     public override bool IsCompleted => base.IsCompleted && ContinuationsInvoked;
-
-    internal bool ContinuationsInvoked => ReferenceEquals(Volatile.Read(ref _continuation), _workloadCompletionSentinel);
 
     /// <summary>
     /// Attempts to transition the workload to the <see cref="WorkloadStatus.Canceled"/> state.
@@ -245,34 +239,16 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
     /// </summary>
     private void UnbindQdiscUnsafe() => Volatile.Write(ref _qdisc, _qdiscCompletionSentinel);
 
-    internal void AddOrRunInlineContinuationAction(object continuation, bool scheduleBeforeOthers = false)
+    internal override void InternalRunContinuations()
     {
-        DebugLog.WriteDiagnostic($"{this}: Attempting to add or run inline continuation.", LogWriter.Blocking);
-        if (!TryAddContinuation(continuation, scheduleBeforeOthers))
+        // unregister the cancellation token registration if necessary
+        if (_cancellationTokenRegistration.HasValue)
         {
-            DebugLog.WriteDiagnostic($"{this}: Failed to add continuation. Executing inline.", LogWriter.Blocking);
-            if (continuation is Action action)
-            {
-                action.Invoke();
-            }
-            else if (continuation is IWorkloadContinuation wc)
-            {
-                wc.Invoke(this);
-            }
-            else
-            {
-                DebugLog.WriteException(WorkloadSchedulingException.CreateVirtual($"Invalid continuation type '{continuation.GetType().Name}'. This is a bug. Please report this issue."), LogWriter.Blocking);
-            }
+            _cancellationTokenRegistration.Value.Unregister();
+            DebugLog.WriteDiagnostic($"{this}: Unregistered cancellation token registration.", LogWriter.Blocking);
         }
-    }
 
-    internal void AddOrRunContinuation(IWorkloadContinuation continuation, bool scheduleBeforeOthers = false)
-    {
-        if (!TryAddContinuation(continuation, scheduleBeforeOthers))
-        {
-            DebugLog.WriteDiagnostic($"{this}: Failed to add continuation. Invoking on context.", LogWriter.Blocking);
-            continuation.Invoke(this);
-        }
+        base.InternalRunContinuations();
     }
 
     internal void SetContinuationForAwait(Action continuationAction)
@@ -301,195 +277,6 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
         }
         // try to add the continuation or run it inline if we failed (inlining will work because we are on the caller's thread)
         AddOrRunContinuation(wc, scheduleBeforeOthers: false);
-    }
-
-    internal bool TryAddContinuation(object continuation, bool scheduleBeforeOthers)
-    {
-        DebugLog.WriteDiagnostic($"{this}: Attempting to add continuation.", LogWriter.Blocking);
-        // fast and easy path
-        if (IsCompleted)
-        {
-            DebugLog.WriteDiagnostic($"{this}: Workload is already completed, not scheduling continuation.", LogWriter.Blocking);
-            // already completed, nothing to do
-            return false;
-        }
-        // attempt to simply CAS the continuation in
-        object? currentContinuation = Volatile.Read(ref _continuation);
-        if (currentContinuation == null && Interlocked.CompareExchange(ref _continuation, continuation, null) == null)
-        {
-            DebugLog.WriteDiagnostic($"{this}: Successfully set continuation.", LogWriter.Blocking);
-            // great, we were the first to set the continuation
-            return true;
-        }
-        DebugLog.WriteDiagnostic($"{this}: Continuation already set, attempting to append to list.", LogWriter.Blocking);
-        // we failed to set the continuation.
-        // we'll have to do it the hard way
-        return TryAddContinuationComplex(continuation, scheduleBeforeOthers);
-    }
-
-    internal bool TryAddContinuationComplex(object continuation, bool scheduleBeforeOthers)
-    {
-        // take a snapshot of the current continuation
-        object? currentContinuation = Volatile.Read(ref _continuation);
-        Debug.Assert(currentContinuation != null);
-
-        // we know that the current continuation is either an simple continuation action, a list of continuation actions, or the sentinel
-        // if it's a simple continuation action, we'll have to upgrade it to a list of continuation actions
-        if (!ReferenceEquals(currentContinuation, _workloadCompletionSentinel) && currentContinuation is not List<object?>)
-        {
-            DebugLog.WriteDiagnostic($"{this}: Upgrading continuation to list.", LogWriter.Blocking);
-            // create a new list of continuation actions and try to CAS it in
-            Interlocked.CompareExchange(ref _continuation, new List<object?> { currentContinuation }, currentContinuation);
-
-            // we either successfully upgraded the continuation to a list, or someone else did it before us
-            // it is also possible that the sentinel was set in the meantime
-        }
-        // current continuation is now either a list of continuation actions, or the sentinel
-        // resample the current continuation
-        currentContinuation = Volatile.Read(ref _continuation);
-
-        Debug.Assert(ReferenceEquals(currentContinuation, _workloadCompletionSentinel) || currentContinuation is List<object?>);
-
-        // if it's a list, we'll try to add the continuation to it
-        if (currentContinuation is List<object?> list)
-        {
-            lock (list)
-            {
-                // it could be that the sentinel was set in the meantime while we were busy acquiring the lock
-                if (!ReferenceEquals(Volatile.Read(ref _continuation), _workloadCompletionSentinel))
-                {
-                    if (list.Count == list.Capacity)
-                    {
-                        DebugLog.WriteDiagnostic($"{this}: List is about to grow, running cleanup.", LogWriter.Blocking);
-                        list.RemoveAll(o => o == null);
-                    }
-
-                    DebugLog.WriteDiagnostic($"{this}: Adding continuation to list.", LogWriter.Blocking);
-                    // great, we can add the continuation to the list
-                    if (scheduleBeforeOthers)
-                    {
-                        list.Insert(0, continuation);
-                    }
-                    else
-                    {
-                        list.Add(continuation);
-                    }
-                    // we successfully added the continuation to the list, return true
-                    return true;
-                }
-            }
-        }
-        DebugLog.WriteDiagnostic($"{this}: Failed to add continuation (sentinel was set).", LogWriter.Blocking);
-        // we failed to add the continuation to the list (the sentinel was set in the meantime)
-        // return false to indicate that the caller should execute the continuation directly
-        return false;
-    }
-
-    internal void RemoveContinuation(object continuation)
-    {
-        DebugLog.WriteDiagnostic($"{this}: Attempting to remove continuation.", LogWriter.Blocking);
-        object? currentContinuation = Volatile.Read(ref _continuation);
-        if (ReferenceEquals(currentContinuation, _workloadCompletionSentinel))
-        {
-            DebugLog.WriteDiagnostic($"{this}: Continuation sentinel was set, nothing to do.", LogWriter.Blocking);
-            return;
-        }
-        List<object?>? list = currentContinuation as List<object?>;
-        if (list is null)
-        {
-            if (!ReferenceEquals(Interlocked.CompareExchange(ref _continuation, new List<object>(), continuation), continuation))
-            {
-                // it is not the continuation we were looking for or someone else replace the original continuation with a list
-                // or the sentinel was set in the meantime
-                // so either it's the list now, or the sentinel
-                list = Volatile.Read(ref _continuation) as List<object?>;
-                DebugLog.WriteDiagnostic($"{this}: Lost race to replace continuation with list while removing continuation.", LogWriter.Blocking);
-            }
-            else
-            {
-                DebugLog.WriteDiagnostic($"{this}: Successfully removed single continuation.", LogWriter.Blocking);
-                // we successfully replaced the continuation with a list (cannot go back to null)
-                return;
-            }
-        }
-        Debug.Assert(list is not null || ReferenceEquals(Volatile.Read(ref _continuation), _workloadCompletionSentinel));
-        if (list is not null)
-        {
-            lock (list)
-            {
-                if (!ReferenceEquals(Volatile.Read(ref _continuation), _workloadCompletionSentinel))
-                {
-                    DebugLog.WriteDiagnostic($"{this}: Removing continuation from list.", LogWriter.Blocking);
-                    int index = list.IndexOf(continuation);
-                    if (index >= 0)
-                    {
-                        list[index] = null;
-                    }
-                }
-            }
-        }
-        DebugLog.WriteDiagnostic($"{this}: Continuation was removed, not found, or sentinel was set.", LogWriter.Blocking);
-    }
-
-    internal override void InternalRunContinuations()
-    {
-        DebugLog.WriteDiagnostic($"{this}: Running async continuations for workload.", LogWriter.Blocking);
-
-        // unregister the cancellation token registration if necessary
-        if (_cancellationTokenRegistration.HasValue)
-        {
-            _cancellationTokenRegistration.Value.Unregister();
-            DebugLog.WriteDiagnostic($"{this}: Unregistered cancellation token registration.", LogWriter.Blocking);
-        }
-
-        // CAS the sentinel in to prevent further continuations from being added
-        object? continuations = Interlocked.Exchange(ref _continuation, _workloadCompletionSentinel);
-
-        Debug.Assert(!ReferenceEquals(continuations, _workloadCompletionSentinel), "Continuation sentinel was already set. This should never happen.");
-
-        // decide what to do based on the current continuation
-        switch (continuations)
-        {
-            case null:
-                DebugLog.WriteDiagnostic($"{this}: No continuations to run.", LogWriter.Blocking);
-                return;
-            case Action singleContinuation:
-                DebugLog.WriteDiagnostic($"{this}: Running inline continuation.", LogWriter.Blocking);
-                singleContinuation.Invoke();
-                return;
-            case IWorkloadContinuation workloadContinuation:
-                DebugLog.WriteDiagnostic($"{this}: Running workload continuation.", LogWriter.Blocking);
-                workloadContinuation.Invoke(this);
-                return;
-            case List<object?> list:
-            {
-                // acquire the lock to prevent further continuations from being added
-                // after we've acquired the lock, we can just drop it immediately, as we are sure that no one else will be adding continuations
-                lock (list)
-                { }
-
-                DebugLog.WriteDiagnostic($"{this}: Running {list.Count(c => c is not null)} continuations.", LogWriter.Blocking);
-                foreach (object? continuation in list)
-                {
-                    switch (continuation)
-                    {
-                        case Action action:
-                            action.Invoke();
-                            break;
-                        case IWorkloadContinuation wc:
-                            wc.Invoke(this);
-                            break;
-                        case null:
-                            break;
-                        default:
-                            DebugLog.WriteError($"{this}: Invalid continuation type '{continuation.GetType().Name}'. This is a bug. Please report this issue.", LogWriter.Blocking);
-                            break;
-                    }
-                }
-                return;
-            }
-        }
-        DebugLog.WriteError($"{this}: Invalid continuation type '{continuations.GetType().Name}'. This is a bug. Please report this issue.", LogWriter.Blocking);
     }
 
     /// <summary>

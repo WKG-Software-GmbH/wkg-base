@@ -16,7 +16,7 @@ internal class WorkloadAwaiterContinuation : WorkloadContinuationBase
         }
     }
 
-    public override void Invoke(AwaitableWorkload workload)
+    public override void Invoke(AbstractWorkloadBase workload)
     {
         if (_capturedContext is null)
         {

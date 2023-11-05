@@ -11,8 +11,6 @@ internal abstract class AnonymousWorkload : AbstractWorkloadBase
 {
     private protected AnonymousWorkload(WorkloadStatus status) : base(status) => Pass();
 
-    internal override void InternalRunContinuations() => Pass();
-
     internal override void InternalAbort()
     {
         DebugLog.WriteDiagnostic($"{this}: Forcing internal cancellation.", LogWriter.Blocking);

@@ -40,7 +40,7 @@ public class WeakPool<T> : IPool<T> where T : class, IPoolable<T>
     public T Rent()
     {
         DebugLog.WriteDiagnostic($"Renting a {typeof(T).Name} from the {nameof(WeakPool<T>)}.", LogWriter.Blocking);
-        int original = Atomic.DecrementClampMin(ref _index, 0);
+        int original = Atomic.DecrementClampMinFast(ref _index, 0);
         int myIndex = original - 1;
         if (myIndex < 0)
         {
@@ -65,7 +65,7 @@ public class WeakPool<T> : IPool<T> where T : class, IPoolable<T>
         // don't need to check for null because that should never happen
         // if it does, that's not too big of a deal either, as we'll just create a new workload as needed
         // we do the null checking on the caller thread in Rent() to avoid the overhead of the null check on the worker thread
-        int myIndex = Atomic.IncrementClampMax(ref _index, _pool.Length - 1);
+        int myIndex = Atomic.IncrementClampMaxFast(ref _index, _pool.Length - 1);
         if (myIndex + 1 < _pool.Length)
         {
             return Interlocked.CompareExchange(ref _pool[myIndex], item, null) is null;

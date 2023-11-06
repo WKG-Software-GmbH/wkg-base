@@ -3,7 +3,6 @@ using Wkg.Logging.Writers;
 using Wkg.Threading.Workloads.DependencyInjection;
 using Wkg.Threading.Workloads.Queuing.Classful;
 using Wkg.Threading.Workloads.WorkloadTypes;
-using Wkg.Threading.Workloads.WorkloadTypes.Pooling;
 
 namespace Wkg.Threading.Workloads.Factories;
 

@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Wkg.Threading.Workloads.Queuing.Classless;
-using Wkg.Threading.Workloads.WorkloadTypes.Pooling;
+using Wkg.Threading.Workloads.WorkloadTypes;
 
 namespace Wkg.Threading.Workloads.Factories;
 

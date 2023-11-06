@@ -1,19 +1,22 @@
 ﻿using System.Diagnostics;
+using Wkg.Data.Pooling;
 using Wkg.Threading.Workloads.DependencyInjection;
-using Wkg.Threading.Workloads.WorkloadTypes.Pooling;
 
 namespace Wkg.Threading.Workloads.WorkloadTypes;
 
-internal class AnonymousWorkloadImplWithDI : AnonymousWorkload, IPoolableAnonymousWorkload<AnonymousWorkloadImplWithDI>
+internal class AnonymousWorkloadImplWithDI : AnonymousWorkload, IPoolable<AnonymousWorkloadImplWithDI>
 {
-    private readonly AnonymousWorkloadPool<AnonymousWorkloadImplWithDI>? _pool;
+    private readonly IPool<AnonymousWorkloadImplWithDI>? _pool;
     private Action<IWorkloadServiceProvider> _action;
     private IWorkloadServiceProvider? _serviceProvider;
 
-    private AnonymousWorkloadImplWithDI(AnonymousWorkloadPool<AnonymousWorkloadImplWithDI> pool) : this(WorkloadStatus.Created, null!)
+    private AnonymousWorkloadImplWithDI(IPool<AnonymousWorkloadImplWithDI> pool) : this(WorkloadStatus.Created, null!)
     {
         _pool = pool;
     }
+
+    public static AnonymousWorkloadImplWithDI Create(IPool<AnonymousWorkloadImplWithDI> pool) =>
+        new(pool);
 
     internal AnonymousWorkloadImplWithDI(Action<IWorkloadServiceProvider> action) : this(WorkloadStatus.Created, action) => Pass();
 
@@ -30,9 +33,6 @@ internal class AnonymousWorkloadImplWithDI : AnonymousWorkload, IPoolableAnonymo
         Debug.Assert(_serviceProvider is not null);
         _action(_serviceProvider!);
     }
-
-    public static AnonymousWorkloadImplWithDI Create(AnonymousWorkloadPool<AnonymousWorkloadImplWithDI> pool) =>
-        new(pool);
 
     internal override void InternalRunContinuations(int workerId)
     {

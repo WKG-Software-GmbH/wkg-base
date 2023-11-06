@@ -5,7 +5,6 @@ using Wkg.Threading.Workloads.Queuing.Classful;
 using Wkg.Threading.Workloads.Queuing.Classless;
 using Wkg.Threading.Workloads.Scheduling;
 using Wkg.Threading.Workloads.WorkloadTypes;
-using Wkg.Threading.Workloads.WorkloadTypes.Pooling;
 
 namespace Wkg.Threading.Workloads.Factories;
 

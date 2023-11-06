@@ -1,13 +1,13 @@
-﻿using Wkg.Threading.Workloads.WorkloadTypes.Pooling;
+﻿using Wkg.Data.Pooling;
 
 namespace Wkg.Threading.Workloads.WorkloadTypes;
 
-internal class AnonymousWorkloadImpl : AnonymousWorkload, IPoolableAnonymousWorkload<AnonymousWorkloadImpl>
+internal class AnonymousWorkloadImpl : AnonymousWorkload, IPoolable<AnonymousWorkloadImpl>
 {
-    private readonly AnonymousWorkloadPool<AnonymousWorkloadImpl>? _pool;
+    private readonly IPool<AnonymousWorkloadImpl>? _pool;
     private Action _action;
 
-    private AnonymousWorkloadImpl(AnonymousWorkloadPool<AnonymousWorkloadImpl> pool) : this(WorkloadStatus.Created, null!)
+    private AnonymousWorkloadImpl(IPool<AnonymousWorkloadImpl> pool) : this(WorkloadStatus.Created, null!)
     {
         _pool = pool;
     }
@@ -19,7 +19,7 @@ internal class AnonymousWorkloadImpl : AnonymousWorkload, IPoolableAnonymousWork
         _action = action;
     }
 
-    public static AnonymousWorkloadImpl Create(AnonymousWorkloadPool<AnonymousWorkloadImpl> pool) =>
+    public static AnonymousWorkloadImpl Create(IPool<AnonymousWorkloadImpl> pool) =>
         new(pool);
 
     private protected override void ExecuteCore() => _action();

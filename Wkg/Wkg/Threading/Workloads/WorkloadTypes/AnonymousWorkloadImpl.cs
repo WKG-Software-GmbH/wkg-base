@@ -24,9 +24,9 @@ internal class AnonymousWorkloadImpl : AnonymousWorkload, IPoolableAnonymousWork
 
     private protected override void ExecuteCore() => _action();
 
-    internal override void InternalRunContinuations()
+    internal override void InternalRunContinuations(int workerId)
     {
-        base.InternalRunContinuations();
+        base.InternalRunContinuations(workerId);
 
         if (_pool is not null)
         {

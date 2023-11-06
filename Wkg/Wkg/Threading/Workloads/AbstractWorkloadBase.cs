@@ -99,11 +99,93 @@ public abstract class AbstractWorkloadBase
         }
     }
 
+    internal bool TryAddContinuation(object continuation, bool scheduleBeforeOthers)
+    {
+        DebugLog.WriteDiagnostic($"{this}: Attempting to add continuation.", LogWriter.Blocking);
+        // fast and easy path
+        if (IsCompleted)
+        {
+            DebugLog.WriteDiagnostic($"{this}: Workload is already completed, not scheduling continuation.", LogWriter.Blocking);
+            // already completed, nothing to do
+            return false;
+        }
+        // attempt to simply CAS the continuation in
+        object? currentContinuation = Volatile.Read(ref _continuation);
+        if (currentContinuation == null && Interlocked.CompareExchange(ref _continuation, continuation, null) == null)
+        {
+            DebugLog.WriteDiagnostic($"{this}: Successfully set continuation.", LogWriter.Blocking);
+            // great, we were the first to set the continuation
+            return true;
+        }
+        DebugLog.WriteDiagnostic($"{this}: Continuation already set, attempting to append to list.", LogWriter.Blocking);
+        // we failed to set the continuation.
+        // we'll have to do it the hard way
+        return TryAddContinuationComplex(continuation, scheduleBeforeOthers);
+    }
+
+    private protected virtual bool TryAddContinuationComplex(object continuation, bool scheduleBeforeOthers)
+    {
+        // take a snapshot of the current continuation
+        object? currentContinuation = Volatile.Read(ref _continuation);
+        Debug.Assert(currentContinuation != null);
+
+        // we know that the current continuation is either an simple continuation action, a list of continuation actions, or the sentinel
+        // if it's a simple continuation action, we'll have to upgrade it to a list of continuation actions
+        if (!ReferenceEquals(currentContinuation, _workloadCompletionSentinel) && currentContinuation is not List<object?>)
+        {
+            DebugLog.WriteDiagnostic($"{this}: Upgrading continuation to list.", LogWriter.Blocking);
+            // create a new list of continuation actions and try to CAS it in
+            Interlocked.CompareExchange(ref _continuation, new List<object?> { currentContinuation }, currentContinuation);
+
+            // we either successfully upgraded the continuation to a list, or someone else did it before us
+            // it is also possible that the sentinel was set in the meantime
+        }
+        // current continuation is now either a list of continuation actions, or the sentinel
+        // resample the current continuation
+        currentContinuation = Volatile.Read(ref _continuation);
+
+        Debug.Assert(ReferenceEquals(currentContinuation, _workloadCompletionSentinel) || currentContinuation is List<object?>);
+
+        // if it's a list, we'll try to add the continuation to it
+        if (currentContinuation is List<object?> list)
+        {
+            lock (list)
+            {
+                // it could be that the sentinel was set in the meantime while we were busy acquiring the lock
+                if (!ReferenceEquals(Volatile.Read(ref _continuation), _workloadCompletionSentinel))
+                {
+                    if (list.Count == list.Capacity)
+                    {
+                        DebugLog.WriteDiagnostic($"{this}: List is about to grow, running cleanup.", LogWriter.Blocking);
+                        list.RemoveAll(o => o == null);
+                    }
+
+                    DebugLog.WriteDiagnostic($"{this}: Adding continuation to list.", LogWriter.Blocking);
+                    // great, we can add the continuation to the list
+                    if (scheduleBeforeOthers)
+                    {
+                        list.Insert(0, continuation);
+                    }
+                    else
+                    {
+                        list.Add(continuation);
+                    }
+                    // we successfully added the continuation to the list, return true
+                    return true;
+                }
+            }
+        }
+        DebugLog.WriteDiagnostic($"{this}: Failed to add continuation (sentinel was set).", LogWriter.Blocking);
+        // we failed to add the continuation to the list (the sentinel was set in the meantime)
+        // return false to indicate that the caller should execute the continuation directly
+        return false;
+    }
+
     /// <summary>
     /// Marks the workload as finalized before it falls out of scope and executes any Task continuations that were scheduled for it.
     /// Also allows the workload to be returned to a pool, if applicable.
     /// </summary>
-    internal virtual void InternalRunContinuations()
+    internal virtual void InternalRunContinuations(int workerId)
     {
         DebugLog.WriteDiagnostic($"{this}: Running async continuations for workload.", LogWriter.Blocking);
 
@@ -126,6 +208,10 @@ public abstract class AbstractWorkloadBase
                 DebugLog.WriteDiagnostic($"{this}: Running workload continuation.", LogWriter.Blocking);
                 workloadContinuation.Invoke(this);
                 return;
+            case IWorkerLocalWorkloadContinuation workerLocalContinuation:
+                DebugLog.WriteDiagnostic($"{this}: Running worker-local workload continuation.", LogWriter.Blocking);
+                workerLocalContinuation.Invoke(this, workerId);
+                return;
             case List<object?> list:
             {
                 // acquire the lock to prevent further continuations from being added
@@ -143,6 +229,9 @@ public abstract class AbstractWorkloadBase
                             break;
                         case IWorkloadContinuation wc:
                             wc.Invoke(this);
+                            break;
+                        case IWorkerLocalWorkloadContinuation wlc:
+                            wlc.Invoke(this, workerId);
                             break;
                         case null:
                             break;
@@ -201,88 +290,6 @@ public abstract class AbstractWorkloadBase
             }
         }
         DebugLog.WriteDiagnostic($"{this}: Continuation was removed, not found, or sentinel was set.", LogWriter.Blocking);
-    }
-
-    internal bool TryAddContinuation(object continuation, bool scheduleBeforeOthers)
-    {
-        DebugLog.WriteDiagnostic($"{this}: Attempting to add continuation.", LogWriter.Blocking);
-        // fast and easy path
-        if (IsCompleted)
-        {
-            DebugLog.WriteDiagnostic($"{this}: Workload is already completed, not scheduling continuation.", LogWriter.Blocking);
-            // already completed, nothing to do
-            return false;
-        }
-        // attempt to simply CAS the continuation in
-        object? currentContinuation = Volatile.Read(ref _continuation);
-        if (currentContinuation == null && Interlocked.CompareExchange(ref _continuation, continuation, null) == null)
-        {
-            DebugLog.WriteDiagnostic($"{this}: Successfully set continuation.", LogWriter.Blocking);
-            // great, we were the first to set the continuation
-            return true;
-        }
-        DebugLog.WriteDiagnostic($"{this}: Continuation already set, attempting to append to list.", LogWriter.Blocking);
-        // we failed to set the continuation.
-        // we'll have to do it the hard way
-        return TryAddContinuationComplex(continuation, scheduleBeforeOthers);
-    }
-
-    internal virtual bool TryAddContinuationComplex(object continuation, bool scheduleBeforeOthers)
-    {
-        // take a snapshot of the current continuation
-        object? currentContinuation = Volatile.Read(ref _continuation);
-        Debug.Assert(currentContinuation != null);
-
-        // we know that the current continuation is either an simple continuation action, a list of continuation actions, or the sentinel
-        // if it's a simple continuation action, we'll have to upgrade it to a list of continuation actions
-        if (!ReferenceEquals(currentContinuation, _workloadCompletionSentinel) && currentContinuation is not List<object?>)
-        {
-            DebugLog.WriteDiagnostic($"{this}: Upgrading continuation to list.", LogWriter.Blocking);
-            // create a new list of continuation actions and try to CAS it in
-            Interlocked.CompareExchange(ref _continuation, new List<object?> { currentContinuation }, currentContinuation);
-
-            // we either successfully upgraded the continuation to a list, or someone else did it before us
-            // it is also possible that the sentinel was set in the meantime
-        }
-        // current continuation is now either a list of continuation actions, or the sentinel
-        // resample the current continuation
-        currentContinuation = Volatile.Read(ref _continuation);
-
-        Debug.Assert(ReferenceEquals(currentContinuation, _workloadCompletionSentinel) || currentContinuation is List<object?>);
-
-        // if it's a list, we'll try to add the continuation to it
-        if (currentContinuation is List<object?> list)
-        {
-            lock (list)
-            {
-                // it could be that the sentinel was set in the meantime while we were busy acquiring the lock
-                if (!ReferenceEquals(Volatile.Read(ref _continuation), _workloadCompletionSentinel))
-                {
-                    if (list.Count == list.Capacity)
-                    {
-                        DebugLog.WriteDiagnostic($"{this}: List is about to grow, running cleanup.", LogWriter.Blocking);
-                        list.RemoveAll(o => o == null);
-                    }
-
-                    DebugLog.WriteDiagnostic($"{this}: Adding continuation to list.", LogWriter.Blocking);
-                    // great, we can add the continuation to the list
-                    if (scheduleBeforeOthers)
-                    {
-                        list.Insert(0, continuation);
-                    }
-                    else
-                    {
-                        list.Add(continuation);
-                    }
-                    // we successfully added the continuation to the list, return true
-                    return true;
-                }
-            }
-        }
-        DebugLog.WriteDiagnostic($"{this}: Failed to add continuation (sentinel was set).", LogWriter.Blocking);
-        // we failed to add the continuation to the list (the sentinel was set in the meantime)
-        // return false to indicate that the caller should execute the continuation directly
-        return false;
     }
 
     private protected sealed class QdiscCompletionSentinel : IQdisc

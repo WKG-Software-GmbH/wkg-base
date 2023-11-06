@@ -115,7 +115,7 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
         {
             DebugLog.WriteDiagnostic($"{this}: Successfully forced internal cancellation.", LogWriter.Blocking);
             SetCanceledResultUnsafe();
-            InternalRunContinuations();
+            InternalRunContinuations(-1);
         }
         else
         {
@@ -169,8 +169,8 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
             Volatile.Write(ref _status, WorkloadStatus.Faulted);
             SetFaultedResultUnsafe(exception);
         }
-        // run continuations
-        InternalRunContinuations();
+        // this workload failed. we need to run continuations
+        InternalRunContinuations(-1);
         return false;
     }
 
@@ -239,7 +239,7 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
     /// </summary>
     private void UnbindQdiscUnsafe() => Volatile.Write(ref _qdisc, _qdiscCompletionSentinel);
 
-    internal override void InternalRunContinuations()
+    internal override void InternalRunContinuations(int workerId)
     {
         // unregister the cancellation token registration if necessary
         if (_cancellationTokenRegistration.HasValue)
@@ -248,7 +248,7 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
             DebugLog.WriteDiagnostic($"{this}: Unregistered cancellation token registration.", LogWriter.Blocking);
         }
 
-        base.InternalRunContinuations();
+        base.InternalRunContinuations(workerId);
     }
 
     internal void SetContinuationForAwait(Action continuationAction)

@@ -72,7 +72,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
         {
             previousExecutionFailed = !workload.TryRunSynchronously();
             Debug.Assert(workload.Status.IsOneOf(CommonFlags.Completed));
-            workload.InternalRunContinuations();
+            workload.InternalRunContinuations(workerId);
         }
         DebugLog.WriteInfo($"Terminated worker with previous ID {workerId}.", LogWriter.Blocking);
     }

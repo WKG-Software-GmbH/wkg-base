@@ -18,7 +18,7 @@ internal abstract class AnonymousWorkload : AbstractWorkloadBase
         if (Atomic.TryTestAnyFlagsExchange(ref _status, WorkloadStatus.Canceled, ~CommonFlags.Completed))
         {
             DebugLog.WriteDiagnostic($"{this}: Successfully forced internal cancellation.", LogWriter.Blocking);
-            InternalRunContinuations();
+            InternalRunContinuations(-1);
         }
         else
         {

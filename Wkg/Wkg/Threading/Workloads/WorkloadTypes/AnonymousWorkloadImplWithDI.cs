@@ -34,9 +34,9 @@ internal class AnonymousWorkloadImplWithDI : AnonymousWorkload, IPoolableAnonymo
     public static AnonymousWorkloadImplWithDI Create(AnonymousWorkloadPool<AnonymousWorkloadImplWithDI> pool) =>
         new(pool);
 
-    internal override void InternalRunContinuations()
+    internal override void InternalRunContinuations(int workerId)
     {
-        base.InternalRunContinuations();
+        base.InternalRunContinuations(workerId);
 
         if (_pool is not null)
         {

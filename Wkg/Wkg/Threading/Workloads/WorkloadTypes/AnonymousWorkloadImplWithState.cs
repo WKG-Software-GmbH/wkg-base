@@ -14,4 +14,6 @@ internal class AnonymousWorkloadImplWithState<TState> : AnonymousWorkload
     }
 
     private protected override void ExecuteCore() => _action(_state);
+
+    internal override nint GetPayloadFunctionPointer() => _action.Method.MethodHandle.GetFunctionPointer();
 }

@@ -1,5 +1,6 @@
 ﻿using Wkg.Common.ThrowHelpers;
 using Wkg.Threading.Workloads.Configuration;
+using Wkg.Threading.Workloads.Configuration.Classless;
 
 namespace Wkg.Threading.Workloads.Queuing.Classless.ConstrainedFifo;
 

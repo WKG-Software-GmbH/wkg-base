@@ -42,6 +42,8 @@ public interface IClassfulQdisc<THandle> : IQdisc, INotifyWorkScheduled, IClassl
     /// <returns><see langword="true"/> if the child was found, <see langword="false"/> if the child was not found.</returns>
     internal bool ContainsChild(THandle handle);
 
+    internal bool CanClassify(object? state);
+
     internal bool TryEnqueue(object? state, AbstractWorkloadBase workload);
 
     internal bool TryEnqueueDirect(object? state, AbstractWorkloadBase workload);

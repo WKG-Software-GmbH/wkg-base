@@ -1,6 +1,6 @@
 ﻿using Wkg.Threading.Workloads.Queuing.Classless;
 
-namespace Wkg.Threading.Workloads.Queuing.Classful.Internals;
+namespace Wkg.Threading.Workloads.Queuing.Classful.Classification.Internals;
 
 internal class ClassfulChildClassification<THandle> : IChildClassification<THandle>
     where THandle : unmanaged
@@ -13,6 +13,8 @@ internal class ClassfulChildClassification<THandle> : IChildClassification<THand
     }
 
     public IClasslessQdisc<THandle> Qdisc => _qdisc;
+
+    public bool CanClassify(object? state) => _qdisc.CanClassify(state);
 
     public bool TryEnqueue(object? state, AbstractWorkloadBase workload)
     {

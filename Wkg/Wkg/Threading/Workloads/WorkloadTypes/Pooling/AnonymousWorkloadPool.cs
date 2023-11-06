@@ -31,10 +31,10 @@ internal class AnonymousWorkloadPool<TWorkload> where TWorkload : AnonymousWorkl
         {
             return TWorkload.Create(this);
         }
-        TWorkload? workload = Volatile.Read(ref _workloads[myIndex]);
+        TWorkload? workload = Interlocked.Exchange(ref _workloads[myIndex], null);
         if (workload is null)
         {
-            DebugLog.WriteError("Workload pool is corrupted! Got a non-negative index, but the workload at that index is null. Check the WorkloadFactory implementations!", LogWriter.Blocking);
+            DebugLog.WriteWarning($"Workload pool: got a non-negative index ({myIndex}), but the workload at that index is null. This is a rare race condition, but it can happen. Creating a new workload instead. Ensure that you don't see this message too often, otherwise disable pooling.", LogWriter.Blocking);
             return TWorkload.Create(this);
         }
         return workload;
@@ -49,7 +49,7 @@ internal class AnonymousWorkloadPool<TWorkload> where TWorkload : AnonymousWorkl
         int myIndex = Atomic.IncrementClampMax(ref _index, _workloads.Length - 1);
         if (myIndex + 1 < _workloads.Length)
         {
-            Volatile.Write(ref _workloads[myIndex], workload);
+            Interlocked.CompareExchange(ref _workloads[myIndex], workload, null);
         }
     }
 }

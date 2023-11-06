@@ -27,4 +27,6 @@ internal class WorkloadImplWithDIAndState<TState> : Workload
         Debug.Assert(_serviceProvider is not null);
         _action(_state, _serviceProvider!, new CancellationFlag(this));
     }
+
+    internal override nint GetPayloadFunctionPointer() => _action.Method.MethodHandle.GetFunctionPointer();
 }

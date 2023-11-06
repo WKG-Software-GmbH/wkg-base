@@ -14,4 +14,6 @@ internal class WorkloadImpl : Workload
     }
 
     private protected override void ExecuteCore() => _action(new CancellationFlag(this));
+
+    internal override nint GetPayloadFunctionPointer() => _action.Method.MethodHandle.GetFunctionPointer();
 }

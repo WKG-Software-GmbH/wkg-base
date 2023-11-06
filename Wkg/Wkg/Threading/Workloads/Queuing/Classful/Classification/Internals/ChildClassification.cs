@@ -1,6 +1,6 @@
 ﻿using Wkg.Threading.Workloads.Queuing.Classless;
 
-namespace Wkg.Threading.Workloads.Queuing.Classful.Internals;
+namespace Wkg.Threading.Workloads.Queuing.Classful.Classification.Internals;
 
 internal class ChildClassification<THandle> : IChildClassification<THandle>
     where THandle : unmanaged
@@ -25,4 +25,6 @@ internal class ChildClassification<THandle> : IChildClassification<THandle>
         }
         return false;
     }
+
+    public bool CanClassify(object? state) => _predicate(state);
 }

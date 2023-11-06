@@ -1,7 +1,7 @@
 ﻿using Wkg.Common.ThrowHelpers;
 using Wkg.Threading.Workloads.Queuing.Classless;
 
-namespace Wkg.Threading.Workloads.Configuration;
+namespace Wkg.Threading.Workloads.Configuration.Classless;
 
 public interface IClasslessQdiscBuilder
 {

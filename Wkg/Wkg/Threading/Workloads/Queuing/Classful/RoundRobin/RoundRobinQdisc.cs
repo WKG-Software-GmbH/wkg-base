@@ -3,8 +3,8 @@ using System.Runtime.CompilerServices;
 using Wkg.Common.Extensions;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
-using Wkg.Threading.Workloads.Configuration;
-using Wkg.Threading.Workloads.Queuing.Classful.Internals;
+using Wkg.Threading.Workloads.Configuration.Classless;
+using Wkg.Threading.Workloads.Queuing.Classful.Classification.Internals;
 using Wkg.Threading.Workloads.Queuing.Classless;
 
 namespace Wkg.Threading.Workloads.Queuing.Classful.RoundRobin;
@@ -279,6 +279,32 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
             // the children array changed while we were iterating over it
             DebugLog.WriteDebug($"Children array changed while iterating over it, resampling children.", LogWriter.Blocking);
         }
+    }
+
+    protected override bool CanClassify(object? state)
+    {
+        // recursive classification of child qdiscs only.
+        // matching our own predicate is the job of the parent qdisc.
+        try
+        {
+            // prevent children from being removed while we're iterating over them
+            // new children can still be added, but that's not a problem
+            _childrenLock.EnterReadLock();
+
+            IChildClassification<THandle>[] children = Volatile.Read(ref _children);
+            for (int i = 0; i < children.Length; i++)
+            {
+                if (children[i].CanClassify(state))
+                {
+                    return true;
+                }
+            }
+        }
+        finally
+        {
+            _childrenLock.ExitReadLock();
+        }
+        return false;
     }
 
     /// <inheritdoc/>

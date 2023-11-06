@@ -12,6 +12,7 @@ using Wkg.Threading.Workloads;
 using Wkg.Threading.Workloads.Configuration;
 using Wkg.Threading.Workloads.DependencyInjection.Implementations;
 using Wkg.Threading.Workloads.Factories;
+using Wkg.Threading.Workloads.Queuing.Classful.Metrics;
 using Wkg.Threading.Workloads.Queuing.Classful.RoundRobin;
 using Wkg.Threading.Workloads.Queuing.Classless.ConstrainedFifo;
 using Wkg.Threading.Workloads.Queuing.Classless.ConstrainedLifo;
@@ -70,27 +71,31 @@ ClassfulWorkloadFactoryWithDI<int> factory = WorkloadFactoryBuilder.Create<int>(
         .AddService<IMyService, MyService>(() => new MyService())
         .AddService(() => new MyService()))
     .UseAnonymousWorkloadPooling(poolSize: 64)
-    .UseClassfulRoot<RoundRobin>(1, roundRobinRootBuilder => roundRobinRootBuilder
-        .ConfigureClassificationPredicates(classifier => classifier
-            .AddPredicate<State>(state => state.QdiscType == QdiscType.RoundRobin))
-        .ConfigureQdisc(rootQdisc => rootQdisc.WithLocalQueue<Lifo>())
-        .AddClasslessChild<Fifo>(2, classifier => classifier
-            .AddPredicate<State>(state => state.QdiscType == QdiscType.Fifo)
-            .AddPredicate<int>(i => (i & 1) == 0))
-        .AddClassfulChild<RoundRobin>(3, child => child
-            .AddClassfulChild<RoundRobin>(10, child => child
-                .AddClassfulChild<RoundRobin>(11, child => child
-                    .AddClassfulChild<RoundRobin>(12, child => child
-                        .AddClassfulChild<RoundRobin>(13, child => child
-                            .AddClasslessChild<Lifo>(14))))))
-            .AddClasslessChild<Lifo>(4)
-            .AddClasslessChild<Fifo>(5)
-            .AddClasslessChild<Lifo>(6)
-        .AddClasslessChild<Lifo>(7, classifier => classifier
-            .AddPredicate<State>(state => state.QdiscType == QdiscType.Lifo)
-            .AddPredicate<int>(i => (i & 1) == 1))
-        .AddClasslessChild<ConstrainedFifo>(8, qdisc => qdisc
-            .WithCapacity(8)));
+    .UseClassfulRoot<Metrics>(1, metrics => metrics
+        .ConfigureQdisc(metrics => metrics
+            .UseMaxSampleCount(-1)
+            .UsePreciseMeasurements(false))
+        .AddClassfulChild<RoundRobin>(1, roundRobinRootBuilder => roundRobinRootBuilder
+            .ConfigureClassificationPredicates(classifier => classifier
+                .AddPredicate<State>(state => state.QdiscType == QdiscType.RoundRobin))
+            .ConfigureQdisc(rootQdisc => rootQdisc.WithLocalQueue<Lifo>())
+            .AddClasslessChild<Fifo>(2, classifier => classifier
+                .AddPredicate<State>(state => state.QdiscType == QdiscType.Fifo)
+                .AddPredicate<int>(i => (i & 1) == 0))
+            .AddClassfulChild<RoundRobin>(3, child => child
+                .AddClassfulChild<RoundRobin>(10, child => child
+                    .AddClassfulChild<RoundRobin>(11, child => child
+                        .AddClassfulChild<RoundRobin>(12, child => child
+                            .AddClassfulChild<RoundRobin>(13, child => child
+                                .AddClasslessChild<Lifo>(14))))))
+                .AddClasslessChild<Lifo>(4)
+                .AddClasslessChild<Fifo>(5)
+                .AddClasslessChild<Lifo>(6)
+            .AddClasslessChild<Lifo>(7, classifier => classifier
+                .AddPredicate<State>(state => state.QdiscType == QdiscType.Lifo)
+                .AddPredicate<int>(i => (i & 1) == 1))
+            .AddClasslessChild<ConstrainedFifo>(8, qdisc => qdisc
+                .WithCapacity(8))));
 
 List<int> myData = Enumerable.Range(0, 10000).ToList();
 int sum = myData.Sum();

@@ -6,17 +6,8 @@ namespace ConsoleApp1;
 public class Tests
 {
     [Benchmark]
-    public int GetTickCount() => Environment.TickCount;
+    public long StopwatchTimeStamp() => Stopwatch.GetTimestamp();
 
     [Benchmark]
-    public long GetTickCount64() => Environment.TickCount64;
-
-    [Benchmark]
-    public long DatetimeToFileTime() => DateTime.UtcNow.ToFileTimeUtc();
-
-    [Benchmark]
-    public long StopwatchGetTimestamp() => Stopwatch.GetTimestamp();
-
-    [Benchmark(Baseline = true)]
-    public long DatetimeTicks() => DateTime.UtcNow.Ticks;
+    public long EnvironmentTickCount() => Environment.TickCount64;
 }

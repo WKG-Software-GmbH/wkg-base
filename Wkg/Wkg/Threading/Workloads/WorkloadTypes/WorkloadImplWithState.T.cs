@@ -16,4 +16,6 @@ internal class WorkloadImplWithState<TState, TResult> : Workload<TResult>
     }
 
     private protected override TResult ExecuteCore() => _func(_state, new CancellationFlag(this));
+
+    internal override nint GetPayloadFunctionPointer() => _func.Method.MethodHandle.GetFunctionPointer();
 }

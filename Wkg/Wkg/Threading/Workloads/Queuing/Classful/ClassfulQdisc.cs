@@ -37,6 +37,9 @@ public abstract class ClassfulQdisc<THandle> : ClasslessQdisc<THandle>, IClassfu
     /// <inheritdoc cref="IClassfulQdisc{THandle}.TryEnqueueDirect(object?, AbstractWorkloadBase)"/>""
     protected abstract bool TryEnqueueDirect(object? state, AbstractWorkloadBase workload);
 
+    /// <inheritdoc cref="IClassfulQdisc{THandle}.CanClassify(object?)"/>""
+    protected abstract bool CanClassify(object? state);
+
     /// <inheritdoc/>
     public abstract bool RemoveChild(IClasslessQdisc<THandle> child);
 
@@ -62,4 +65,6 @@ public abstract class ClassfulQdisc<THandle> : ClasslessQdisc<THandle>, IClassfu
 
     bool IClassfulQdisc<THandle>.TryFindChild(THandle handle, [NotNullWhen(true)] out IClasslessQdisc<THandle>? child) =>
         TryFindChild(handle, out child);
+
+    bool IClassfulQdisc<THandle>.CanClassify(object? state) => CanClassify(state);
 }

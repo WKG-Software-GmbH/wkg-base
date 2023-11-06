@@ -26,4 +26,6 @@ internal class AnonymousWorkloadImplWithDIAndState<TState> : AnonymousWorkload
         Debug.Assert(_serviceProvider is not null);
         _action(_state, _serviceProvider!);
     }
+
+    internal override nint GetPayloadFunctionPointer() => _action.Method.MethodHandle.GetFunctionPointer();
 }

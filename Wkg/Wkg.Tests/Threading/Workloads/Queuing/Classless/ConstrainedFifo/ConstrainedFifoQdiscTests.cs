@@ -1,6 +1,7 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Wkg.Common.Extensions;
 using Wkg.Threading.Workloads.Configuration;
+using Wkg.Threading.Workloads.Configuration.Classless;
 using Wkg.Threading.Workloads.WorkloadTypes;
 
 namespace Wkg.Threading.Workloads.Queuing.Classless.ConstrainedFifo.Tests;

@@ -18,6 +18,7 @@ using CommonFlags = WorkloadStatus.CommonFlags;
 public abstract class AbstractWorkloadBase
 {
     private protected uint _status;
+    internal volatile QueuingStateNode? _state;
 
     // continuations
     private protected static readonly IQdisc _qdiscCompletionSentinel = new QdiscCompletionSentinel();
@@ -54,7 +55,9 @@ public abstract class AbstractWorkloadBase
     /// <returns><see langword="true"/> if the workload was executed and is in any of the terminal states; <see langword="false"/> if the workload could not be executed.</returns>
     internal abstract bool TryRunSynchronously();
 
-    internal abstract void InternalAbort();
+    internal abstract nint GetPayloadFunctionPointer();
+
+    internal abstract void InternalAbort(Exception? exception = null);
 
     /// <summary>
     /// Attempts to bind the workload to the specified qdisc.

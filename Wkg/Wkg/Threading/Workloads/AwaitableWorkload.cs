@@ -107,14 +107,22 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
     internal bool InternalTryMarkAborted() =>
         Interlocked.CompareExchange(ref _status, WorkloadStatus.Canceled, WorkloadStatus.CancellationRequested) == WorkloadStatus.CancellationRequested;
 
-    internal override void InternalAbort()
+    internal override void InternalAbort(Exception? exception = null)
     {
         DebugLog.WriteDiagnostic($"{this}: Forcing internal cancellation.", LogWriter.Blocking);
+        WorkloadStatus targetStatus = exception is null ? WorkloadStatus.Canceled : WorkloadStatus.Faulted;
         // we're forcing cancellation, so we can just set the status to canceled
-        if (Atomic.TryTestAnyFlagsExchange(ref _status, WorkloadStatus.Canceled, ~CommonFlags.Completed))
+        if (Atomic.TryTestAnyFlagsExchange(ref _status, targetStatus, ~CommonFlags.Completed))
         {
             DebugLog.WriteDiagnostic($"{this}: Successfully forced internal cancellation.", LogWriter.Blocking);
-            SetCanceledResultUnsafe();
+            if (exception is not null)
+            {
+                SetFaultedResultUnsafe(exception);
+            }
+            else
+            {
+                SetCanceledResultUnsafe();
+            }
             InternalRunContinuations(-1);
         }
         else

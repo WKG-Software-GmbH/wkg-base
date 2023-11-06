@@ -45,4 +45,6 @@ internal class AnonymousWorkloadImpl : AnonymousWorkload, IPoolableAnonymousWork
         Volatile.Write(ref _action, action);
         Volatile.Write(ref _status, WorkloadStatus.Created);
     }
+
+    internal override nint GetPayloadFunctionPointer() => _action.Method.MethodHandle.GetFunctionPointer();
 }

@@ -11,11 +11,12 @@ internal abstract class AnonymousWorkload : AbstractWorkloadBase
 {
     private protected AnonymousWorkload(WorkloadStatus status) : base(status) => Pass();
 
-    internal override void InternalAbort()
+    internal override void InternalAbort(Exception? exception)
     {
         DebugLog.WriteDiagnostic($"{this}: Forcing internal cancellation.", LogWriter.Blocking);
+        WorkloadStatus targetStatus = exception is null ? WorkloadStatus.Canceled : WorkloadStatus.Faulted;
         // we're forcing cancellation, so we can just set the status to canceled
-        if (Atomic.TryTestAnyFlagsExchange(ref _status, WorkloadStatus.Canceled, ~CommonFlags.Completed))
+        if (Atomic.TryTestAnyFlagsExchange(ref _status, targetStatus, ~CommonFlags.Completed))
         {
             DebugLog.WriteDiagnostic($"{this}: Successfully forced internal cancellation.", LogWriter.Blocking);
             InternalRunContinuations(-1);

@@ -25,4 +25,6 @@ internal class WorkloadImplWithDI<TResult> : Workload<TResult>
         Debug.Assert(_serviceProvider is not null);
         return _func(_serviceProvider!, new CancellationFlag(this));
     }
+
+    internal override nint GetPayloadFunctionPointer() => _func.Method.MethodHandle.GetFunctionPointer();
 }

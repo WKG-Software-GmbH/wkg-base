@@ -181,6 +181,9 @@ public abstract class AbstractClassfulWorkloadFactory<THandle> : AbstractClassle
 
     private protected virtual void ScheduleCore(THandle handle, AbstractWorkloadBase workload)
     {
+        // TODO: this *MUST* be routed through the class hierarchy itself.
+        // classful qdiscs may track enqueue and dequeue operations,
+        // and we need to make sure that they are properly notified.
         if (_root.Handle.Equals(handle))
         {
             _root.Enqueue(workload);

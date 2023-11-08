@@ -49,7 +49,7 @@ public class WeakPool<T> : IPool<T> where T : class, IPoolable<T>
         T? workload = Interlocked.Exchange(ref _pool[myIndex], null);
         if (workload is null)
         {
-            DebugLog.WriteWarning($"{nameof(WeakPool<T>)}: got a non-negative index ({myIndex}), but the {typeof(T).Name} at that index is null. This is a rare race condition, but it can happen. Creating a new {typeof(T).Name} instead. Ensure that you don't see this message too often, otherwise use a {nameof(StrongPool<T>)} instead.", LogWriter.Blocking);
+            DebugLog.WriteWarning($"{nameof(WeakPool<T>)}: got a non-negative index ({myIndex}), but the {typeof(T).Name} at that index is null. Creating a new {typeof(T).Name} instead. This is a rare race condition and an indicator of high contention, but it can happen even in normal operation. Ensure that you don't see this message too often, otherwise use a {nameof(StrongPool<T>)} instead, reduce contention, or disable pooling.", LogWriter.Blocking);
             return T.Create(this);
         }
         return workload;
@@ -61,6 +61,12 @@ public class WeakPool<T> : IPool<T> where T : class, IPoolable<T>
     /// </remarks>
     public bool Return(T item)
     {
+        // TODO: we could opt for a less-weak implementation here by using a slim reader-writer lock.
+        // Renting is thread safe with any concurrent number of renters, but returning is not.
+        // technically returning is also thread safe with any number of concurrent returners,
+        // but interleaving of renting and returning is a serios issue. At least with our index-based approach.
+        // so maybe a reader-writer lock is a bit overkill, as we could even allow multiple writers and multiple readers
+        // just not a mix of both, possibly there could be some merit to creating a custom lock for this (and similar) use cases.
         DebugLog.WriteDiagnostic($"Returning a {typeof(T).Name} to the {nameof(WeakPool<T>)}.", LogWriter.Blocking);
         // don't need to check for null because that should never happen
         // if it does, that's not too big of a deal either, as we'll just create a new workload as needed

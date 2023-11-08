@@ -3,8 +3,10 @@ using System.Runtime.CompilerServices;
 using Wkg.Common.Extensions;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
+using Wkg.Threading.Extensions;
 using Wkg.Threading.Workloads.Configuration.Classless;
 using Wkg.Threading.Workloads.Queuing.Classful.Classification.Internals;
+using Wkg.Threading.Workloads.Queuing.Classful.Intrinsics;
 using Wkg.Threading.Workloads.Queuing.Classless;
 
 namespace Wkg.Threading.Workloads.Queuing.Classful.RoundRobin;
@@ -53,33 +55,20 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
             {
                 return 0;
             }
-            try
+            // we must ensure that no other thread is removing children
+            // dequeue operations are not a problem, since we only need to provide a weakly consistent count!
+            using ILockOwnership upgradableReadLock = _childrenLock.AcquireUpgradableReadLock();
+
+            int count = CountChildrenUnsafe();
+            if (count == 0)
             {
-                // we must ensure that no other thread is removing children
-                // dequeue operations are not a problem, since we only need to provide a weakly consistent count!
-                _childrenLock.EnterUpgradeableReadLock();
-                int count = CountChildrenUnsafe();
-                if (count == 0)
-                {
-                    // we need to actually block any enqueue operations while we're counting
-                    // otherwise we may miss workloads that are enqueued while we're counting
-                    // upgrade to a write lock
-                    try
-                    {
-                        _childrenLock.EnterWriteLock();
-                        count = CountChildrenUnsafe();
-                    }
-                    finally
-                    {
-                        _childrenLock.ExitWriteLock();
-                    }
-                }
-                return count;
+                // we need to actually block any enqueue operations while we're counting
+                // otherwise we may miss workloads that are enqueued while we're counting
+                // upgrade to a write lock
+                using ILockOwnership writeLock = _childrenLock.AcquireWriteLock();
+                count = CountChildrenUnsafe();
             }
-            finally
-            {
-                _childrenLock.ExitUpgradeableReadLock();
-            }
+            return count;
         }
     }
 
@@ -285,24 +274,17 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
     {
         // recursive classification of child qdiscs only.
         // matching our own predicate is the job of the parent qdisc.
-        try
-        {
-            // prevent children from being removed while we're iterating over them
-            // new children can still be added, but that's not a problem
-            _childrenLock.EnterReadLock();
+        // prevent children from being removed while we're iterating over them
+        // new children can still be added, but that's not a problem
+        using ILockOwnership readLock = _childrenLock.AcquireReadLock();
 
-            IChildClassification<THandle>[] children = Volatile.Read(ref _children);
-            for (int i = 0; i < children.Length; i++)
-            {
-                if (children[i].CanClassify(state))
-                {
-                    return true;
-                }
-            }
-        }
-        finally
+        IChildClassification<THandle>[] children = Volatile.Read(ref _children);
+        for (int i = 0; i < children.Length; i++)
         {
-            _childrenLock.ExitReadLock();
+            if (children[i].CanClassify(state))
+            {
+                return true;
+            }
         }
         return false;
     }
@@ -312,28 +294,23 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
     {
         // recursive classification of child qdiscs only.
         // matching our own predicate is the job of the parent qdisc.
-        try
-        {
-            // prevent children from being removed while we're iterating over them
-            // new children can still be added, but that's not a problem
-            _childrenLock.EnterReadLock();
-            DebugLog.WriteDiagnostic($"Trying to enqueue workload {workload} to round robin qdisc {this}.", LogWriter.Blocking);
+        // prevent children from being removed while we're iterating over them
+        // new children can still be added, but that's not a problem
+        using ILockOwnership readLock = _childrenLock.AcquireReadLock();
+       
+        DebugLog.WriteDiagnostic($"Trying to enqueue workload {workload} to round robin qdisc {this}.", LogWriter.Blocking);
 
-            IChildClassification<THandle>[] children = Volatile.Read(ref _children);
-            for (int i = 0; i < children.Length; i++)
-            {
-                if (children[i].TryEnqueue(state, workload))
-                {
-                    DebugLog.WriteDiagnostic($"Enqueued workload {workload} to child qdisc {children[i].Qdisc}.", LogWriter.Blocking);
-                    return true;
-                }
-            }
-            DebugLog.WriteDiagnostic($"Could not enqueue workload {workload} to any child qdisc.", LogWriter.Blocking);
-        }
-        finally
+        IChildClassification<THandle>[] children = Volatile.Read(ref _children);
+        for (int i = 0; i < children.Length; i++)
         {
-            _childrenLock.ExitReadLock();
+            if (children[i].TryEnqueue(state, workload))
+            {
+                DebugLog.WriteDiagnostic($"Enqueued workload {workload} to child qdisc {children[i].Qdisc}.", LogWriter.Blocking);
+                return true;
+            }
         }
+        DebugLog.WriteDiagnostic($"Could not enqueue workload {workload} to any child qdisc.", LogWriter.Blocking);
+
         return false;
     }
 
@@ -435,58 +412,51 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
             DebugLog.WriteDiagnostic($"Quickly returning false, child qdisc {child} not present in round robin qdisc {this}.", LogWriter.Blocking);
             return false;
         }
-        try
+        // that's unfortunate, we need to acquire the write lock
+        using ILockOwnership writeLock = _childrenLock.AcquireWriteLock();
+        
+        IChildClassification<THandle>[] children = Volatile.Read(ref _children);
+        // check if the child is present
+        // we need to repeat this check in case another thread removed the same child in the meantime
+        // (this shouldn't happen, but it's possible. people do weird things sometimes)
+        int childIndex = -1;
+        for (int i = 0; i < children.Length; i++)
         {
-            // that's unfortunate, we need to acquire the write lock
-            _childrenLock.EnterWriteLock();
-
-            IChildClassification<THandle>[] children = Volatile.Read(ref _children);
-            // check if the child is present
-            // we need to repeat this check in case another thread removed the same child in the meantime
-            // (this shouldn't happen, but it's possible. people do weird things sometimes)
-            int childIndex = -1;
-            for (int i = 0; i < children.Length; i++)
+            if (children[i].Qdisc.Handle.Equals(child.Handle))
             {
-                if (children[i].Qdisc.Handle.Equals(child.Handle))
-                {
-                    childIndex = i;
-                    break;
-                }
+                childIndex = i;
+                break;
             }
-            if (childIndex == -1)
+        }
+        if (childIndex == -1)
+        {
+            // child not present
+            DebugLog.WriteWarning($"Child qdisc {child} not present in round robin qdisc {this} but we already marked it as complete. This is a bug in the qdisc implementation.", LogWriter.Blocking);
+            return false;
+        }
+        // child present, remove it
+        if (!child.IsEmpty)
+        {
+            DebugLog.WriteDiagnostic($"Child qdisc {child} is not empty, waiting for it to become empty.", LogWriter.Blocking);
+            if (millisecondsTimeout <= 0 || !SpinWait.SpinUntil(() => child.IsEmpty, millisecondsTimeout))
             {
-                // child not present
-                DebugLog.WriteWarning($"Child qdisc {child} not present in round robin qdisc {this} but we already marked it as complete. This is a bug in the qdisc implementation.", LogWriter.Blocking);
+                // can't guarantee that the child is empty, so we can't remove it
+                // we waited for the child to become empty, but it didn't
+                DebugLog.WriteDiagnostic($"Returning false, child qdisc {child} is not empty and either no timeout was specified or the timeout expired.", LogWriter.Blocking);
                 return false;
             }
-            // child present, remove it
-            if (!child.IsEmpty)
-            {
-                DebugLog.WriteDiagnostic($"Child qdisc {child} is not empty, waiting for it to become empty.", LogWriter.Blocking);
-                if (millisecondsTimeout <= 0 || !SpinWait.SpinUntil(() => child.IsEmpty, millisecondsTimeout))
-                {
-                    // can't guarantee that the child is empty, so we can't remove it
-                    // we waited for the child to become empty, but it didn't
-                    DebugLog.WriteDiagnostic($"Returning false, child qdisc {child} is not empty and either no timeout was specified or the timeout expired.", LogWriter.Blocking);
-                    return false;
-                }
-                // the child was empty after waiting a bit, so we can remove it
-                // prevent new workloads from being scheduled to the child after we lift the lock
-                child.Complete();
-            }
-
-            IChildClassification<THandle>[] newChildren = new IChildClassification<THandle>[children.Length - 1];
-            children.AsSpan(0, childIndex).CopyTo(newChildren);
-            children.AsSpan(childIndex + 1).CopyTo(newChildren.AsSpan(childIndex));
-
-            _children = newChildren;
-            DebugLog.WriteDiagnostic($"Removed child qdisc {child} from round robin qdisc {this}.", LogWriter.Blocking);
-            return true;
+            // the child was empty after waiting a bit, so we can remove it
+            // prevent new workloads from being scheduled to the child after we lift the lock
+            child.Complete();
         }
-        finally
-        {
-            _childrenLock.ExitWriteLock();
-        }
+
+        IChildClassification<THandle>[] newChildren = new IChildClassification<THandle>[children.Length - 1];
+        children.AsSpan(0, childIndex).CopyTo(newChildren);
+        children.AsSpan(childIndex + 1).CopyTo(newChildren.AsSpan(childIndex));
+
+        _children = newChildren;
+        DebugLog.WriteDiagnostic($"Removed child qdisc {child} from round robin qdisc {this}.", LogWriter.Blocking);
+        return true;
     }
 
     /// <inheritdoc/>
@@ -496,30 +466,23 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
     /// <inheritdoc/>
     protected override bool TryFindChild(THandle handle, [NotNullWhen(true)] out IClasslessQdisc<THandle>? child)
     {
-        try
-        {
-            _childrenLock.EnterReadLock();
+        using ILockOwnership readLock = _childrenLock.AcquireReadLock();
 
-            IChildClassification<THandle>[] children = Volatile.Read(ref _children);
-            for (int i = 0; i < children.Length; i++)
-            {
-                child = children[i].Qdisc;
-                if (child.Handle.Equals(handle))
-                {
-                    return true;
-                }
-                if (child is IClassfulQdisc<THandle> classfulChild && classfulChild.TryFindChild(handle, out child))
-                {
-                    return true;
-                }
-            }
-            child = null;
-            return false;
-        }
-        finally
+        IChildClassification<THandle>[] children = Volatile.Read(ref _children);
+        for (int i = 0; i < children.Length; i++)
         {
-            _childrenLock.ExitReadLock();
+            child = children[i].Qdisc;
+            if (child.Handle.Equals(handle))
+            {
+                return true;
+            }
+            if (child is IClassfulQdisc<THandle> classfulChild && classfulChild.TryFindChild(handle, out child))
+            {
+                return true;
+            }
         }
+        child = null;
+        return false;
     }
 
     protected override void OnWorkerTerminated(int workerId)
@@ -543,86 +506,5 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
     {
         _emptyCounter.Reset();
         base.OnWorkScheduled();
-    }
-
-    private class EmptyCounter
-    {
-        // the emptiness counter is a 64 bit value that is split into two parts:
-        // the first 32 bits are the generation counter, the last 32 bits are the actual counter
-        // the generation counter is incremented whenever the counter is reset
-        // we use a single 64 bit value to allow for atomic operations on both parts
-        private ulong _state;
-
-        public void Reset()
-        {
-            ulong state, newState;
-            do
-            {
-                state = Volatile.Read(ref _state);
-                uint generation = (uint)(state >> 32);
-                newState = (ulong)(generation + 1) << 32;
-            } while (Interlocked.CompareExchange(ref _state, newState, state) != state);
-            DebugLog.WriteDiagnostic($"Reset emptiness counter. Current token: {newState >> 32}.", LogWriter.Blocking);
-        }
-
-        /// <summary>
-        /// Increments the counter if the specified token is valid.
-        /// </summary>
-        /// <param name="token">The token previously obtained from <see cref="GetToken"/>.</param>
-        /// <returns>The actual counter value after the increment. If the token is invalid, the current counter value is returned.</returns>
-        public uint TryIncrement(uint token)
-        {
-            ulong state, newState;
-            do
-            {
-                state = Volatile.Read(ref _state);
-                uint currentGeneration = (uint)(state >> 32);
-                if (currentGeneration != token)
-                {
-                    // the generation changed, so the counter was reset
-                    // we can't increment the counter, since it's not the current generation
-                    DebugLog.WriteDebug($"Ignoring invalid emptiness counter token {token}. Current token is {currentGeneration}.", LogWriter.Blocking);
-                    return (uint)state;
-                }
-                // this is probably safe, if the counter ever overflows into the generation
-                // then you definitely have bigger problems than a broken round robin qdisc :)
-                newState = state + 1;
-            } while (Interlocked.CompareExchange(ref _state, newState, state) != state);
-            DebugLog.WriteDiagnostic($"Incremented emptiness counter to {newState & uint.MaxValue}.", LogWriter.Blocking);
-            return (uint)newState;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public uint GetToken() => (uint)(Volatile.Read(ref _state) >> 32);
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public uint GetCount() => (uint)Volatile.Read(ref _state);
-    }
-}
-
-file readonly ref struct CriticalSection
-{
-    private readonly ref int _count;
-
-    private CriticalSection(ref int state)
-    {
-        _count = ref state;
-    }
-
-    public static CriticalSection Enter(ref int state)
-    {
-        Interlocked.Increment(ref state);
-        return new CriticalSection(ref state);
-    }
-
-    public void Exit() => Interlocked.Decrement(ref _count);
-
-    public void SpinUntilEmpty()
-    {
-        SpinWait spinner = default;
-        while (Interlocked.CompareExchange(ref _count, 0, 0) != 0)
-        {
-            spinner.SpinOnce();
-        }
     }
 }

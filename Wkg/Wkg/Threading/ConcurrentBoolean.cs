@@ -25,4 +25,7 @@ public readonly struct ConcurrentBoolean
     public static ConcurrentBoolean TRUE => ~FALSE;
 
     public override string ToString() => ((bool)this).ToString();
+
+    // sign-extend the 32-bit value to 64-bit
+    public readonly ulong As64BitMask() => unchecked((ulong)(long)(int)_value);
 }

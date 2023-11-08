@@ -34,7 +34,7 @@ internal abstract class VirtualTimeTableBase : IVirtualTimeTable
         if (!_table.TryGetValue(handle, out EventuallyConsistentVirtualTimeTableEntry? entry))
         {
             entry = new EventuallyConsistentVirtualTimeTableEntry();
-            _ = _table.TryAdd(handle, entry) || _table.TryGetValue(handle, out entry);
+            _ = _table.TryAdd(handle, entry);
         }
         // we never remove entries from the table, so this should never be null
         Debug.Assert(entry is not null);

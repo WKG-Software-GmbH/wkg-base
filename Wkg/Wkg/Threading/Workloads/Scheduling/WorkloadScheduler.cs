@@ -161,8 +161,9 @@ internal class WorkloadScheduler : INotifyWorkScheduled
                     DebugLog.WriteWarning($"Worker slot is not yet available, spinning ({i} times so far).", LogWriter.Blocking);
                     spinner.SpinOnce();
                 }
+                original++;
             }
-            return new WorkerStateSnapshot(workerId, original + 1);
+            return new WorkerStateSnapshot(workerId, original);
         }
 
         public void ResignWorker(int workerId)

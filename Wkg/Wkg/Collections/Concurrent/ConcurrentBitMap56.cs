@@ -17,12 +17,12 @@ using static ConcurrentBoolean;
 /// </remarks>
 [DebuggerDisplay("{ToString(),nq}")]
 [StructLayout(LayoutKind.Explicit, Size = sizeof(ulong))]
-public readonly struct ConcurrentBitMap56
+public struct ConcurrentBitMap56
 {
     [FieldOffset(0)]
-    private readonly ulong _state;
-    [FieldOffset(0)]
-    private readonly byte _guardToken;
+    private ulong _state;
+    [FieldOffset(7)]
+    private byte _guardToken;
 
     private ConcurrentBitMap56(ulong state) => _state = state;
 
@@ -31,54 +31,47 @@ public readonly struct ConcurrentBitMap56
     /// </summary>
     /// <returns>The internal <see cref="ulong"/> value of this <see cref="ConcurrentBitMap56"/> where the LSB corresponds to index 0.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ulong AsUInt64() => Volatile.Read(ref AsUlong(in _state));
+    public readonly ulong AsUInt64() => _state & GetFullMaskUnsafe(56);
 
     /// <summary>
     /// Determines whether the bit at the specified index is set (1).
     /// </summary>
     /// <param name="index">The index of the bit to check.</param>
     /// <returns><see langword="true"/> if the bit at the specified index is set (1), otherwise <see langword="false"/> (0).</returns>
-    public bool IsBitSet(int index)
+    public readonly bool IsBitSet(int index)
     {
-        ulong s = Volatile.Read(ref AsUlong(in _state));
         ulong mask = 1uL << index;
-        return (s & mask) == mask;
+        return (_state & mask) == mask;
     }
+
+    /// <summary>
+    /// Retrieves a token that can be used to check if this <see cref="ConcurrentBitMap56"/> has been updated.
+    /// </summary>
+    /// <returns>A token that can be used to check if this <see cref="ConcurrentBitMap56"/> has been updated.</returns>
+    public readonly byte GetToken() => _guardToken;
 
     /// <summary>
     /// Determines whether all bits are set (1) based on the specified <paramref name="fullBitMap"/> bitmap where all bits are set (1) that should be checked.
     /// </summary>
     /// <param name="fullBitMap">A <see cref="ConcurrentBitMap56"/> where all bits are set (1) that should be checked.</param>
     /// <returns><see langword="true"/> if all bits are set (1) based on the specified <paramref name="fullBitMap"/> bitmap where all bits are set (1) that should be checked, otherwise <see langword="false"/> (0).</returns>
-    public bool IsFull(ConcurrentBitMap56 fullBitMap)
-    {
-        ulong s = Volatile.Read(ref AsUlong(in _state));
-        return (s & fullBitMap._state) == fullBitMap._state;
-    }
+    public readonly bool IsFull(ConcurrentBitMap56 fullBitMap) => (_state & fullBitMap._state) == fullBitMap._state;
 
     /// <summary>
     /// Determines whether all bits in this bitmap up to the specified <paramref name="capacity"/> are set (1).
     /// </summary>
     /// <param name="capacity">The size of this bitmap in bits.</param>
-    public bool IsFull(int capacity)
+    public readonly bool IsFull(int capacity)
     {
         ulong mask = GetFullMask(capacity);
-        ulong s = Volatile.Read(ref AsUlong(in _state));
-        return (s & mask) == mask;
+        return (_state & mask) == mask;
     }
 
     /// <summary>
     /// Determines whether all bits are clear (0).
     /// </summary>
     /// <returns><see langword="true"/> if all bits are clear (0), otherwise <see langword="false"/> if at least one bit is set (1).</returns>
-    public bool IsEmpty
-    {
-        get
-        {
-            ulong s = Volatile.Read(ref AsUlong(in _state));
-            return s == 0;
-        }
-    }
+    public readonly bool IsEmpty => (_state & GetFullMaskUnsafe(56)) == 0;
 
     /// <summary>
     /// Updates the bit at the specified index to the specified value.
@@ -87,20 +80,48 @@ public readonly struct ConcurrentBitMap56
     /// <param name="index">The index of the bit to update.</param>
     /// <param name="isSet"><see langword="true"/> to set the bit at the specified index, <see langword="false"/> to clear the bit at the specified index.</param>
     public static void UpdateBit(ref ConcurrentBitMap56 state, int index, ConcurrentBoolean isSet)
-    { 
+    {
+        Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, 55, nameof(index));
         ref ulong target = ref AsUlong(ref state);
-        ulong s = Volatile.Read(ref target);
-        ulong newState = UpdateBitUnsafe(s, index, isSet);
-        while (s != newState)
+        ulong oldState, newState;
+        do
         {
-            ulong oldState = Interlocked.CompareExchange(ref target, newState, s);
-            if (oldState == s)
-            {
-                break;
-            }
-            s = oldState;
-            newState = UpdateBitUnsafe(s, index, isSet);
+            oldState = Volatile.Read(ref target);
+            ConcurrentBitMap56 map = new(oldState);
+            byte token = map._guardToken;
+            map._state = UpdateBitUnsafe(oldState, index, isSet);
+            // write the new guard token to prevent ABA issues
+            map._guardToken = (byte)(token + 1);
+            // the guard token is included in the state, so we can simply write it back
+            newState = map._state;
+        } while (Interlocked.CompareExchange(ref target, newState, oldState) != oldState);
+    }
+
+    /// <summary>
+    /// Attempts to update the bit at the specified index to the specified value if the specified <paramref name="token"/> is still valid.
+    /// </summary>
+    /// <param name="state">A reference to the <see cref="ConcurrentBitMap56"/> to update.</param>
+    /// <param name="token">A token previously retrieved from <see cref="GetToken"/>.</param>
+    /// <param name="index">The index of the bit to update.</param>
+    /// <param name="isSet"><see langword="true"/> to set the bit at the specified index to 1, <see langword="false"/> to clear the bit at the specified index to 0.</param>
+    /// <returns><see langword="true"/> if the bit was updated, otherwise <see langword="false"/> if the specified <paramref name="token"/> was invalid.</returns>
+    public static bool TryUpdateBit(ref ConcurrentBitMap56 state, byte token, int index, ConcurrentBoolean isSet)
+    {
+        Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, 55, nameof(index));
+        ref ulong target = ref AsUlong(ref state);
+        ulong oldState, newState;
+        oldState = Volatile.Read(ref target);
+        ConcurrentBitMap56 map = new(oldState);
+        if (map._guardToken != token)
+        {
+            return false;
         }
+        map._state = UpdateBitUnsafe(oldState, index, isSet);
+        // write the new guard token to prevent ABA issues
+        map._guardToken = (byte)(token + 1);
+        // the guard token is included in the state, so we can simply write it back
+        newState = map._state;
+        return Interlocked.CompareExchange(ref target, newState, oldState) == oldState;
     }
 
     /// <summary>
@@ -141,19 +162,25 @@ public readonly struct ConcurrentBitMap56
     /// <param name="isInitiallySet"><see langword="true"/> to set the bit at the specified index, <see langword="false"/> to clear the bit at the specified index.</param>
     public static void InsertBitAt(ref ConcurrentBitMap56 state, int index, ConcurrentBoolean isInitiallySet)
     {
-        Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, 63, nameof(index));
+        Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, 55, nameof(index));
         ref ulong target = ref AsUlong(ref state);
         ulong oldState, newState;
         do
         {
             oldState = Volatile.Read(ref target);
+            ConcurrentBitMap56 map = new(oldState);
+            byte token = map._guardToken;
             ulong splitMask = (1uL << index) - 1;
             ulong lower = oldState & splitMask;
-            ulong upper = oldState & ~splitMask;
+            // we don't want to shift the token
+            ulong upper = oldState & ~splitMask & GetFullMaskUnsafe(56);
             ulong expandedState = upper << 1 | lower;
             // we can expand the boolean mask to 64 for true => ulong.MaxValue and false => 0
-            newState = expandedState | isInitiallySet.As64BitMask() & 1uL << index;
-
+            map._state = expandedState | isInitiallySet.As64BitMask() & 1uL << index;
+            // write the new guard token to prevent ABA issues
+            map._guardToken = (byte)(token + 1);
+            // the guard token is included in the state, so we can simply write it back
+            newState = map._state;
         } while (Interlocked.CompareExchange(ref target, newState, oldState) != oldState);
     }
 
@@ -164,28 +191,34 @@ public readonly struct ConcurrentBitMap56
     /// <param name="index">The index of the bit to remove.</param>
     public static void RemoveBitAt(ref ConcurrentBitMap56 state, int index)
     {
-        Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, 63, nameof(index));
+        Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, 55, nameof(index));
         ref ulong target = ref AsUlong(ref state);
         ulong oldState, newState;
         do
         {
             oldState = Volatile.Read(ref target);
+            ConcurrentBitMap56 map = new(oldState);
+            byte token = map._guardToken;
             // clear the bit at the index we want to remove to prevent it from conflicting with the bit at index - 1
             ulong withUnsetBit = UpdateBitUnsafe(oldState, index, isSet: FALSE);
             ulong splitMask = (1uL << index) - 1;
             ulong lower = withUnsetBit & splitMask;
-            ulong upper = withUnsetBit & ~splitMask;
-            newState = upper >> 1 | lower;
+            ulong upper = withUnsetBit & ~splitMask & GetFullMaskUnsafe(56);
+            map._state = upper >> 1 | lower;
+            // write the new guard token to prevent ABA issues
+            map._guardToken = (byte)(token + 1);
+            // the guard token is included in the state, so we can simply write it back
+            newState = map._state;
         } while (Interlocked.CompareExchange(ref target, newState, oldState) != oldState);
     }
 
     /// <inheritdoc/>
-    public override string ToString()
+    public readonly override string ToString()
     {
         // pre .NET 8 can't do ulong.ToString("B64") :(
-        ulong s = Volatile.Read(ref AsUlong(in _state));
-        Span<byte> ascii = stackalloc byte[64];
-        for (int i = 0; i < 64; i++)
+        ulong s = _state;
+        Span<byte> ascii = stackalloc byte[56];
+        for (int i = 0; i < 56; i++)
         {
             // we want the MSB to be on the left, so we need to reverse everything
             // other than that we simply grab the ith bit (from the LSB) 
@@ -193,20 +226,21 @@ public readonly struct ConcurrentBitMap56
             // if the bit was 0 the result is '0' itself, otherwise
             // if the bit was 1 then the result is '0' | 1 (0x30 | 1) which 
             // yields 0x31 which is also conveniently the ASCII code for '1'.
-            ascii[63 - i] = (byte)((s & (1uL << i)) >> i | '0');
+            ascii[55 - i] = (byte)((s & (1uL << i)) >> i | '0');
         }
-        return Encoding.ASCII.GetString(ascii);
+        return $"(Token: {_guardToken}, Value: {Encoding.ASCII.GetString(ascii)})";
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static ulong GetFullMask(int capacity)
     {
         Throw.ArgumentOutOfRangeException.IfNegativeOrZero(capacity, nameof(capacity));
-        Throw.ArgumentOutOfRangeException.IfGreaterThan(capacity, 64, nameof(capacity));
-        // we shift first by capacity - 1 and then by 1 again to allow for 64 bit to 0
-        // otherwise, the right value in the shift is taken modulo 64, so we'd get 1 for capacity = 64
-        return (1uL << (capacity - 1) << 1) - 1;
+        Throw.ArgumentOutOfRangeException.IfGreaterThan(capacity, 56, nameof(capacity));
+        return GetFullMaskUnsafe(capacity);
     }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ulong GetFullMaskUnsafe(int capacity) => (1uL << capacity) - 1;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static ulong UpdateBitUnsafe(ulong state, int index, ConcurrentBoolean isSet)
@@ -218,6 +252,12 @@ public readonly struct ConcurrentBitMap56
         // if isSet == TRUE, then the first or is applied (s | flag), if isSet == FALSE, then (s | 0) = s
         // if isSet == FALSE, then the part after the and is applied (s & ~flag) (clear the bit at the index), if isSet == TRUE, then (s & 0xFFFFFFFFFFFFFFFF) = s
         return (state | flag & isSetMask) & (~flag | isSetMask);
+    }
+
+    private readonly ConcurrentBitMap56 StackLocalSnapshot()
+    {
+        ulong state = Volatile.Read(ref AsUlong(in _state));
+        return new ConcurrentBitMap56(state);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -1,8 +1,6 @@
-﻿using System.Collections;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
-using System.Reflection.PortableExecutable;
 using Wkg.Collections.Concurrent;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
@@ -30,7 +28,7 @@ internal class EarliestDueDateQdisc<THandle> : ClassfulQdisc<THandle> where THan
     private readonly Predicate<object?> _predicate;
 
     private uint _generationCounter;
-    private ConcurrentBitMap64OLD _isEmptyMap;
+    private ConcurrentBitMap56 _isEmptyMap;
     private volatile ChildQdiscState[] _childStates;
 
     public EarliestDueDateQdisc(THandle handle, Predicate<object?> predicate, IClasslessQdiscBuilder inner, int concurrencyLevel) : base(handle)
@@ -88,7 +86,7 @@ internal class EarliestDueDateQdisc<THandle> : ClassfulQdisc<THandle> where THan
         get
         {
             ChildQdiscState[] childStates = _childStates;
-            ConcurrentBitMap64OLD emptyMap = ConcurrentBitMap64OLD.VolatileRead(ref _isEmptyMap);
+            ConcurrentBitMap56 emptyMap = ConcurrentBitMap56.VolatileRead(ref _isEmptyMap);
             return emptyMap.IsFull(childStates.Length);
         }
     }
@@ -207,7 +205,7 @@ internal class EarliestDueDateQdisc<THandle> : ClassfulQdisc<THandle> where THan
     {
         // REQUIRES: read lock on _childModificationLock
         // take a snapshot of the empty map
-        ConcurrentBitMap64OLD emptinessMap = ConcurrentBitMap64OLD.VolatileRead(ref _isEmptyMap);
+        ConcurrentBitMap56 emptinessMap = ConcurrentBitMap56.VolatileRead(ref _isEmptyMap);
         // prepare local variables for the candidate search
         AbstractWorkloadBase? currentCandidate = null;
         candidateIndex = -1;
@@ -251,7 +249,7 @@ internal class EarliestDueDateQdisc<THandle> : ClassfulQdisc<THandle> where THan
                 if (Monitor.TryEnter(childState.QdiscLock))
                 {
                     // re-sample the emptiness map to check if the child is actually empty
-                    emptinessMap = ConcurrentBitMap64OLD.VolatileRead(ref _isEmptyMap);
+                    emptinessMap = ConcurrentBitMap56.VolatileRead(ref _isEmptyMap);
                     // re-sample the candidate buffer as well, as it may have changed between our last check and us acquiring the lock
                     possibleCandidate = Volatile.Read(ref childState.CandidateRef);
                     if (possibleCandidate is not null)
@@ -360,18 +358,29 @@ internal class EarliestDueDateQdisc<THandle> : ClassfulQdisc<THandle> where THan
         // _childModificationLock
         // child.QdiscLock
         Debug.Assert(child.CandidateRef == null);
-        DebugLog.WriteDiagnostic($"{this}: attempting to repopulate candidate buffer for child {child.Child.Qdisc} ({childIndex}).", LogWriter.Blocking);
-        if (child.Child.Qdisc.TryDequeueInternal(workerId, false, out workload))
+        DebugLog.WriteDiagnostic($"{this}: attempting to repopulate candidate buffer for child {child.Child.Qdisc}.", LogWriter.Blocking);
+        byte token;
+        int i = 0;
+        do
         {
-            // we successfully dequeued a workload from the child
-            Volatile.Write(ref child.CandidateRef, workload);
-            DebugLog.WriteDiagnostic($"{this}: successfully repopulated candidate buffer for child {child.Child.Qdisc} ({childIndex}).", LogWriter.Blocking);
-            return true;
-        }
-        // the child is empty
-        // mark it as empty
-        DebugLog.WriteDiagnostic($"{this}: child {child.Child.Qdisc} ({childIndex}) is empty. Updating emptiness bit map.", LogWriter.Blocking);
-        ConcurrentBitMap64OLD.UpdateBit(ref _isEmptyMap, childIndex, isSet: true);
+            if (i != 0)
+            {
+                DebugLog.WriteDebug($"{this}: emptiness bit map changed while attempting to declare child {child.Child.Qdisc} as empty. Attempts so far {i}. Resampling...", LogWriter.Blocking);
+            }
+            token = ConcurrentBitMap56.VolatileRead(ref _isEmptyMap).GetToken();
+            if (child.Child.Qdisc.TryDequeueInternal(workerId, false, out workload))
+            {
+                // we successfully dequeued a workload from the child
+                Volatile.Write(ref child.CandidateRef, workload);
+                DebugLog.WriteDiagnostic($"{this}: successfully repopulated candidate buffer for child {child.Child.Qdisc}.", LogWriter.Blocking);
+                return true;
+            }
+            // the child is empty
+            // mark it as empty
+            DebugLog.WriteDiagnostic($"{this}: child {child.Child.Qdisc} seems to be empty. Updating emptiness bit map.", LogWriter.Blocking);
+            i++;
+        } while (!ConcurrentBitMap56.TryUpdateBit(ref _isEmptyMap, token, childIndex, isSet: true));
+        DebugLog.WriteDebug($"{this}: failed to repopulate candidate buffer for child {child.Child.Qdisc}. Marked child as empty.", LogWriter.Blocking);
         return false;
     }
 
@@ -406,25 +415,20 @@ internal class EarliestDueDateQdisc<THandle> : ClassfulQdisc<THandle> where THan
             if (childState.Child.CanClassify(state))
             {
                 UpdateWorkloadState(workload);
-                // lock to prevent lost updates to the emptiness tracking
-                // TODO: this should be reworked to be atomic with a generation counter
-                // TODO: create a *real* concurrent bit map
-                lock (childState.QdiscLock)
+                // update the emptiness tracking
+                // the actual reset happens in the OnWorkScheduled callback, but we need to
+                // set up the index of the child that was just enqueued to for that
+                __LAST_ENQUEUED_CHILD_INDEX = i;
+                if (!childState.Child.TryEnqueue(state, workload))
                 {
-                    // update the emptiness tracking
-                    // the actual reset happens in the OnWorkScheduled callback, but we need to
-                    // set up the index of the child that was just enqueued to for that
-                    __LAST_ENQUEUED_CHILD_INDEX = i;
-                    if (!childState.Child.TryEnqueue(state, workload))
-                    {
-                        // this should never happen, as we already checked if the child can classify the workload
-                        WorkloadSchedulingException exception = WorkloadSchedulingException.CreateVirtual($"Scheduler inconsistency: child qdisc {childStates[i].Child.Qdisc} reported to be able to classify workload {workload}, but failed to do so.");
-                        Debug.Fail(exception.Message);
-                        DebugLog.WriteException(exception, LogWriter.Blocking);
-                        // we are on the enqueueing thread, so we can just throw here
-                        throw exception;
-                    }
+                    // this should never happen, as we already checked if the child can classify the workload
+                    WorkloadSchedulingException exception = WorkloadSchedulingException.CreateVirtual($"Scheduler inconsistency: child qdisc {childStates[i].Child.Qdisc} reported to be able to classify workload {workload}, but failed to do so.");
+                    Debug.Fail(exception.Message);
+                    DebugLog.WriteException(exception, LogWriter.Blocking);
+                    // we are on the enqueueing thread, so we can just throw here
+                    throw exception;
                 }
+                DebugLog.WriteDiagnostic($"{this}: enqueued workload {workload} to child {childState.Child.Qdisc} ({i}).", LogWriter.Blocking);
                 return true;
             }
         }
@@ -491,11 +495,9 @@ internal class EarliestDueDateQdisc<THandle> : ClassfulQdisc<THandle> where THan
             }
         }
         // success case
+        DebugLog.WriteDiagnostic($"{this}: expecting to enqueue workload {workload} to child {childState.Child.Qdisc} ({index}) via routing path.", LogWriter.Blocking);
 
         UpdateWorkloadState(workload);
-        // TODO: update the emptiness tracking
-        // TODO: right now that's not possible, as we can't get the lock on the child qdisc
-        // TODO: this is extremely unsafe. FIX THIS!
         __LAST_ENQUEUED_CHILD_INDEX = index;
     }
 
@@ -517,15 +519,12 @@ internal class EarliestDueDateQdisc<THandle> : ClassfulQdisc<THandle> where THan
         EarliestDueDateQdisc<THandle>.ChildQdiscState[] childStates = _childStates;
 
         UpdateWorkloadState(workload);
-        // lock to prevent lost updates to the emptiness tracking
-        lock (childStates[localQueueIndex].QdiscLock)
-        {
-            // update the emptiness tracking
-            // the actual reset happens in the OnWorkScheduled callback, but we need to
-            // set up the index of the child that was just enqueued to for that
-            __LAST_ENQUEUED_CHILD_INDEX = localQueueIndex;
-            _localQueue.Enqueue(workload);
-        }
+        // update the emptiness tracking
+        // the actual reset happens in the OnWorkScheduled callback, but we need to
+        // set up the index of the child that was just enqueued to for that
+        __LAST_ENQUEUED_CHILD_INDEX = localQueueIndex;
+        _localQueue.Enqueue(workload);
+        DebugLog.WriteDiagnostic($"{this}: enqueued workload {workload} to local queue.", LogWriter.Blocking);
     }
 
     protected override void OnWorkScheduled()
@@ -543,9 +542,13 @@ internal class EarliestDueDateQdisc<THandle> : ClassfulQdisc<THandle> where THan
         }
         // clear the empty flag for the child that was just enqueued to
         int index = lastEnqueuedChildIndex.Value;
-        ConcurrentBitMap64OLD.UpdateBit(ref _isEmptyMap, index, isSet: false);
+        // no token is required, as we just force the bit to be set
+        // worker threads attempting to mark this child as empty will just fail to do so as their token will be invalidated by us
+        // so no ABA problem here (not empty -> worker finds no workload -> we set it to not empty -> worker tries to set it to empty -> worker fails)
+        ConcurrentBitMap56.UpdateBit(ref _isEmptyMap, index, isSet: false);
         // reset the last enqueued child index
         __LAST_ENQUEUED_CHILD_INDEX = null;
+        DebugLog.WriteDebug($"{this}: cleared empty flag for child {index}.", LogWriter.Blocking);
         base.OnWorkScheduled();
     }
 
@@ -622,7 +625,7 @@ internal class EarliestDueDateQdisc<THandle> : ClassfulQdisc<THandle> where THan
         Debug.Assert(index >= 0);
 
         // update the emptiness tracking
-        ConcurrentBitMap64OLD.RemoveBitAt(ref _isEmptyMap, index);
+        ConcurrentBitMap56.RemoveBitAt(ref _isEmptyMap, index);
         _childStates = newChildStates;
         return true;
     }
@@ -668,7 +671,7 @@ internal class EarliestDueDateQdisc<THandle> : ClassfulQdisc<THandle> where THan
         }
         newChildStates[^1] = new ChildQdiscState(child);
         // update the emptiness tracking
-        ConcurrentBitMap64OLD.InsertBitAt(ref _isEmptyMap, newChildStates.Length - 1, false);
+        ConcurrentBitMap56.InsertBitAt(ref _isEmptyMap, newChildStates.Length - 1, false);
         
         // done. write back the new child states
         _childStates = newChildStates;

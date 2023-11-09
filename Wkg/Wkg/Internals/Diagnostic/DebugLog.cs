@@ -45,6 +45,15 @@ internal class DebugLog /*: ILog*/ // We cannot implement ILog because we use co
     public static void WriteDiagnostic(string message, ILogWriter logWriter) => 
         Log.WriteDiagnostic(message, logWriter);
 
+    /// <inheritdoc cref="Log.WriteWarning(string, ILogWriter)"/>
+    /// <remarks>
+    /// Warnings written with this method will only be visible in debug builds.
+    /// </remarks>
+    [StackTraceHidden]
+    [Conditional(DEBUG)]
+    public static void WriteInternalWarning(string message, ILogWriter logWriter) =>
+        Log.WriteWarning(message, logWriter);
+
     /// <inheritdoc cref="Log.WriteError(string)"/>
     /// <remarks>
     /// <see langword="WARNING"></see>: This method is *<c>NOT</c>* marked with the <see cref="ConditionalAttribute"/> and will be compiled in release builds.

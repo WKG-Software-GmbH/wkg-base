@@ -1,5 +1,4 @@
 ﻿using System.Buffers;
-using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using Wkg.Common.ThrowHelpers;
 using Wkg.Threading.Workloads.Queuing.Classless;
@@ -69,19 +68,5 @@ public ref struct RoutingPath<THandle> where THandle : unmanaged
         public readonly ref RoutingPathNode<THandle> Current => ref _path[_index];
 
         public bool MoveNext() => --_index >= 0;
-    }
-}
-
-public readonly struct RoutingPathNode<THandle> where THandle : unmanaged
-{
-    internal readonly IClassfulQdisc<THandle> Qdisc;
-    public readonly THandle Handle;
-    public readonly int Offset;
-
-    public RoutingPathNode(IClassfulQdisc<THandle> qdisc, THandle handle, int offset)
-    {
-        Qdisc = qdisc;
-        Handle = handle;
-        Offset = offset;
     }
 }

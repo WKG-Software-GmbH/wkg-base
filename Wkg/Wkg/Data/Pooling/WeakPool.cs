@@ -12,6 +12,7 @@ namespace Wkg.Data.Pooling;
 public class WeakPool<T> : IPool<T> where T : class, IPoolable<T>
 {
     private readonly T?[] _pool;
+    private readonly bool _suppressWarnings;
 
     /// <summary>
     /// Points to the the next free index in the array.
@@ -28,6 +29,11 @@ public class WeakPool<T> : IPool<T> where T : class, IPoolable<T>
         Throw.ArgumentOutOfRangeException.IfNegativeOrZero(maxCapacity, nameof(maxCapacity));
         _pool = new T[maxCapacity];
         _index = 0;
+    }
+
+    internal WeakPool(int maxCapacity, bool suppressContentionWarnings) : this(maxCapacity)
+    {
+        _suppressWarnings = suppressContentionWarnings;
     }
 
     /// <inheritdoc/>
@@ -49,7 +55,10 @@ public class WeakPool<T> : IPool<T> where T : class, IPoolable<T>
         T? workload = Interlocked.Exchange(ref _pool[myIndex], null);
         if (workload is null)
         {
-            DebugLog.WriteWarning($"{nameof(WeakPool<T>)}: got a non-negative index ({myIndex}), but the {typeof(T).Name} at that index is null. Creating a new {typeof(T).Name} instead. This is a rare race condition and an indicator of high contention, but it can happen even in normal operation. Ensure that you don't see this message too often, otherwise use a {nameof(StrongPool<T>)} instead, reduce contention, or disable pooling.", LogWriter.Blocking);
+            if (!_suppressWarnings)
+            {
+                DebugLog.WriteWarning($"{nameof(WeakPool<T>)}: got a non-negative index ({myIndex}), but the {typeof(T).Name} at that index is null. Creating a new {typeof(T).Name} instead. This is a rare race condition and an indicator of high contention, but it can happen even in normal operation. Ensure that you don't see this message too often, otherwise use a {nameof(StrongPool<T>)} instead, reduce contention, or disable pooling.", LogWriter.Blocking);
+            }
             return T.Create(this);
         }
         return workload;

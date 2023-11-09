@@ -127,5 +127,28 @@ public static partial class Throw
                 throw new AOORE(paramName, value, $"Value must be between {min} and {max}.");
             }
         }
+
+        /// <summary>
+        /// Throws a new <see cref="AOORE"/> if <c><paramref name="value"/> == 0</c>.
+        /// </summary>
+        /// <param name="value">The value of the parameter.</param>
+        /// <param name="paramName">The name of the parameter.</param>
+        /// <exception cref="AOORE">Thrown if <c><paramref name="value"/> == 0</c>.</exception>
+        public static void IfZero(int value, string paramName)
+        {
+            if (value == 0)
+            {
+                throw new AOORE(paramName, value, "Value must be non-zero.");
+            }
+        }
+
+        /// <inheritdoc cref="IfZero(int, string)"/>
+        public static void IfZero(long value, string paramName)
+        {
+            if (value == 0)
+            {
+                throw new AOORE(paramName, value, "Value must be non-zero.");
+            }
+        }
     }
 }

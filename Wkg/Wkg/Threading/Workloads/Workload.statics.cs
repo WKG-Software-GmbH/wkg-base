@@ -1,4 +1,5 @@
-﻿using Wkg.Threading.Workloads.Continuations;
+﻿using System.Diagnostics;
+using Wkg.Threading.Workloads.Continuations;
 
 namespace Wkg.Threading.Workloads;
 
@@ -48,14 +49,16 @@ public partial class Workload
         public WhenAllAwaiterState(int count)
         {
             _count = count;
-            ContinuationCallback = new Action(OnWorkloadCompleted);
+            // we don't want to deal with worker threads being promoted to run the TCS completion inlined
+            // se we dispatch it to a threadpool thread
+            ContinuationCallback = new Action(() => ThreadPool.QueueUserWorkItem(OnWorkloadCompleted, this));
         }
 
         public object ContinuationCallback { get; }
 
         public int Count => Volatile.Read(ref _count);
 
-        public void OnWorkloadCompleted()
+        public void OnWorkloadCompleted(object? state)
         {
             if (Interlocked.Decrement(ref _count) == 0)
             {
@@ -103,6 +106,7 @@ public partial class Workload
         public readonly TaskCompletionSource<AwaitableWorkload> _tcs = new();
         private readonly IList<AwaitableWorkload> _workloads;
         private uint _completed;
+        private volatile AwaitableWorkload? _completedWorkload;
 
         public WhenAnyAwaiterState(IList<AwaitableWorkload> workloads)
         {
@@ -118,10 +122,13 @@ public partial class Workload
             {
                 // we know that the workload is an AwaitableWorkload because that's the only type
                 // we subscribe to continuations on
-                _tcs.TrySetResult((AwaitableWorkload)workload);
+                // ensure not to set the result here, because we can't do that on the worker thread
+                // as the continuation may be invoked inlined (causing us to lose a worker thread)
+                _completedWorkload = (AwaitableWorkload)workload;
                 // schedule a cleanup task to remove the continuations from the remaining workloads
-                // do this on a threadpool thread to avoid blocking the worker thread that will invoke
-                // this continuation inlined
+                // and to set the result on the TCS
+                // do this on a threadpool thread to avoid accidentally promoting a worker thread
+                // to run the TCS completion callback (which would cause a deadlock)
                 ThreadPool.QueueUserWorkItem(Cleanup, this);
             }
         }
@@ -140,6 +147,9 @@ public partial class Workload
                     workload.RemoveContinuation(self);
                 }
             }
+            // set the result on the TCS
+            Debug.Assert(self._completedWorkload is not null);
+            self._tcs.TrySetResult(self._completedWorkload!);
         }
     }
 

@@ -2,10 +2,10 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using Wkg.Collections.Concurrent;
+using Wkg.Common.ThrowHelpers;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
 using Wkg.Threading.Extensions;
-using Wkg.Threading.Workloads.Configuration.Classless;
 using Wkg.Threading.Workloads.Queuing.Classful.Classification.Internals;
 using Wkg.Threading.Workloads.Queuing.Classful.Routing;
 using Wkg.Threading.Workloads.Queuing.Classless;
@@ -14,9 +14,7 @@ using Wkg.Threading.Workloads.Scheduling;
 
 namespace Wkg.Threading.Workloads.Queuing.Classful.EarliestDueDate;
 
-// TODO: maybe rename this qdisc to something more generic, as it is just a time-based fair scheduler
-// actually make the time-based calculations configurable tho
-internal class EarliestDueDateQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmanaged
+internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmanaged
 {
     [ThreadStatic]
     private static int? __LAST_ENQUEUED_CHILD_INDEX;
@@ -26,18 +24,28 @@ internal class EarliestDueDateQdisc<THandle> : ClassfulQdisc<THandle> where THan
     private readonly ReaderWriterLockSlim _schedulerLock = new();
     private readonly IClasslessQdisc<THandle> _localQueue;
     private readonly Predicate<object?> _predicate;
+    private readonly PreferredFairness _preferredFairness;
+    private readonly VirtualTimeModel _schedulerTimeModel;
+    private readonly VirtualTimeModel _executionTimeModel;
 
     private uint _generationCounter;
     private ConcurrentBitMap56 _isEmptyMap;
     private volatile ChildQdiscState[] _childStates;
 
-    public EarliestDueDateQdisc(THandle handle, Predicate<object?> predicate, IClasslessQdiscBuilder inner, int concurrencyLevel) : base(handle)
+    public FairQdisc(THandle handle, FairQdiscParams parameters) : base(handle)
     {
-        _timeTable = VirtualTimeTable.CreatePrecise(concurrencyLevel, 32);
-        _predicate = predicate;
-        _localQueue = inner.BuildUnsafe(default(THandle));
+        Throw.ArgumentNullException.IfNull(parameters.Predicate, nameof(parameters.Predicate));
+        Throw.ArgumentNullException.IfNull(parameters.Inner, nameof(parameters.Inner));
+
+        _timeTable = parameters.PreferPreciseMeasurements
+            ? VirtualTimeTable.CreatePrecise(parameters.ConcurrencyLevel, parameters.ExpectedNumberOfDistinctPayloads, parameters.MeasurementSampleLimit)
+            : VirtualTimeTable.CreateFast(parameters.ConcurrencyLevel, parameters.ExpectedNumberOfDistinctPayloads, parameters.MeasurementSampleLimit);
+        _predicate = parameters.Predicate;
+        _preferredFairness = parameters.PreferredFairness;
+        _schedulerTimeModel = parameters.SchedulerTimeModel;
+        _executionTimeModel = parameters.ExecutionTimeModel;
+        _localQueue = parameters.Inner.BuildUnsafe(default(THandle));
         _childStates = new ChildQdiscState[1] { new ChildQdiscState(new NoChildClassification<THandle>(_localQueue)) };
-        _predicate = predicate;
         _isEmptyMap = default;
     }
     
@@ -165,17 +173,23 @@ internal class EarliestDueDateQdisc<THandle> : ClassfulQdisc<THandle> where THan
                         // in either case, we now have a workload to return
                         workload = candidate;
                         // update the virtual time
-                        EarliestDueDateState state = (EarliestDueDateState)workload._state!;
-                        DebugLog.WriteDiagnostic($"{this}: scheduling workload {workload} with virtual execution time {state.VirtualExecutionTime} and expected execution time {state.ExpectedExecutionTime}.", LogWriter.Blocking);
+                        FairState state = (FairState)workload._state!;
+                        EventuallyConsistentVirtualTimeTableEntry latestTimingInfo = _timeTable.GetEntryFor(workload);
                         // we assume average execution time for the aggregate
                         // but we assume worst case execution time for the workload itself
                         // this can be tweaked for different scheduling policies
                         // we are the only ones able to update the virtual finish time (we already hold the lock on the child qdisc)
-                        // TODO: we can tweak the virtual finish time calculation to allow fair scheduling in regard to the entire history of the scheduler
-                        // (i.e., just increment the virtual finish time by the average execution time of the workload)
-                        // OR we can tweak it to allow fair scheduling in regard to the most recent history of the scheduler
-                        // (i.e., we reset the virtual finish time to the current time and increment it by the average execution time of the workload)
-                        double lastVirtualFinishTime = _timeTable.Now() + state.ExpectedExecutionTime;
+                        double virtualBaseTime = _preferredFairness == PreferredFairness.ShortTerm
+                            ? _timeTable.Now()
+                            : Volatile.Read(ref child.LastVirtualFinishTimeRef);
+                        double assumedExecutionTime = _executionTimeModel switch
+                        {
+                            VirtualTimeModel.BestCase => latestTimingInfo.BestCaseAverageExecutionTime,
+                            VirtualTimeModel.WorstCase => latestTimingInfo.WorstCaseAverageExecutionTime,
+                            VirtualTimeModel.Average or _ => latestTimingInfo.AverageExecutionTime,
+                        };
+                        DebugLog.WriteDiagnostic($"{this}: scheduling workload {workload} with virtual execution time {state.VirtualExecutionTime} and expected execution time {assumedExecutionTime}.", LogWriter.Blocking);
+                        double lastVirtualFinishTime = virtualBaseTime + assumedExecutionTime;
                         Volatile.Write(ref child.LastVirtualFinishTimeRef, lastVirtualFinishTime);
                         // we just changed the virtual finish time of a child, so we need to increment the generation counter
                         Interlocked.Increment(ref _generationCounter);
@@ -204,8 +218,6 @@ internal class EarliestDueDateQdisc<THandle> : ClassfulQdisc<THandle> where THan
     private bool TryFindBestCandidateUnsafe(ChildQdiscState[] childStates, int workerId, out int candidateIndex, out AbstractWorkloadBase? candidate)
     {
         // REQUIRES: read lock on _childModificationLock
-        // take a snapshot of the empty map
-        ConcurrentBitMap56 emptinessMap = ConcurrentBitMap56.VolatileRead(ref _isEmptyMap);
         // prepare local variables for the candidate search
         AbstractWorkloadBase? currentCandidate = null;
         candidateIndex = -1;
@@ -219,10 +231,9 @@ internal class EarliestDueDateQdisc<THandle> : ClassfulQdisc<THandle> where THan
         // loop over all children or until the generation counter changes
         for (int i = 0; i < childStates.Length && generationCounter == originalGenerationCounter; i++, generationCounter = Volatile.Read(ref _generationCounter))
         {
+            // take a snapshot of the empty map
+            ConcurrentBitMap56 emptinessMap = ConcurrentBitMap56.VolatileRead(ref _isEmptyMap);
             // keep track of empty children in an atomic fashion, children that are known to be empty can be skipped
-            // if someone changes the emptiness map, they will also update the generation counter
-            // so we can operate on the assumption that the emptiness map is consistent with the generation counter
-            // meaning we don't need to re-sample the emptiness map every iteration
             if (emptinessMap.IsBitSet(i))
             {
                 // skip empty children
@@ -295,7 +306,7 @@ internal class EarliestDueDateQdisc<THandle> : ClassfulQdisc<THandle> where THan
                 }
             }
             // we actually found a non-null candidate.
-            if (possibleCandidate._state is not EarliestDueDateState candidateState)
+            if (possibleCandidate._state is not FairState candidateState)
             {
                 // this should never happen, as we only enqueue workloads with an earliest due date state
                 // before we can abort the workload, we must acquire the child qdisc lock
@@ -321,7 +332,7 @@ internal class EarliestDueDateQdisc<THandle> : ClassfulQdisc<THandle> where THan
                     }
                 }
                 // we have all the time in the world to abort the workload, so we don't need to do it in the lock
-                WorkloadSchedulingException exception = WorkloadSchedulingException.CreateVirtual($"Scheduler inconsistency: workload {possibleCandidate} has no {nameof(EarliestDueDateState)}.");
+                WorkloadSchedulingException exception = WorkloadSchedulingException.CreateVirtual($"Scheduler inconsistency: workload {possibleCandidate} has no {nameof(FairState)}.");
                 Debug.Fail(exception.Message);
                 DebugLog.WriteException(exception, LogWriter.Blocking);
                 // in this case, we must abort the workload, as we can't properly handle it
@@ -516,7 +527,7 @@ internal class EarliestDueDateQdisc<THandle> : ClassfulQdisc<THandle> where THan
         using ILockOwnership readLock = _childModificationLock.AcquireReadLock();
 
         const int localQueueIndex = 0;
-        EarliestDueDateQdisc<THandle>.ChildQdiscState[] childStates = _childStates;
+        FairQdisc<THandle>.ChildQdiscState[] childStates = _childStates;
 
         UpdateWorkloadState(workload);
         // update the emptiness tracking
@@ -555,13 +566,14 @@ internal class EarliestDueDateQdisc<THandle> : ClassfulQdisc<THandle> where THan
     private void UpdateWorkloadState(AbstractWorkloadBase workload)
     {
         EventuallyConsistentVirtualTimeTableEntry timingInformation = _timeTable.GetEntryFor(workload);
-        workload._state = new EarliestDueDateState(workload._state)
+        workload._state = new FairState(workload._state)
         {
-            VirtualExecutionTime = timingInformation.WorstCaseAverageExecutionTime,
-            // we assume worst case execution time for the workload itself
-            // but we assume average execution time for the aggregate in TryDequeueInternal
-            // this can be tweaked for different scheduling policies
-            ExpectedExecutionTime = timingInformation.AverageExecutionTime,
+            VirtualExecutionTime = _schedulerTimeModel switch
+            {
+                VirtualTimeModel.BestCase => timingInformation.BestCaseAverageExecutionTime,
+                VirtualTimeModel.WorstCase => timingInformation.WorstCaseAverageExecutionTime,
+                VirtualTimeModel.Average or _ => timingInformation.AverageExecutionTime,
+            },
         };
     }
 
@@ -708,6 +720,7 @@ internal class EarliestDueDateQdisc<THandle> : ClassfulQdisc<THandle> where THan
 
     protected override bool TryRemoveInternal(AwaitableWorkload workload) => false;
 
+    [DebuggerDisplay("Qdisc: {Child.Qdisc}, LVFT: {_lastVirtualFinishTime}, Candidate: {_candidate}")]
     private class ChildQdiscState
     {
         private double _lastVirtualFinishTime;

@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using Wkg.Threading.Workloads.Queuing.Classful.Routing;
 using Wkg.Threading.Workloads.Queuing.Classless;
 
 namespace Wkg.Threading.Workloads.Queuing.Classful;
@@ -47,6 +48,10 @@ public interface IClassfulQdisc<THandle> : IQdisc, INotifyWorkScheduled, IClassl
     internal bool TryEnqueue(object? state, AbstractWorkloadBase workload);
 
     internal bool TryEnqueueDirect(object? state, AbstractWorkloadBase workload);
+
+    internal void WillEnqueueFromRoutingPath(ref RoutingPathNode<THandle> routingPathNode, AbstractWorkloadBase workload);
+
+    internal bool TryFindRoute(THandle handle, ref RoutingPath<THandle> path);
 
     bool TryAddChild(IClasslessQdisc<THandle> child, Predicate<object?> predicate);
 

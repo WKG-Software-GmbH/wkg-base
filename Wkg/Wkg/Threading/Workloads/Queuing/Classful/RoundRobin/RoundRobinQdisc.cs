@@ -7,6 +7,7 @@ using Wkg.Threading.Extensions;
 using Wkg.Threading.Workloads.Configuration.Classless;
 using Wkg.Threading.Workloads.Queuing.Classful.Classification.Internals;
 using Wkg.Threading.Workloads.Queuing.Classful.Intrinsics;
+using Wkg.Threading.Workloads.Queuing.Classful.Routing;
 using Wkg.Threading.Workloads.Queuing.Classless;
 
 namespace Wkg.Threading.Workloads.Queuing.Classful.RoundRobin;
@@ -237,7 +238,6 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
             workload = null;
             return false;
         }
-        // backtracking failed, or was not requested. We need to iterate over all child qdiscs.
         while (true)
         {
             // we operate lock-free on a local snapshot of the children array
@@ -311,6 +311,28 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
         }
         DebugLog.WriteDiagnostic($"Could not enqueue workload {workload} to any child qdisc.", LogWriter.Blocking);
 
+        return false;
+    }
+
+    protected override bool TryFindRoute(THandle handle, ref RoutingPath<THandle> path)
+    {
+        using ILockOwnership readLock = _childrenLock.AcquireReadLock();
+
+        IChildClassification<THandle>[] children = Volatile.Read(ref _children);
+        for (int i = 0; i < children.Length; i++)
+        {
+            IChildClassification<THandle> child = children[i];
+            if (child.Qdisc.Handle.Equals(handle))
+            {
+                path.Complete(child.Qdisc);
+                return true;
+            }
+            if (child is IClassfulQdisc<THandle> classfulChild && classfulChild.TryFindRoute(handle, ref path))
+            {
+                path.Add(new RoutingPathNode<THandle>(classfulChild, handle, i));
+                return true;
+            }
+        }
         return false;
     }
 

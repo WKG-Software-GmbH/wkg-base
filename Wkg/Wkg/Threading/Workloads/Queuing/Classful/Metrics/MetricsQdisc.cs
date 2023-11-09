@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using Wkg.Threading.Workloads.Queuing.Classful.Routing;
 using Wkg.Threading.Workloads.Queuing.Classless;
 using Wkg.Threading.Workloads.Queuing.VirtualTime;
 
@@ -106,4 +107,5 @@ internal class MetricsQdisc<THandle> : ClassfulQdisc<THandle>, IClassfulQdisc<TH
     protected override bool TryPeekUnsafe(int workerId, [NotNullWhen(true)] out AbstractWorkloadBase? workload) => _innerQdisc.TryPeekUnsafe(workerId, out workload);
     protected override bool TryRemoveInternal(AwaitableWorkload workload) => _innerQdisc.TryRemoveInternal(workload);
     protected override bool CanClassify(object? state) => _innerQdisc.CanClassify(state);
+    protected override bool TryFindRoute(THandle handle, ref RoutingPath<THandle> path) => _innerQdisc.TryFindRoute(handle, ref path);
 }

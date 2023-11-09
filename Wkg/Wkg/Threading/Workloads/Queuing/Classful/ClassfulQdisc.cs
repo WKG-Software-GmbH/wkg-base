@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using Wkg.Threading.Workloads.Queuing.Classful.Routing;
 using Wkg.Threading.Workloads.Queuing.Classless;
 
 namespace Wkg.Threading.Workloads.Queuing.Classful;
@@ -55,6 +56,12 @@ public abstract class ClassfulQdisc<THandle> : ClasslessQdisc<THandle>, IClassfu
     /// <inheritdoc cref="IClassfulQdisc{THandle}.TryFindChild(THandle, out IClasslessQdisc{THandle}?)"/>
     protected abstract bool TryFindChild(THandle handle, [NotNullWhen(true)] out IClasslessQdisc<THandle>? child);
 
+    /// <inheritdoc cref="IClassfulQdisc{THandle}.TryFindRoute(THandle, ref RoutingPath{THandle})"/>
+    protected abstract bool TryFindRoute(THandle handle, ref RoutingPath<THandle> path);
+
+    /// <inheritdoc cref="IClassfulQdisc{THandle}.WillEnqueueFromRoutingPath(ref RoutingPathNode{THandle}, AbstractWorkloadBase)"/>
+    protected virtual void WillEnqueueFromRoutingPath(ref RoutingPathNode<THandle> routingPathNode, AbstractWorkloadBase workload) => Pass();
+
     bool IClassfulQdisc<THandle>.TryEnqueue(object? state, AbstractWorkloadBase workload) => TryEnqueue(state, workload);
 
     bool IClassfulQdisc<THandle>.TryEnqueueDirect(object? state, AbstractWorkloadBase workload) => TryEnqueueDirect(state, workload);
@@ -67,4 +74,9 @@ public abstract class ClassfulQdisc<THandle> : ClasslessQdisc<THandle>, IClassfu
         TryFindChild(handle, out child);
 
     bool IClassfulQdisc<THandle>.CanClassify(object? state) => CanClassify(state);
+
+    void IClassfulQdisc<THandle>.WillEnqueueFromRoutingPath(ref RoutingPathNode<THandle> routingPathNode, AbstractWorkloadBase workload) => 
+        WillEnqueueFromRoutingPath(ref routingPathNode, workload);
+
+    bool IClassfulQdisc<THandle>.TryFindRoute(THandle handle, ref RoutingPath<THandle> path) => TryFindRoute(handle, ref path);
 }

@@ -1,7 +1,9 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
 using Wkg.Threading.Workloads.Queuing.Classful;
+using Wkg.Threading.Workloads.Queuing.Classful.Routing;
 using Wkg.Threading.Workloads.Queuing.Classless;
 using Wkg.Threading.Workloads.Scheduling;
 using Wkg.Threading.Workloads.WorkloadTypes;
@@ -11,6 +13,8 @@ namespace Wkg.Threading.Workloads.Factories;
 public abstract class AbstractClassfulWorkloadFactory<THandle> : AbstractClasslessWorkloadFactory<THandle>
     where THandle : unmanaged
 {
+    protected int _maxDepth = 4;
+
     private protected AbstractClassfulWorkloadFactory(IClassfulQdisc<THandle> root, AnonymousWorkloadPoolManager? pool, WorkloadContextOptions? options) 
         : base(root, pool, options)
     {
@@ -181,20 +185,25 @@ public abstract class AbstractClassfulWorkloadFactory<THandle> : AbstractClassle
 
     private protected virtual void ScheduleCore(THandle handle, AbstractWorkloadBase workload)
     {
-        // TODO: this *MUST* be routed through the class hierarchy itself.
-        // classful qdiscs may track enqueue and dequeue operations,
-        // and we need to make sure that they are properly notified.
         if (_root.Handle.Equals(handle))
         {
             _root.Enqueue(workload);
         }
-        else if (ClassfulRoot.TryFindChild(handle, out IClasslessQdisc<THandle>? child))
-        {
-            child.Enqueue(workload);
-        }
         else
         {
-            throw new WorkloadSchedulingException($"The workload could not be scheduled: no child qdisc with handle {handle} was found.");
+            int maxDepth = Volatile.Read(ref _maxDepth);
+            Debug.Assert(maxDepth > 0);
+            RoutingPath<THandle> path = new(maxDepth);
+            if (!ClassfulRoot.TryFindRoute(handle, ref path) || path.Leaf is null)
+            {
+                throw new WorkloadSchedulingException($"The workload could not be scheduled: no route to handle {handle} was found.");
+            }
+            foreach (ref RoutingPathNode<THandle> node in path)
+            {
+                node.Qdisc.WillEnqueueFromRoutingPath(ref node, workload);
+            }
+            path.Leaf.Enqueue(workload);
+            Atomic.WriteMaxFast(ref _maxDepth, path.Count);
         }
     }
 }

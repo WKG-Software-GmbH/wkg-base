@@ -1,6 +1,4 @@
-﻿using System.ComponentModel;
-using System.Diagnostics;
-using System.Diagnostics.Metrics;
+﻿using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -12,21 +10,26 @@ namespace Wkg.Collections.Concurrent;
 using static ConcurrentBoolean;
 
 /// <summary>
-/// A 64-bit bitmap that can be updated concurrently.
+/// A 56-bit bitmap that can be updated atomically.
 /// </summary>
+/// <remarks>
+/// This type allows for atomic updates of a 56-bit bitmap guaranteed to be thread-safe for up to 256 concurrent threads.
+/// </remarks>
 [DebuggerDisplay("{ToString(),nq}")]
 [StructLayout(LayoutKind.Explicit, Size = sizeof(ulong))]
-public readonly struct ConcurrentBitMap64
+public readonly struct ConcurrentBitMap56
 {
     [FieldOffset(0)]
     private readonly ulong _state;
+    [FieldOffset(0)]
+    private readonly byte _guardToken;
 
-    private ConcurrentBitMap64(ulong state) => _state = state;
+    private ConcurrentBitMap56(ulong state) => _state = state;
 
     /// <summary>
-    /// Returns this <see cref="ConcurrentBitMap64"/> as a <see cref="ulong"/>.
+    /// Returns this <see cref="ConcurrentBitMap56"/> as a <see cref="ulong"/>.
     /// </summary>
-    /// <returns>The internal <see cref="ulong"/> value of this <see cref="ConcurrentBitMap64"/> where the LSB corresponds to index 0.</returns>
+    /// <returns>The internal <see cref="ulong"/> value of this <see cref="ConcurrentBitMap56"/> where the LSB corresponds to index 0.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ulong AsUInt64() => Volatile.Read(ref AsUlong(in _state));
 
@@ -45,9 +48,9 @@ public readonly struct ConcurrentBitMap64
     /// <summary>
     /// Determines whether all bits are set (1) based on the specified <paramref name="fullBitMap"/> bitmap where all bits are set (1) that should be checked.
     /// </summary>
-    /// <param name="fullBitMap">A <see cref="ConcurrentBitMap64"/> where all bits are set (1) that should be checked.</param>
+    /// <param name="fullBitMap">A <see cref="ConcurrentBitMap56"/> where all bits are set (1) that should be checked.</param>
     /// <returns><see langword="true"/> if all bits are set (1) based on the specified <paramref name="fullBitMap"/> bitmap where all bits are set (1) that should be checked, otherwise <see langword="false"/> (0).</returns>
-    public bool IsFull(ConcurrentBitMap64 fullBitMap)
+    public bool IsFull(ConcurrentBitMap56 fullBitMap)
     {
         ulong s = Volatile.Read(ref AsUlong(in _state));
         return (s & fullBitMap._state) == fullBitMap._state;
@@ -76,14 +79,14 @@ public readonly struct ConcurrentBitMap64
             return s == 0;
         }
     }
-    
+
     /// <summary>
     /// Updates the bit at the specified index to the specified value.
     /// </summary>
-    /// <param name="state">A reference to the <see cref="ConcurrentBitMap64"/> to update.</param>
+    /// <param name="state">A reference to the <see cref="ConcurrentBitMap56"/> to update.</param>
     /// <param name="index">The index of the bit to update.</param>
     /// <param name="isSet"><see langword="true"/> to set the bit at the specified index, <see langword="false"/> to clear the bit at the specified index.</param>
-    public static void UpdateBit(ref ConcurrentBitMap64 state, int index, ConcurrentBoolean isSet)
+    public static void UpdateBit(ref ConcurrentBitMap56 state, int index, ConcurrentBoolean isSet)
     { 
         ref ulong target = ref AsUlong(ref state);
         ulong s = Volatile.Read(ref target);
@@ -101,42 +104,42 @@ public readonly struct ConcurrentBitMap64
     }
 
     /// <summary>
-    /// Creates a new <see cref="ConcurrentBitMap64"/> with all bits set (1) up to the specified <paramref name="capacity"/>.
+    /// Creates a new <see cref="ConcurrentBitMap56"/> with all bits set (1) up to the specified <paramref name="capacity"/>.
     /// </summary>
-    /// <param name="capacity">The size of the <see cref="ConcurrentBitMap64"/> in bits.</param>
-    /// <returns>A new <see cref="ConcurrentBitMap64"/> with all bits set (1) up to the specified <paramref name="capacity"/>.</returns>
+    /// <param name="capacity">The size of the <see cref="ConcurrentBitMap56"/> in bits.</param>
+    /// <returns>A new <see cref="ConcurrentBitMap56"/> with all bits set (1) up to the specified <paramref name="capacity"/>.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static ConcurrentBitMap64 Full(int capacity)
+    public static ConcurrentBitMap56 Full(int capacity)
     {
         ulong mask = GetFullMask(capacity);
-        return new ConcurrentBitMap64(mask);
+        return new ConcurrentBitMap56(mask);
     }
 
     /// <summary>
-    /// Creates a new <see cref="ConcurrentBitMap64"/> with all bits clear (0).
+    /// Creates a new <see cref="ConcurrentBitMap56"/> with all bits clear (0).
     /// </summary>
-    public static ConcurrentBitMap64 Empty => default;
+    public static ConcurrentBitMap56 Empty => default;
 
     /// <summary>
     /// Clears all bits in the specified <paramref name="state"/>.
     /// </summary>
-    /// <param name="state">A reference to the <see cref="ConcurrentBitMap64"/> to clear.</param>
-    public static void ClearAll(ref ConcurrentBitMap64 state) => Volatile.Write(ref AsUlong(ref state), 0);
+    /// <param name="state">A reference to the <see cref="ConcurrentBitMap56"/> to clear.</param>
+    public static void ClearAll(ref ConcurrentBitMap56 state) => Volatile.Write(ref AsUlong(ref state), 0);
 
     /// <summary>
     /// Sets all bits in the specified <paramref name="state"/> up to the specified <paramref name="capacity"/>.
     /// </summary>
-    /// <param name="state">A reference to the <see cref="ConcurrentBitMap64"/> to set.</param>
+    /// <param name="state">A reference to the <see cref="ConcurrentBitMap56"/> to set.</param>
     /// <param name="capacity">The size of the <paramref name="state"/> in bits.</param>
-    public static void SetAll(ref ConcurrentBitMap64 state, int capacity) => VolatileWrite(ref state, Full(capacity));
+    public static void SetAll(ref ConcurrentBitMap56 state, int capacity) => VolatileWrite(ref state, Full(capacity));
 
     /// <summary>
     /// Inserts a new bit at the specified <paramref name="index"/> in the specified <paramref name="state"/>. 
     /// </summary>
-    /// <param name="state">A reference to the <see cref="ConcurrentBitMap64"/> to update.</param>
+    /// <param name="state">A reference to the <see cref="ConcurrentBitMap56"/> to update.</param>
     /// <param name="index">The index at which to insert the new bit.</param>
     /// <param name="isInitiallySet"><see langword="true"/> to set the bit at the specified index, <see langword="false"/> to clear the bit at the specified index.</param>
-    public static void InsertBitAt(ref ConcurrentBitMap64 state, int index, ConcurrentBoolean isInitiallySet)
+    public static void InsertBitAt(ref ConcurrentBitMap56 state, int index, ConcurrentBoolean isInitiallySet)
     {
         Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, 63, nameof(index));
         ref ulong target = ref AsUlong(ref state);
@@ -157,9 +160,9 @@ public readonly struct ConcurrentBitMap64
     /// <summary>
     /// Removes the bit at the specified <paramref name="index"/> in the specified <paramref name="state"/>.
     /// </summary>
-    /// <param name="state">A reference to the <see cref="ConcurrentBitMap64"/> to update.</param>
+    /// <param name="state">A reference to the <see cref="ConcurrentBitMap56"/> to update.</param>
     /// <param name="index">The index of the bit to remove.</param>
-    public static void RemoveBitAt(ref ConcurrentBitMap64 state, int index)
+    public static void RemoveBitAt(ref ConcurrentBitMap56 state, int index)
     {
         Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, 63, nameof(index));
         ref ulong target = ref AsUlong(ref state);
@@ -218,8 +221,8 @@ public readonly struct ConcurrentBitMap64
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static ref ulong AsUlong(ref ConcurrentBitMap64 state) =>
-        ref Unsafe.As<ConcurrentBitMap64, ulong>(ref state);
+    private static ref ulong AsUlong(ref ConcurrentBitMap56 state) =>
+        ref Unsafe.As<ConcurrentBitMap56, ulong>(ref state);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static ref ulong AsUlong(scoped in ulong state) =>
@@ -230,19 +233,19 @@ public readonly struct ConcurrentBitMap64
     /// On systems that require it, inserts a memory barrier that prevents the processor from reordering memory
     /// operations as follows: If a read or write appears before this method in the code, the processor cannot move it after this method.
     /// </summary>
-    /// <param name="state">A reference to the <see cref="ConcurrentBitMap64"/> to update.</param>
+    /// <param name="state">A reference to the <see cref="ConcurrentBitMap56"/> to update.</param>
     /// <param name="value">The value to write.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void VolatileWrite(ref ConcurrentBitMap64 state, ConcurrentBitMap64 value) =>
+    public static void VolatileWrite(ref ConcurrentBitMap56 state, ConcurrentBitMap56 value) =>
         Volatile.Write(ref AsUlong(ref state), value._state);
 
     /// <summary>
     /// Atomically reads the value of the specified field. On systems that require it, inserts a memory barrier that prevents the processor from reordering memory
     /// operations as follows: If a read or write appears after this method in the code, the processor cannot move it before this method.
     /// </summary>
-    /// <param name="state">A reference to the <see cref="ConcurrentBitMap64"/> to read.</param>
+    /// <param name="state">A reference to the <see cref="ConcurrentBitMap56"/> to read.</param>
     /// <returns>The value that was read.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static ConcurrentBitMap64 VolatileRead(ref ConcurrentBitMap64 state) =>
+    public static ConcurrentBitMap56 VolatileRead(ref ConcurrentBitMap56 state) =>
         new(Volatile.Read(ref AsUlong(ref state)));
 }

@@ -14,7 +14,7 @@ public interface IQdisc
     internal void Complete();
 
     /// <summary>
-    /// Determines whether any workloads are available for processing in this or any child qdisc.
+    /// Determines whether any workloads are available for processing in this or any child qdisc. False negatives are possible, but not false positives.
     /// </summary>
     /// <remarks>
     /// If this property returns <see langword="true"/>, the underlying qdisc must be really be empty (strong guarantee).<br></br>
@@ -27,7 +27,7 @@ public interface IQdisc
     /// Gets the total number of workloads in this qdisc and all child qdiscs.
     /// </summary>
     /// <remarks>
-    /// This property guarantees that the value returned is greater than or equal to the actual number of workloads in this qdisc and all child qdiscs (weak guarantee).<br></br>
+    /// This property guarantees that the value returned is greater than or equal to the actual number of workloads in this qdisc and all child qdiscs (phantom reads are possible, but not false negatives).<br></br>
     /// This means that scheduling attempts are blocked during evaluation, but dequeue operations may still be performed.
     /// </remarks>
     int Count { get; }

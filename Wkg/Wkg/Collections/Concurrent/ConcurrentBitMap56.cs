@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -85,6 +86,23 @@ public ref struct ConcurrentBitmap56
     /// </summary>
     /// <returns><see langword="true"/> if all bits are clear (0), otherwise <see langword="false"/> if at least one bit is set (1).</returns>
     public readonly bool IsEmpty() => (_state & GetFullMaskUnsafe(56)) == 0;
+
+    /// <summary>
+    /// Counts the number of bits that are set (1) in this bitmap.
+    /// </summary>
+    /// <param name="capacity">The size of this bitmap in bits.</param>
+    /// <returns>The number of bits that are set (1) in this bitmap.</returns>
+    public readonly int PopCount(int capacity)
+    {
+        ulong mask = GetFullMask(capacity);
+        return BitOperations.PopCount(_state & mask);
+    }
+
+    internal readonly int PopCountUnsafe(int capacity)
+    {
+        ulong mask = GetFullMaskUnsafe(capacity);
+        return BitOperations.PopCount(_state & mask);
+    }
 
     /// <summary>
     /// Determines whether all bits up to the specified <paramref name="capacity"/> are clear (0).

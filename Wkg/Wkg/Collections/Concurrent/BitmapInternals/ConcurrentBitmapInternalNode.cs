@@ -280,6 +280,16 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
         return nodeStateSnapshot;
     }
 
+    public override int UnsafePopCount()
+    {
+        int count = 0;
+        for (int i = 0; i < _children.Length; i++)
+        {
+            count += _children[i].UnsafePopCount();
+        }
+        return count;
+    }
+
     internal override void ToString(StringBuilder sb, int depth)
     {
         sb.Append(' ', depth * 2)

@@ -33,6 +33,8 @@ internal abstract class ConcurrentBitmapNode : IDisposable
 
     public abstract void UpdateBit(int index, bool value);
 
+    public abstract int UnsafePopCount();
+
     public abstract byte GetToken(int index);
 
     public abstract bool TryUpdateBit(int index, byte token, bool value);

@@ -29,7 +29,8 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
     private readonly VirtualTimeModel _executionTimeModel;
 
     private uint _generationCounter;
-    private ConcurrentBitmap56State _isEmptyMap;
+    // TODO: dispose ConcurrentBitmap (unmanaged resources)
+    private readonly ConcurrentBitmap _hasDataMap;
     private volatile ChildQdiscState[] _childStates;
 
     public FairQdisc(THandle handle, FairQdiscParams parameters) : base(handle)
@@ -46,7 +47,11 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
         _executionTimeModel = parameters.ExecutionTimeModel;
         _localQueue = parameters.Inner.BuildUnsafe(default(THandle));
         _childStates = new ChildQdiscState[1] { new ChildQdiscState(new NoChildClassification<THandle>(_localQueue)) };
-        _isEmptyMap = default;
+        // by default, we allow 1064 children
+        // 1568 was chosen deliberately as the default size, as it corresponds to a full cluster of ConcurrentBitmap56 segments
+        // (56 / 2 segments, 56 bits per segment). We can resize the bitmap to a larger size if necessary, but these 224 bytes are well spent.
+        _hasDataMap = new ConcurrentBitmap(1568);
+        _hasDataMap.UpdateBit(0, isSet: true);
     }
     
     /// <inheritdoc/>
@@ -73,10 +78,7 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
             }
             // don't forget the local caches
             // just pop-count all the bits that are not set
-            ulong emptyBitMap = ConcurrentBitmap56.VolatileRead(ref _isEmptyMap).GetRawData();
-            // for that we need to invert the bit map, so that empty children are 1 and non-empty children are 0
-            // we then need to mask out all the bits that are not used but are purely padding
-            return count + BitOperations.PopCount(~emptyBitMap & ((1uL << childStates.Length) - 1));
+            return count + _hasDataMap.UnsafePopCount;
         }
     }
 
@@ -89,15 +91,7 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
         }
     }
 
-    private bool IsKnownEmptyVolatileUnsafe
-    {
-        get
-        {
-            ChildQdiscState[] childStates = _childStates;
-            ConcurrentBitmap56 emptyMap = ConcurrentBitmap56.VolatileRead(ref _isEmptyMap);
-            return emptyMap.IsFull(childStates.Length);
-        }
-    }
+    private bool IsKnownEmptyVolatileUnsafe => _hasDataMap.IsEmpty;
 
     protected override bool TryPeekUnsafe(int workerId, [NotNullWhen(true)] out AbstractWorkloadBase? workload)
     {
@@ -231,10 +225,8 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
         // loop over all children or until the generation counter changes
         for (int i = 0; i < childStates.Length && generationCounter == originalGenerationCounter; i++, generationCounter = Volatile.Read(ref _generationCounter))
         {
-            // take a snapshot of the empty map
-            ConcurrentBitmap56 emptinessMap = ConcurrentBitmap56.VolatileRead(ref _isEmptyMap);
             // keep track of empty children in an atomic fashion, children that are known to be empty can be skipped
-            if (emptinessMap.IsBitSet(i))
+            if (!_hasDataMap.IsBitSet(i))
             {
                 // skip empty children
                 continue;
@@ -253,14 +245,12 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
                 DebugLog.WriteDiagnostic($"{this}: candidate buffer for child {childState.Child.Qdisc} is empty, but bit map indicates that it is not empty. Attempting to repopulate the candidate buffer.", LogWriter.Blocking);
                 // there are two reasons why the candidate buffer can be empty:
                 // 1. a workload was just enqueued to the child and we are the first worker to notice that the cache wasn't loaded yet
-                // 2. our local emptiness map is out of date and the child is actually empty
+                // 2. the emptiness state changed since the last time we checked
                 // in any case, we need to acquire the child qdisc lock to determine what's going on here
                 // we only do a try enter though, as, if another worker is currently repopulating the candidate buffer, we can check back on it later.
                 // we only want to ensure that the candidate buffer is repopulated at all, not that we are the ones doing it.
                 if (Monitor.TryEnter(childState.QdiscLock))
                 {
-                    // re-sample the emptiness map to check if the child is actually empty
-                    emptinessMap = ConcurrentBitmap56.VolatileRead(ref _isEmptyMap);
                     // re-sample the candidate buffer as well, as it may have changed between our last check and us acquiring the lock
                     possibleCandidate = Volatile.Read(ref childState.CandidateRef);
                     if (possibleCandidate is not null)
@@ -268,12 +258,12 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
                         // the candidate buffer was repopulated before we got to the TryEnter call
                         // this is a totally fine but rare scenario, as we only need to ensure that the candidate buffer is repopulated
                         // we can just continue as normal
-                        Debug.Assert(!emptinessMap.IsBitSet(i));
+                        Debug.Assert(_hasDataMap.IsBitSet(i));
                         Monitor.Exit(childState.QdiscLock);
                         DebugLog.WriteDiagnostic($"{this}: candidate buffer for child {childState.Child.Qdisc} was repopulated before we got to the TryEnter call. Continuing as normal.", LogWriter.Blocking);
                     }
-                    // try to populate if: the empty bit is not set and the candidate buffer is still empty
-                    else if (!emptinessMap.IsBitSet(i) && TryRepopulateCandidateUnsafe(childState, workerId, i, out possibleCandidate))
+                    // try to populate if: the data bit is set and the candidate buffer is still empty
+                    else if (_hasDataMap.IsBitSet(i) && TryRepopulateCandidateUnsafe(childState, workerId, i, out possibleCandidate))
                     {
                         // the child is not empty anymore, we successfully repopulated the candidate buffer
                         // continue as normal
@@ -378,7 +368,7 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
             {
                 DebugLog.WriteDebug($"{this}: emptiness bit map changed while attempting to declare child {child.Child.Qdisc} as empty. Attempts so far {i}. Resampling...", LogWriter.Blocking);
             }
-            token = ConcurrentBitmap56.VolatileRead(ref _isEmptyMap).GetToken();
+            token = _hasDataMap.GetToken(childIndex);
             if (child.Child.Qdisc.TryDequeueInternal(workerId, false, out workload))
             {
                 // we successfully dequeued a workload from the child
@@ -390,7 +380,7 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
             // mark it as empty
             DebugLog.WriteDiagnostic($"{this}: child {child.Child.Qdisc} seems to be empty. Updating emptiness bit map.", LogWriter.Blocking);
             i++;
-        } while (!ConcurrentBitmap56.TryUpdateBit(ref _isEmptyMap, token, childIndex, isSet: true));
+        } while (!_hasDataMap.TryUpdateBit(childIndex, token, isSet: false));
         DebugLog.WriteDebug($"{this}: failed to repopulate candidate buffer for child {child.Child.Qdisc}. Marked child as empty.", LogWriter.Blocking);
         return false;
     }
@@ -556,7 +546,7 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
         // no token is required, as we just force the bit to be set
         // worker threads attempting to mark this child as empty will just fail to do so as their token will be invalidated by us
         // so no ABA problem here (not empty -> worker finds no workload -> we set it to not empty -> worker tries to set it to empty -> worker fails)
-        ConcurrentBitmap56.UpdateBit(ref _isEmptyMap, index, isSet: false);
+        _hasDataMap.UpdateBit(index, isSet: true);
         // reset the last enqueued child index
         __LAST_ENQUEUED_CHILD_INDEX = null;
         DebugLog.WriteDebug($"{this}: cleared empty flag for child {index}.", LogWriter.Blocking);
@@ -637,7 +627,7 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
         Debug.Assert(index >= 0);
 
         // update the emptiness tracking
-        ConcurrentBitmap56.RemoveBitAt(ref _isEmptyMap, index);
+        _hasDataMap.RemoveBitAt(index);
         _childStates = newChildStates;
         return true;
     }
@@ -683,8 +673,8 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
         }
         newChildStates[^1] = new ChildQdiscState(child);
         // update the emptiness tracking
-        ConcurrentBitmap56.InsertBitAt(ref _isEmptyMap, newChildStates.Length - 1, false);
-        
+        _hasDataMap.InsertBitAt(newChildStates.Length - 1, true);
+
         // done. write back the new child states
         _childStates = newChildStates;
         return true;

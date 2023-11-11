@@ -16,23 +16,24 @@ namespace Wkg.Collections.Concurrent;
 // 
 // Key Features:
 // - Each 56-bit bitmap is known as a *segment* and contains 56-bit usable storage and an 8-bit guard token.
-// - Segments are grouped into a larger data structure known as a *cluster*.
+// - 28 (56/2) segments are grouped into a larger data structure known as a *cluster*.
+//   we need to use 2 bits per segment to track whether it is full or empty, or neither, so 56/2 = 28 segments per cluster.
 // - Clusters track the emptiness-state of whole segments, again using a 56-bit bitmap.
-// - Multiple clusters can be combined into a hierarchical *tree* structure, where intermediate levels track the emptiness-state of clusters in lower levels.
+// - Multiple clusters can be combined into a hierarchical *tree* structure, where intermediate levels (internal nodes) track the emptiness-state of clusters in lower levels.
 //   The actual data is stored in the leaf nodes of the tree.
-// - To achieve scalability, we consider a multi-level tree structure.
 //
 // Example:
-// - With two levels of 56-bit bitmaps, we would have 56 * 56 = 3136 bits of storage.
+// - With two levels of 56-bit bitmaps, we would have 56 * 28 = 1568 bits of storage in 224 bytes.
 //
 // Lock-Free Considerations:
-// - Operations should preferably be lock-free and CAS-only based.
+// - Except for cross-segment and cross-cluster operations, all operations are lock-free and CAS-only based.
 // - Increasing the depth of the tree structure may introduce more points of conflict, but it results in exponentially rarer write operations close to the root node.
 //
 // Tree Structure:
-// - The tree is arranged in a way that each level has 56 times more nodes than the previous level.
-// - Only the righ-most leaf node of the entire tree is allowed to be non-full.
-// - leaf nodes are ordered from left to right in a way that allows efficient bit indexing in a binary tree-manner.
+// - The tree is arranged in a way that each level has 28 times more nodes than the previous level,
+//   but leaf clusters have 56 times more segments than the previous level has clusters.
+// - Only the righ-most segment of the entire tree is allowed to be partially full, all other segments must be full.
+// - leaf nodes are ordered by index range from left to right in a way that allows efficient bit indexing in a binary tree-manner.
 public class ConcurrentBitmap : IDisposable
 {
     internal const int SEGMENT_BIT_SIZE = 56;
@@ -77,6 +78,15 @@ public class ConcurrentBitmap : IDisposable
         }
     }
 
+    public int UnsafePopCount
+    {
+        get
+        {
+            using ILockOwnership readLock = _syncRoot.AcquireReadLock();
+            return _root.UnsafePopCount();
+        }
+    }
+
     public byte GetToken(int index)
     {
         Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, _bitSize - 1, nameof(index));
@@ -115,22 +125,22 @@ public class ConcurrentBitmap : IDisposable
         return _root.IsBitSet(index);
     }
 
-    public void UpdateBit(int index, bool value)
+    public void UpdateBit(int index, bool isSet)
     {
         Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, _bitSize - 1, nameof(index));
 
         // sync root is only used in write mode only when restructuring the tree or operating on cross-node boundaries
         using ILockOwnership readLock = _syncRoot.AcquireReadLock();
-        _root.UpdateBit(index, value);
+        _root.UpdateBit(index, isSet);
     }
 
-    public bool TryUpdateBit(int index, byte token, bool value)
+    public bool TryUpdateBit(int index, byte token, bool isSet)
     {
         Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, _bitSize - 1, nameof(index));
 
         // sync root is only used in write mode when restructuring the tree or operating on cross-node boundaries
         using ILockOwnership readLock = _syncRoot.AcquireWriteLock();
-        return _root.TryUpdateBit(index, token, value);
+        return _root.TryUpdateBit(index, token, isSet);
     }
 
     public void InsertBitAt(int index, bool value)

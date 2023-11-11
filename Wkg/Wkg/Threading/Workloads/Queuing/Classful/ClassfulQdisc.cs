@@ -4,9 +4,11 @@ using Wkg.Threading.Workloads.Queuing.Classless;
 
 namespace Wkg.Threading.Workloads.Queuing.Classful;
 
-public abstract class ClassfulQdisc<THandle> : ClasslessQdisc<THandle>, IClassfulQdisc<THandle>
+public abstract class ClassfulQdisc<THandle> : ClasslessQdisc<THandle>, IClassfulQdisc<THandle>, IDisposable
     where THandle : unmanaged
 {
+    private bool disposedValue;
+
     protected ClassfulQdisc(THandle handle) : base(handle)
     {
     }
@@ -79,4 +81,27 @@ public abstract class ClassfulQdisc<THandle> : ClasslessQdisc<THandle>, IClassfu
         WillEnqueueFromRoutingPath(ref routingPathNode, workload);
 
     bool IClassfulQdisc<THandle>.TryFindRoute(THandle handle, ref RoutingPath<THandle> path) => TryFindRoute(handle, ref path);
+
+    // TODO: make this abstract
+    protected virtual void OnInternalDispose() => Pass();
+
+    private void Dispose(bool disposing)
+    {
+        if (!disposedValue)
+        {
+            if (disposing)
+            {
+                OnInternalDispose();
+            }
+
+            disposedValue = true;
+        }
+    }
+
+    public void Dispose()
+    {
+        // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
+    }
 }

@@ -254,6 +254,21 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
         return clusterStateSnapshot;
     }
 
+    public override int UnsafePopCount()
+    {
+        int count = 0;
+        int segmentCapacity = SEGMENT_BIT_SIZE;
+        for (int i = 0; i < _segments.Length; i++)
+        {
+            if (i == _segments.Length - 1)
+            {
+                segmentCapacity = _lastSegmentSize;
+            }
+            count += ConcurrentBitmap56.VolatileRead(ref _segments.GetRefUnsafe(i)).PopCountUnsafe(segmentCapacity);
+        }
+        return count;
+    }
+
     internal override void ToString(StringBuilder sb, int depth)
     {
         sb.Append(' ', depth * 2)

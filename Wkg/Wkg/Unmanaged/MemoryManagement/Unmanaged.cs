@@ -21,13 +21,13 @@ public unsafe struct Unmanaged<T>(int count, bool initialize = true) : IDisposab
 {
     private bool disposedValue;
     private T* _ptr = initialize
-            ? (T*)MemoryManager.Calloc(count, sizeof(T))
-            : (T*)MemoryManager.Malloc(count * sizeof(T));
+        ? (T*)MemoryManager.Calloc(count, sizeof(T))
+        : (T*)MemoryManager.Malloc(count * sizeof(T));
 
     /// <summary>
     /// Gets the number of elements in the unmanaged memory.
     /// </summary>
-    public readonly int Length { get; } = count;
+    public readonly int Length => count;
 
     /// <summary>
     /// Gets a raw pointer to the unmanaged memory. Be sure you know what you're doing.
@@ -84,6 +84,28 @@ public unsafe struct Unmanaged<T>(int count, bool initialize = true) : IDisposab
         Throw.ObjectDisposedException.If(disposedValue, nameof(Unmanaged<T>));
         Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, Length - 1, nameof(index));
         return ref GetRefUnsafe(index);
+    }
+
+    /// <summary>
+    /// Reallocates the unmanaged memory to the specified number of elements. If the new size is smaller than the current size, nothing happens.
+    /// </summary>
+    /// <param name="newCount">The new total number of elements to hold after the reallocation.</param>
+    public void Realloc(int newCount)
+    {
+        Throw.ObjectDisposedException.If(disposedValue, nameof(Unmanaged<T>));
+        Throw.ArgumentOutOfRangeException.IfNotInRange(newCount, 0, int.MaxValue, nameof(newCount));
+
+        if (newCount <= Length)
+        {
+            return;
+        }
+
+        _ptr = (T*)MemoryManager.Realloc(_ptr, newCount * sizeof(T));
+        if (initialize)
+        {
+            MemoryManager.Memset(_ptr + Length, 0, (uint)((newCount - Length) * sizeof(T)));
+        }
+        count = newCount;
     }
 
     /// <summary>

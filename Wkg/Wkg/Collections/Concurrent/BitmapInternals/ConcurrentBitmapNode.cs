@@ -2,18 +2,28 @@
 
 namespace Wkg.Collections.Concurrent.BitmapInternals;
 
-internal abstract class ConcurrentBitmapNode : IDisposable
+internal interface IParentNode
 {
-    private protected readonly ConcurrentBitmapInternalNode? _parent;
-    private protected readonly int _baseAddress;
-    private protected readonly int _bitSize;
+    internal void ReplaceChildNode(int index, ConcurrentBitmapNode newNode);
+}
 
-    protected ConcurrentBitmapNode(int baseAddress, ConcurrentBitmapInternalNode? parent, int bitSize)
+internal abstract class ConcurrentBitmapNode : IDisposable, IParentNode
+{
+    private protected readonly IParentNode _parent;
+    private protected readonly int _baseAddress;
+    private protected int _bitSize;
+    private protected int _externalNodeIndex;
+
+
+    protected ConcurrentBitmapNode(int externalNodeIndex, int baseAddress, IParentNode parent, int bitSize)
     {
+        _externalNodeIndex = externalNodeIndex;
         _baseAddress = baseAddress;
         _parent = parent;
         _bitSize = bitSize;
     }
+
+    public abstract int MaxNodeBitLength { get; }
 
     public int Length => _bitSize;
 
@@ -27,7 +37,11 @@ internal abstract class ConcurrentBitmapNode : IDisposable
 
     internal abstract ref ConcurrentBitmap56State InternalStateBitmap { get; }
 
-    internal abstract ConcurrentBitmap56 RefreshState();
+    internal abstract bool Grow(int additionalSize);
+
+    internal abstract bool Shrink(int removalSize);
+
+    internal abstract ConcurrentBitmap56 RefreshState(int startIndex);
 
     internal abstract void ToString(StringBuilder sb, int depth);
 
@@ -46,4 +60,8 @@ internal abstract class ConcurrentBitmapNode : IDisposable
     public abstract void RemoveBitAt(int index);
 
     public abstract void Dispose();
+
+    protected virtual void ReplaceChildNode(int index, ConcurrentBitmapNode newNode) => Pass();
+
+    void IParentNode.ReplaceChildNode(int index, ConcurrentBitmapNode newNode) => ReplaceChildNode(index, newNode);
 }

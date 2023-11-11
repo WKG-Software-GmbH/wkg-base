@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Diagnostics;
+using System.Text;
 using Wkg.Collections.Concurrent.BitmapInternals;
 using Wkg.Common.ThrowHelpers;
 using Wkg.Threading.Extensions;
@@ -34,7 +35,7 @@ namespace Wkg.Collections.Concurrent;
 //   but leaf clusters have 56 times more segments than the previous level has clusters.
 // - Only the righ-most segment of the entire tree is allowed to be partially full, all other segments must be full.
 // - leaf nodes are ordered by index range from left to right in a way that allows efficient bit indexing in a binary tree-manner.
-public class ConcurrentBitmap : IDisposable
+public class ConcurrentBitmap : IDisposable, IParentNode
 {
     internal const int SEGMENT_BIT_SIZE = 56;
     // each cluster must track the fullness and emptiness of its segments, so 2 bits are required per segment
@@ -42,16 +43,14 @@ public class ConcurrentBitmap : IDisposable
     internal const int SEGMENTS_PER_CLUSTER = SEGMENT_BIT_SIZE / 2;
     internal const int CLUSTER_BIT_SIZE = SEGMENTS_PER_CLUSTER * SEGMENT_BIT_SIZE;
     internal const int INTERNAL_NODE_BIT_LIMIT = SEGMENTS_PER_CLUSTER * CLUSTER_BIT_SIZE;
-    private readonly ConcurrentBitmapNode _root;
-    private readonly int _depth;
-    private readonly int _bitSize;
+    private volatile ConcurrentBitmapNode _root;
+    private int _depth;
     internal readonly ReaderWriterLockSlim _syncRoot;
     private bool disposedValue;
 
     public ConcurrentBitmap(int bitSize)
     {
         Throw.ArgumentOutOfRangeException.IfNegativeOrZero(bitSize, nameof(bitSize));
-        _bitSize = bitSize;
         _syncRoot = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
 
         // do we need an internal root node, or can we just create a cluster directly?
@@ -68,14 +67,21 @@ public class ConcurrentBitmap : IDisposable
             _depth = depth;
 
             // we need at least one internal node
-            _root = new ConcurrentBitmapInternalNode(0, depth, bitSize, null);
+            _root = new ConcurrentBitmapInternalNode(0, 0, depth, bitSize, this, null);
         }
         else
         {
             // we can create a cluster directly
-            _root = new ConcurrentBitmapClusterNode(0, bitSize, null);
+            _root = new ConcurrentBitmapClusterNode(0, 0, bitSize, this);
             _depth = 1;
         }
+    }
+
+    void IParentNode.ReplaceChildNode(int index, ConcurrentBitmapNode newNode)
+    {
+        Debug.Assert(index == 0);
+        _root = newNode;
+        _depth--;
     }
 
     public int UnsafePopCount
@@ -89,14 +95,14 @@ public class ConcurrentBitmap : IDisposable
 
     public byte GetToken(int index)
     {
-        Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, _bitSize - 1, nameof(index));
+        Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, Length - 1, nameof(index));
 
         // sync root is only used in write mode only when restructuring the tree or operating on cross-node boundaries
         using ILockOwnership readLock = _syncRoot.AcquireReadLock();
         return _root.GetToken(index);
     }
 
-    public int Length => _bitSize;
+    public int Length => _root.Length;
 
     public bool IsFull
     {
@@ -118,7 +124,7 @@ public class ConcurrentBitmap : IDisposable
 
     public bool IsBitSet(int index)
     {
-        Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, _bitSize - 1, nameof(index));
+        Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, Length - 1, nameof(index));
 
         // sync root is only used in write mode only when restructuring the tree or operating on cross-node boundaries
         using ILockOwnership readLock = _syncRoot.AcquireReadLock();
@@ -127,7 +133,7 @@ public class ConcurrentBitmap : IDisposable
 
     public void UpdateBit(int index, bool isSet)
     {
-        Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, _bitSize - 1, nameof(index));
+        Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, Length - 1, nameof(index));
 
         // sync root is only used in write mode only when restructuring the tree or operating on cross-node boundaries
         using ILockOwnership readLock = _syncRoot.AcquireReadLock();
@@ -136,38 +142,92 @@ public class ConcurrentBitmap : IDisposable
 
     public bool TryUpdateBit(int index, byte token, bool isSet)
     {
-        Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, _bitSize - 1, nameof(index));
+        Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, Length - 1, nameof(index));
 
         // sync root is only used in write mode when restructuring the tree or operating on cross-node boundaries
         using ILockOwnership readLock = _syncRoot.AcquireWriteLock();
         return _root.TryUpdateBit(index, token, isSet);
     }
 
-    public void InsertBitAt(int index, bool value)
+    public void InsertBitAt(int index, bool value, bool grow = false)
     {
-        Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, _bitSize - 1, nameof(index));
+        Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, Length, nameof(index));
 
         // requires global write lock
         using ILockOwnership writeLock = _syncRoot.AcquireWriteLock();
+        if (grow)
+        {
+            GrowCore(1);
+        }
         _root.InsertBitAt(index, value, out bool lastBit);
-        _root.RefreshState();
+        _root.RefreshState(index);
     }
 
-    public void RemoveBitAt(int index)
+    public void RemoveBitAt(int index, bool shrink = false)
     {
-        Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, _bitSize - 1, nameof(index));
+        Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, Length - 1, nameof(index));
 
         // requires global write lock
         using ILockOwnership writeLock = _syncRoot.AcquireWriteLock();
         _root.RemoveBitAt(index);
-        _root.RefreshState();
+        if (shrink)
+        {
+            ShrinkCore(1);
+        }
+        _root.RefreshState(index);
+    }
+
+    public void Grow(int additionalSize)
+    {
+        Throw.ArgumentOutOfRangeException.IfNegative(additionalSize, nameof(additionalSize));
+
+        using ILockOwnership writeLock = _syncRoot.AcquireWriteLock();
+        GrowCore(additionalSize);
+    }
+
+    private void GrowCore(int additionalSize)
+    {
+        // requires global write lock
+        // we don't know if the root node can grow, so we need to check
+        if (_root.Length + additionalSize <= _root.MaxNodeBitLength)
+        {
+            _root.Grow(additionalSize);
+            return;
+        }
+        int totalSize = _root.Length + additionalSize;
+        _root.Grow(_root.MaxNodeBitLength - _root.Length);
+        int remainingSize = totalSize;
+        while (remainingSize > 0)
+        {
+            // we need to grow the tree
+            int newMaxNodeBitLength = _root.MaxNodeBitLength * SEGMENTS_PER_CLUSTER;
+            int newCapactiy = Math.Min(newMaxNodeBitLength, totalSize);
+            _root = new ConcurrentBitmapInternalNode(0, 0, _depth, newCapactiy, this, _root);
+            remainingSize -= newCapactiy;
+            _depth++;
+        }
+    }
+
+    public void Shrink(int removalSize)
+    {
+        Throw.ArgumentOutOfRangeException.IfNegative(removalSize, nameof(removalSize));
+        Throw.ArgumentOutOfRangeException.IfGreaterThan(removalSize, Length, nameof(removalSize));
+
+        using ILockOwnership writeLock = _syncRoot.AcquireWriteLock();
+        ShrinkCore(removalSize);
+    }
+
+    private void ShrinkCore(int removalSize)
+    {
+        // requires global write lock
+        _root.Shrink(removalSize);
     }
 
     public override string ToString()
     {
         StringBuilder sb = new StringBuilder(nameof(ConcurrentBitmap))
             .Append("(Total size: ")
-            .Append(_bitSize)
+            .Append(Length)
             .Append(" bits, depth: ")
             .Append(_depth)
             .AppendLine(")");
@@ -176,6 +236,10 @@ public class ConcurrentBitmap : IDisposable
 
         return sb.ToString();
     }
+
+#if DEBUG
+    internal string DebuggerDisplay => ToString();
+#endif
 
     protected virtual void Dispose(bool disposing)
     {

@@ -382,4 +382,91 @@ public class ConcurrentBitmapTests : BaseTest
         Assert.IsFalse(bitmap.IsFull);
         Assert.IsTrue(bitmap.IsEmpty);
     }
+
+    [TestMethod]
+    public void TestGrowing1()
+    {
+        using ConcurrentBitmap bitmap = new(SEGMENT_BIT_SIZE);
+        for (int i = 0; i < SEGMENT_BIT_SIZE; i++)
+        {
+            bitmap.UpdateBit(i, true);
+        }
+        Assert.IsTrue(bitmap.IsFull);
+        Assert.IsFalse(bitmap.IsEmpty);
+        Assert.AreEqual(SEGMENT_BIT_SIZE, bitmap.Length);
+        bitmap.InsertBitAt(0, value: false, grow: true);
+        Assert.IsFalse(bitmap.IsFull);
+        Assert.IsFalse(bitmap.IsEmpty);
+        Assert.AreEqual(SEGMENT_BIT_SIZE + 1, bitmap.Length);
+        Assert.IsTrue(bitmap.IsBitSet(SEGMENT_BIT_SIZE));
+        bitmap.RemoveBitAt(0, shrink: true);
+        Assert.IsTrue(bitmap.IsFull);
+        Assert.IsFalse(bitmap.IsEmpty);
+        Assert.AreEqual(SEGMENT_BIT_SIZE, bitmap.Length);
+    }
+
+    [TestMethod]
+    public void TestGrowing2()
+    {
+        using ConcurrentBitmap bitmap = new(CLUSTER_BIT_SIZE);
+        for (int i = 0; i < CLUSTER_BIT_SIZE; i++)
+        {
+            bitmap.UpdateBit(i, true);
+        }
+        Assert.IsTrue(bitmap.IsFull);
+        Assert.IsFalse(bitmap.IsEmpty);
+        Assert.AreEqual(CLUSTER_BIT_SIZE, bitmap.Length);
+        bitmap.InsertBitAt(CLUSTER_BIT_SIZE - 1, value: false, grow: true);
+        Assert.IsFalse(bitmap.IsFull);
+        Assert.IsFalse(bitmap.IsEmpty);
+        Assert.AreEqual(CLUSTER_BIT_SIZE + 1, bitmap.Length);
+        Assert.IsTrue(bitmap.IsBitSet(CLUSTER_BIT_SIZE));
+        bitmap.RemoveBitAt(CLUSTER_BIT_SIZE - 1, shrink: true);
+        Assert.IsTrue(bitmap.IsFull);
+        Assert.IsFalse(bitmap.IsEmpty);
+        Assert.AreEqual(CLUSTER_BIT_SIZE, bitmap.Length);
+    }
+
+    [TestMethod]
+    public void TestGrowing3()
+    {
+        using ConcurrentBitmap bitmap = new(1);
+        bitmap.UpdateBit(0, true);
+        Assert.IsTrue(bitmap.IsFull);
+        Assert.IsFalse(bitmap.IsEmpty);
+        Assert.AreEqual(1, bitmap.Length);
+        bitmap.Grow(INTERNAL_NODE_BIT_LIMIT);
+        Assert.IsFalse(bitmap.IsFull);
+        Assert.IsFalse(bitmap.IsEmpty);
+        Assert.AreEqual(INTERNAL_NODE_BIT_LIMIT + 1, bitmap.Length);
+        Assert.IsTrue(bitmap.IsBitSet(0));
+        bitmap.RemoveBitAt(0, shrink: true);
+        Assert.IsFalse(bitmap.IsFull);
+        Assert.IsTrue(bitmap.IsEmpty);
+        Assert.AreEqual(INTERNAL_NODE_BIT_LIMIT, bitmap.Length);
+    }
+
+    [TestMethod]
+    public void TestShrinking1()
+    {
+        using ConcurrentBitmap bitmap = new(INTERNAL_NODE_BIT_LIMIT + 1);
+        bitmap.UpdateBit(0, true);
+        Assert.IsFalse(bitmap.IsFull);
+        Assert.IsFalse(bitmap.IsEmpty);
+        Assert.AreEqual(INTERNAL_NODE_BIT_LIMIT + 1, bitmap.Length);
+        bitmap.Shrink(INTERNAL_NODE_BIT_LIMIT);
+        Assert.IsTrue(bitmap.IsFull);
+        Assert.IsFalse(bitmap.IsEmpty);
+        Assert.AreEqual(1, bitmap.Length);
+        Assert.IsTrue(bitmap.IsBitSet(0));
+        bitmap.RemoveBitAt(0, shrink: true);
+        Assert.IsTrue(bitmap.IsFull);
+        Assert.IsTrue(bitmap.IsEmpty);
+        Assert.AreEqual(0, bitmap.Length);
+        bitmap.InsertBitAt(0, value: true, grow: true);
+        Assert.IsTrue(bitmap.IsFull);
+        Assert.IsFalse(bitmap.IsEmpty);
+        Assert.AreEqual(1, bitmap.Length);
+        Assert.IsTrue(bitmap.IsBitSet(0));
+    }
 }

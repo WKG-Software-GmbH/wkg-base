@@ -381,13 +381,12 @@ public ref struct ConcurrentBitmap56
         Span<byte> ascii = stackalloc byte[56];
         for (int i = 0; i < 56; i++)
         {
-            // we want the MSB to be on the left, so we need to reverse everything
-            // other than that we simply grab the ith bit (from the LSB) 
+            // simply grab the ith bit (from the LSB) 
             // and simply OR that to the ASCII character '0' (0x30).
             // if the bit was 0 the result is '0' itself, otherwise
             // if the bit was 1 then the result is '0' | 1 (0x30 | 1) which 
             // yields 0x31 which is also conveniently the ASCII code for '1'.
-            ascii[55 - i] = (byte)((s & (1uL << i)) >> i | '0');
+            ascii[i] = (byte)((s & (1uL << i)) >> i | '0');
         }
         return $"(Token: {_guardToken}, Value: {Encoding.ASCII.GetString(ascii)})";
     }

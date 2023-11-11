@@ -151,7 +151,7 @@ public class ConcurrentBitmap : IDisposable, IParentNode
 
     public void InsertBitAt(int index, bool value, bool grow = false)
     {
-        Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, Length, nameof(index));
+        Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, grow ? Length : Length - 1, nameof(index));
 
         // requires global write lock
         using ILockOwnership writeLock = _syncRoot.AcquireWriteLock();

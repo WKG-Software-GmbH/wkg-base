@@ -1,6 +1,6 @@
 ﻿using Wkg.Threading.Workloads.Configuration.Classless;
 
-namespace Wkg.Threading.Workloads.Queuing.Classful.EarliestDueDate;
+namespace Wkg.Threading.Workloads.Queuing.Classful.Fair;
 
 internal class FairQdiscParams
 {

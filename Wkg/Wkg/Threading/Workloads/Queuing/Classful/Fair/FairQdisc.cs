@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.Numerics;
 using Wkg.Collections.Concurrent;
 using Wkg.Common.ThrowHelpers;
 using Wkg.Internals.Diagnostic;
@@ -12,7 +11,7 @@ using Wkg.Threading.Workloads.Queuing.Classless;
 using Wkg.Threading.Workloads.Queuing.VirtualTime;
 using Wkg.Threading.Workloads.Scheduling;
 
-namespace Wkg.Threading.Workloads.Queuing.Classful.EarliestDueDate;
+namespace Wkg.Threading.Workloads.Queuing.Classful.Fair;
 
 internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmanaged
 {
@@ -47,13 +46,12 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
         _executionTimeModel = parameters.ExecutionTimeModel;
         _localQueue = parameters.Inner.BuildUnsafe(default(THandle));
         _childStates = new ChildQdiscState[1] { new ChildQdiscState(new NoChildClassification<THandle>(_localQueue)) };
-        // by default, we allow 1064 children
-        // 1568 was chosen deliberately as the default size, as it corresponds to a full cluster of ConcurrentBitmap56 segments
-        // (56 / 2 segments, 56 bits per segment). We can resize the bitmap to a larger size if necessary, but these 224 bytes are well spent.
-        _hasDataMap = new ConcurrentBitmap(1568);
+        // by default we have one child, so the bit map is initialized with a single bit
+        // if we have more children, the bit map will be resized automatically
+        _hasDataMap = new ConcurrentBitmap(1);
         _hasDataMap.UpdateBit(0, isSet: true);
     }
-    
+
     /// <inheritdoc/>
     protected override void OnInternalInitialize(INotifyWorkScheduled parentScheduler) =>
         BindChildQdisc(_localQueue);
@@ -570,7 +568,7 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
     public override bool RemoveChild(IClasslessQdisc<THandle> child) =>
         RemoveChildCore(child, Timeout.Infinite);
 
-    public override bool TryRemoveChild(IClasslessQdisc<THandle> child) => 
+    public override bool TryRemoveChild(IClasslessQdisc<THandle> child) =>
         RemoveChildCore(child, 0);
 
     private bool RemoveChildCore(IClasslessQdisc<THandle> child, int timeout)
@@ -627,18 +625,18 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
         Debug.Assert(index >= 0);
 
         // update the emptiness tracking
-        _hasDataMap.RemoveBitAt(index);
+        _hasDataMap.RemoveBitAt(index, shrink: true);
         _childStates = newChildStates;
         return true;
     }
 
-    public override bool TryAddChild(IClasslessQdisc<THandle> child, Predicate<object?> predicate) => 
+    public override bool TryAddChild(IClasslessQdisc<THandle> child, Predicate<object?> predicate) =>
         TryAddChildCore(new ChildClassification<THandle>(child, predicate));
 
-    public override bool TryAddChild(IClassfulQdisc<THandle> child) => 
+    public override bool TryAddChild(IClassfulQdisc<THandle> child) =>
         TryAddChildCore(new ClassfulChildClassification<THandle>(child));
 
-    public override bool TryAddChild(IClasslessQdisc<THandle> child) => 
+    public override bool TryAddChild(IClasslessQdisc<THandle> child) =>
         TryAddChildCore(new NoChildClassification<THandle>(child));
 
     private bool TryAddChildCore(IChildClassification<THandle> child)
@@ -673,7 +671,12 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
         }
         newChildStates[^1] = new ChildQdiscState(child);
         // update the emptiness tracking
-        _hasDataMap.InsertBitAt(newChildStates.Length - 1, true);
+        // instead of inserting a new bit, we just grow and update the last bit
+        // this is a cheaper operation as we don't need to hold a write lock for the update
+        // and growing the bit map by one bit is a cheap operation if we don't hit any segment or cluster boundaries
+        Debug.Assert(_hasDataMap.Length == newChildStates.Length - 1);
+        _hasDataMap.Grow(additionalSize: 1);
+        _hasDataMap.UpdateBit(newChildStates.Length - 1, isSet: false);
 
         // done. write back the new child states
         _childStates = newChildStates;

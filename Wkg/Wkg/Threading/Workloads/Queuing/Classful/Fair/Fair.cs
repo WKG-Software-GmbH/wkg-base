@@ -4,7 +4,7 @@ using Wkg.Threading.Workloads.Configuration.Classful;
 using Wkg.Threading.Workloads.Configuration.Classless;
 using Wkg.Threading.Workloads.Queuing.Classless.Fifo;
 
-namespace Wkg.Threading.Workloads.Queuing.Classful.EarliestDueDate;
+namespace Wkg.Threading.Workloads.Queuing.Classful.Fair;
 
 public class Fair : ClassfulQdiscBuilder<Fair>, IClassfulQdiscBuilder<Fair>
 {

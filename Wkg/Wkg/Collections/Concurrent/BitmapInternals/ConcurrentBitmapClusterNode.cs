@@ -7,35 +7,6 @@ using Wkg.Unmanaged.MemoryManagement;
 
 namespace Wkg.Collections.Concurrent.BitmapInternals;
 
-//Specification:
-//--------------------------
-// This class implements a data structure for atomic reads and writes (CAS) of bits using 64-bit unsigned integers.
-// Each integer is divided into two parts: 56 bits of usable storage and an 8-bit guard token (implemented in ConcurrentBitmap56).
-// The guard token is incremented with each write operation to prevent ABA/lost update issues. 
-// The current design of ConcurrentBitmap56 is limited, and the goal is to expand it to support an unlimited maximum number of bits.
-// To achieve this, we propose a hierarchical structure using the existing 56-bit bitmaps as building blocks.
-// Multiple 56-bit bitmaps can be stored as segments within a larger data structure.
-// 
-// Key Features:
-// - Each 56-bit bitmap is known as a *segment* and contains 56-bit usable storage and an 8-bit guard token.
-// - Segments are grouped into a larger data structure known as a *cluster*.
-// - Clusters track the emptiness-state of whole segments, again using a 56-bit bitmap.
-// - Multiple clusters can be combined into a hierarchical *tree* structure, where intermediate levels track the emptiness-state of clusters in lower levels.
-//   The actual data is stored in the leaf nodes of the tree.
-// - To achieve scalability, we consider a multi-level tree structure.
-//
-// Example:
-// - With two levels of 56-bit bitmaps, we would have 56 * 56 = 3136 bits of storage.
-//
-// Lock-Free Considerations:
-// - Operations should preferably be lock-free and CAS-only based.
-// - Increasing the depth of the tree structure may introduce more points of conflict, but it results in exponentially rarer write operations close to the root node.
-//
-// Tree Structure:
-// - The tree is arranged in a way that each level has 56 times more nodes than the previous level.
-// - Only the righ-most leaf node of the entire tree is allowed to be non-full.
-// - leaf nodes are ordered from left to right in a way that allows efficient bit indexing in a binary tree-manner.
-
 using static ConcurrentBitmap;
 
 internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
@@ -46,7 +17,7 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
     private ConcurrentBitmap56State _clusterState;
     private bool disposedValue;
     // this class is very hot, as it's used by workload scheduling
-    // we use an unmanaged array to avoid the overhead of the managed array
+    // we use an unmanaged array to avoid bound checking and the overhead of a managed array
     private Unmanaged<ConcurrentBitmap56State> _segments;
     private int _usedSegmentCount;
     private int _lastSegmentSize;

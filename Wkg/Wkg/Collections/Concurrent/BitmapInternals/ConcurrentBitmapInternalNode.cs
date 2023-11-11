@@ -1,41 +1,11 @@
-﻿using System;
-using System.Diagnostics;
-using System.Reflection;
+﻿using System.Diagnostics;
 using System.Text;
 using Wkg.Common;
+using Wkg.Data.Pooling;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
 
 namespace Wkg.Collections.Concurrent.BitmapInternals;
-
-//Specification:
-//--------------------------
-// This class implements a data structure for atomic reads and writes (CAS) of bits using 64-bit unsigned integers.
-// Each integer is divided into two parts: 56 bits of usable storage and an 8-bit guard token (implemented in ConcurrentBitmap56).
-// The guard token is incremented with each write operation to prevent ABA/lost update issues. 
-// The current design of ConcurrentBitmap56 is limited, and the goal is to expand it to support an unlimited maximum number of bits.
-// To achieve this, we propose a hierarchical structure using the existing 56-bit bitmaps as building blocks.
-// Multiple 56-bit bitmaps can be stored as segments within a larger data structure.
-// 
-// Key Features:
-// - Each 56-bit bitmap is known as a *segment* and contains 56-bit usable storage and an 8-bit guard token.
-// - Segments are grouped into a larger data structure known as a *cluster*.
-// - Clusters track the emptiness-state of whole segments, again using a 56-bit bitmap.
-// - Multiple clusters can be combined into a hierarchical *tree* structure, where intermediate levels track the emptiness-state of clusters in lower levels.
-//   The actual data is stored in the leaf nodes of the tree.
-// - To achieve scalability, we consider a multi-level tree structure.
-//
-// Example:
-// - With two levels of 56-bit bitmaps, we would have 56 * 56 = 3136 bits of storage.
-//
-// Lock-Free Considerations:
-// - Operations should preferably be lock-free and CAS-only based.
-// - Increasing the depth of the tree structure may introduce more points of conflict, but it results in exponentially rarer write operations close to the root node.
-//
-// Tree Structure:
-// - The tree is arranged in a way that each level has 56 times more nodes than the previous level.
-// - Only the righ-most leaf node of the entire tree is allowed to be non-full.
-// - leaf nodes are ordered from left to right in a way that allows efficient bit indexing in a binary tree-manner.
 
 using static ConcurrentBitmap;
 
@@ -45,8 +15,9 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
     // bits 0 to 27 are used for the cluster emptiness state,
     // bits 28 to 55 are used for the cluster fullness state
     private ConcurrentBitmap56State _nodeState;
-    private ConcurrentBitmapNode[] _children;
-    private int _usedChildCount;
+    // we abuse a pooled array to be able to resize the array within boundaries of the actual underlying array size
+    // if we free a child node, we can simply soft-resize the array that way and reclaim the space later as needed
+    private PooledArray<ConcurrentBitmapNode> _children;
     private readonly int _childMaxBitSize;
     private readonly bool _childIsInternalNode;
     private readonly int _depth;
@@ -67,19 +38,20 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
                 childStepSize *= SEGMENTS_PER_CLUSTER;
             }
             int childCount = (bitSize + childStepSize - 1) / childStepSize;
-            _children = new ConcurrentBitmapNode[childCount];
+            _children = new PooledArray<ConcurrentBitmapNode>(new ConcurrentBitmapNode[childCount], childCount);
+            Span<ConcurrentBitmapNode> children = _children.AsSpan();
             int remainingBits = bitSize;
-            for (int i = 0; i < _children.Length; i++, remainingBits -= childStepSize)
+            for (int i = 0; i < children.Length; i++, remainingBits -= childStepSize)
             {
                 if (oldRoot != null && i == 0)
                 {
                     // we are reusing an old root node
-                    _children[i] = oldRoot;
+                    children[i] = oldRoot;
                 }
                 else
                 {
                     int childBitSize;
-                    if (i == _children.Length - 1)
+                    if (i == children.Length - 1)
                     {
                         // last child
                         childBitSize = remainingBits;
@@ -88,7 +60,7 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
                     {
                         childBitSize = childStepSize;
                     }
-                    _children[i] = new ConcurrentBitmapInternalNode(i, baseAddress + i * childStepSize, remainingDepth - 1, childBitSize, this, null);
+                    children[i] = new ConcurrentBitmapInternalNode(i, baseAddress + i * childStepSize, remainingDepth - 1, childBitSize, this, null);
                 }
             }
             _childMaxBitSize = childStepSize;
@@ -98,19 +70,20 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
             // we are one level above the leaf nodes
             // split the bitSize into multiple clusters
             int childCount = (bitSize + CLUSTER_BIT_SIZE - 1) / CLUSTER_BIT_SIZE;
-            _children = new ConcurrentBitmapNode[childCount];
+            _children = new PooledArray<ConcurrentBitmapNode>(new ConcurrentBitmapNode[childCount], childCount);
+            Span<ConcurrentBitmapNode> children = _children.AsSpan();
             int remainingBits = bitSize;
-            for (int i = 0; i < _children.Length; i++, remainingBits -= CLUSTER_BIT_SIZE)
+            for (int i = 0; i < children.Length; i++, remainingBits -= CLUSTER_BIT_SIZE)
             {
                 if (oldRoot != null && i == 0)
                 {
                     // we are reusing an old root node
-                    _children[i] = oldRoot;
+                    children[i] = oldRoot;
                 }
                 else
                 {
                     int childBitSize;
-                    if (i == _children.Length - 1)
+                    if (i == children.Length - 1)
                     {
                         // last child
                         childBitSize = remainingBits;
@@ -119,19 +92,18 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
                     {
                         childBitSize = CLUSTER_BIT_SIZE;
                     }
-                    _children[i] = new ConcurrentBitmapClusterNode(i, baseAddress + i * CLUSTER_BIT_SIZE, childBitSize, this);
+                    children[i] = new ConcurrentBitmapClusterNode(i, baseAddress + i * CLUSTER_BIT_SIZE, childBitSize, this);
                 }
             }
             _childMaxBitSize = CLUSTER_BIT_SIZE;
         }
-        _usedChildCount = _children.Length;
 
         // initialize the node state
         // we could have non-empty children, so we need to initialize the node state
         ConcurrentBitmap56 state = default;
         for (int i = 0; i < _children.Length; i++)
         {
-            ConcurrentBitmapNode child = _children[i];
+            ConcurrentBitmapNode child = _children.Array[i];
             if (child.IsFull)
             {
                 state = state.SetChildFull(i);
@@ -152,22 +124,22 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
 
     public override bool IsLeaf => false;
 
-    public override bool IsFull => ConcurrentBitmap56.VolatileRead(ref _nodeState).AreChildrenFull(_usedChildCount);
+    public override bool IsFull => ConcurrentBitmap56.VolatileRead(ref _nodeState).AreChildrenFull(_children.Length);
 
-    public override bool IsEmpty => ConcurrentBitmap56.VolatileRead(ref _nodeState).AreChildrenEmpty(_usedChildCount);
+    public override bool IsEmpty => ConcurrentBitmap56.VolatileRead(ref _nodeState).AreChildrenEmpty(_children.Length);
 
     internal override ref ConcurrentBitmap56State InternalStateBitmap => ref _nodeState;
 
-    internal override int NodeLength => _usedChildCount;
+    internal override int NodeLength => _children.Length;
 
-    public override byte GetToken(int index) => _children[index / _childMaxBitSize].GetToken(index % _childMaxBitSize);
+    public override byte GetToken(int index) => _children.Array[index / _childMaxBitSize].GetToken(index % _childMaxBitSize);
 
-    public override bool IsBitSet(int index) => _children[index / _childMaxBitSize].IsBitSet(index % _childMaxBitSize);
+    public override bool IsBitSet(int index) => _children.Array[index / _childMaxBitSize].IsBitSet(index % _childMaxBitSize);
 
     protected override void ReplaceChildNode(int index, ConcurrentBitmapNode newNode)
     {
-        Debug.Assert(index >= 0 && index < _usedChildCount);
-        _children[index] = newNode;
+        Debug.Assert(index >= 0 && index < _children.Length);
+        _children.Array[index] = newNode;
     }
 
     public override void UpdateBit(int index, bool value)
@@ -181,7 +153,7 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
             nodeBmpSnapshot = ConcurrentBitmap56.VolatileRead(ref _nodeState);
             if (iteration == 0)
             {
-                _children[child].UpdateBit(childOffset, value);
+                _children.Array[child].UpdateBit(childOffset, value);
             }
             else
             {
@@ -202,7 +174,7 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
             nodeStateSnapshot = ConcurrentBitmap56.VolatileRead(ref _nodeState);
             if (iteration == 0)
             {
-                if (!_children[child].TryUpdateBit(childOffset, token, value))
+                if (!_children.Array[child].TryUpdateBit(childOffset, token, value))
                 {
                     return false;
                 }
@@ -218,8 +190,9 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
 
     private bool UpdateStateSnapshotIfRequired(ref ConcurrentBitmap56 snapshot, bool value, int child)
     {
-        int childCapacity = _children[child].NodeLength;
-        ConcurrentBitmap56 childState = ConcurrentBitmap56.VolatileRead(ref _children[child].InternalStateBitmap);
+        ConcurrentBitmapNode childNode = _children.Array[child];
+        int childCapacity = childNode.NodeLength;
+        ConcurrentBitmap56 childState = ConcurrentBitmap56.VolatileRead(ref childNode.InternalStateBitmap);
         if (!value && childState.AreChildrenEmpty(childCapacity) && !snapshot.IsChildEmpty(child))
         {
             // we set the bit to 0, and the child is now empty which is not yet reflected in the cluster bitmap
@@ -254,8 +227,9 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
 
     private bool UpdateStateSnapshot(ref ConcurrentBitmap56 snapshot, int child)
     {
-        int childCapacity = _children[child].NodeLength;
-        ConcurrentBitmap56 childState = ConcurrentBitmap56.VolatileRead(ref _children[child].InternalStateBitmap);
+        ConcurrentBitmapNode childNode = _children.Array[child];
+        int childCapacity = childNode.NodeLength;
+        ConcurrentBitmap56 childState = ConcurrentBitmap56.VolatileRead(ref childNode.InternalStateBitmap);
         if (childState.AreChildrenEmpty(childCapacity) && !snapshot.IsChildEmpty(child))
         {
             // we set the bit to 0, and the child is now empty which is not yet reflected in the cluster bitmap
@@ -288,9 +262,9 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
         // have global write lock
         int childStart = index / _childMaxBitSize;
         int childOffset = index % _childMaxBitSize;
-        for (int i = childStart; i < _usedChildCount; i++)
+        for (int i = childStart; i < _children.Length; i++)
         {
-            ConcurrentBitmapNode child = _children[i];
+            ConcurrentBitmapNode child = _children.Array[i];
             if (i == childStart)
             {
                 child.RemoveBitAt(childOffset);
@@ -301,7 +275,7 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
                 // the removed bit must then be inserted at the end of the previous child
                 bool value = child.IsBitSet(0);
                 child.RemoveBitAt(0);
-                _children[i - 1].UpdateBit(_children[i - 1].Length - 1, value);
+                _children.Array[i - 1].UpdateBit(_children.Array[i - 1].Length - 1, value);
             }
         }
     }
@@ -316,9 +290,9 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
         // the last bit gets pushed out of the child, so we need to remember it
         // the very last bit must have been remembered by the caller
         lastBit = default;
-        for (int i = childStart; i < _usedChildCount; i++)
+        for (int i = childStart; i < _children.Length; i++)
         {
-            ConcurrentBitmapNode child = _children[i];
+            ConcurrentBitmapNode child = _children.Array[i];
             if (i == childStart)
             {
                 child.InsertBitAt(childOffset, value, out lastBit);
@@ -344,14 +318,14 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
         }
 
         // check if we can simply grow the last child, or if we need to add new children
-        int oldLastChildIndex = _usedChildCount - 1;
+        int oldLastChildIndex = _children.Length - 1;
         bool stateChanged = false;
         // oldLastChildIndex can be -1 if we are growing an empty node
-        if (oldLastChildIndex != -1 && _children[oldLastChildIndex].Length + additionalSize <= _childMaxBitSize)
+        if (oldLastChildIndex != -1 && _children.Array[oldLastChildIndex].Length + additionalSize <= _childMaxBitSize)
         {
             // we can simply grow the last child
             ConcurrentBitmap56 nodeStateSnapshot = ConcurrentBitmap56.VolatileRead(ref _nodeState);
-            if (_children[oldLastChildIndex].Grow(additionalSize) && UpdateStateSnapshot(ref nodeStateSnapshot, oldLastChildIndex))
+            if (_children.Array[oldLastChildIndex].Grow(additionalSize) && UpdateStateSnapshot(ref nodeStateSnapshot, oldLastChildIndex))
             {
                 // state of the last child changed
                 ConcurrentBitmap56.VolatileWrite(ref _nodeState, nodeStateSnapshot, updateToken: true);
@@ -364,32 +338,32 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
             // how many new children do we need?
             int newTotalBitSize = _bitSize + additionalSize;
             int newTotalChildCount = (newTotalBitSize + _childMaxBitSize - 1) / _childMaxBitSize;
-            int newChildCount = newTotalChildCount - _usedChildCount;
+            int newChildCount = newTotalChildCount - _children.Length;
             Debug.Assert(newChildCount > 0);
-            // do we need to grow the array?
-            _usedChildCount = newTotalChildCount;
-            if (_usedChildCount > _children.Length)
+            // do we need to grow the array, or can we resize the existing array?
+            if (!_children.TryResize(newTotalChildCount, out _children))
             {
                 // grow the array
                 ConcurrentBitmapNode[] newChildren = new ConcurrentBitmapNode[newTotalChildCount];
-                Array.Copy(_children, newChildren, _children.Length);
-                _children = newChildren;
+                Array.Copy(_children.Array, newChildren, _children.Array.Length);
+                _children = new PooledArray<ConcurrentBitmapNode>(newChildren, newChildren.Length);
             }
+            Span<ConcurrentBitmapNode> children = _children.AsSpan();
             int remainingBits = additionalSize;
             ConcurrentBitmap56 nodeStateSnapshot = ConcurrentBitmap56.VolatileRead(ref _nodeState);
-            for (int i = FastMath.Max(oldLastChildIndex, 0); i < _usedChildCount; i++, remainingBits -= _childMaxBitSize)
+            for (int i = FastMath.Max(oldLastChildIndex, 0); i < children.Length; i++, remainingBits -= _childMaxBitSize)
             {
                 // we need to grow the old last child, and add new children
                 if (i == oldLastChildIndex)
                 {
                     // grow the old last child
-                    _children[i].Grow(_childMaxBitSize - _children[i].Length);
+                    children[i].Grow(_childMaxBitSize - children[i].Length);
                 }
                 else
                 {
                     // add new children
                     int childBitSize;
-                    if (i == _usedChildCount - 1)
+                    if (i == children.Length - 1)
                     {
                         // last child
                         childBitSize = remainingBits;
@@ -402,15 +376,15 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
                     int baseAddress = _baseAddress + i * _childMaxBitSize;
                     if (_childIsInternalNode)
                     {
-                        _children[i] = new ConcurrentBitmapInternalNode(i, baseAddress, _depth - 1, childBitSize, this, null);
+                        children[i] = new ConcurrentBitmapInternalNode(i, baseAddress, _depth - 1, childBitSize, this, null);
                     }
                     else
                     {
-                        _children[i] = new ConcurrentBitmapClusterNode(i, baseAddress, childBitSize, this);
+                        children[i] = new ConcurrentBitmapClusterNode(i, baseAddress, childBitSize, this);
                     }
                 }
             }
-            for (int i = FastMath.Max(oldLastChildIndex, 0); i < _usedChildCount && i < _children.Length; i++)
+            for (int i = FastMath.Max(oldLastChildIndex, 0); i < children.Length; i++)
             {
                 UpdateStateSnapshot(ref nodeStateSnapshot, i);
             }
@@ -428,9 +402,9 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
         Debug.Assert(_bitSize - removalSize >= 0);
 
         // check if we can simply shrink the last child, or if we need to remove children
-        int oldLastChildIndex = _usedChildCount - 1;
+        int oldLastChildIndex = _children.Length - 1;
         bool stateChanged = false;
-        ConcurrentBitmapNode lastChild = _children[oldLastChildIndex];
+        ConcurrentBitmapNode lastChild = _children.Array[oldLastChildIndex];
         if (lastChild.Length - removalSize > 0)
         {
             // we can simply shrink the last child
@@ -446,20 +420,21 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
         {
             // we need to remove children
             // how many children do we need to remove?
+            Span<ConcurrentBitmapNode> children = _children.AsSpan();
             int newTotalBitSize = _bitSize - removalSize;
             int newTotalChildCount = (newTotalBitSize + _childMaxBitSize - 1) / _childMaxBitSize;
-            int removedChildCount = _usedChildCount - newTotalChildCount;
+            int removedChildCount = children.Length - newTotalChildCount;
             Debug.Assert(removedChildCount > 0);
             int newLastChildIndex = newTotalChildCount - 1;
             int newLastChildSize = newTotalBitSize - newLastChildIndex * _childMaxBitSize;
             ConcurrentBitmap56 nodeStateSnapshot = ConcurrentBitmap56.VolatileRead(ref _nodeState);
-            for (int i = FastMath.Max(newLastChildIndex, 0); i < _usedChildCount && i < _children.Length; i++)
+            for (int i = FastMath.Max(newLastChildIndex, 0); i < children.Length; i++)
             {
                 // we need to shrink the old last child, and remove children
                 if (i == newLastChildIndex)
                 {
                     // shrink the old last child
-                    if (newLastChildSize < _children[i].Length && _children[i].Shrink(_children[i].Length - newLastChildSize))
+                    if (newLastChildSize < children[i].Length && children[i].Shrink(children[i].Length - newLastChildSize))
                     {
                         // state of the last child changed
                         UpdateStateSnapshot(ref nodeStateSnapshot, i);
@@ -468,12 +443,13 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
                 else
                 {
                     // remove children
-                    _children[i].Dispose();
-                    _children[i] = null!;
+                    children[i].Dispose();
+                    children[i] = null!;
                     nodeStateSnapshot = nodeStateSnapshot.ClearChildEmpty(i).ClearChildFull(i);
                 }
             }
-            _usedChildCount = newTotalChildCount;
+            bool success = _children.TryResize(newTotalChildCount, out _children);
+            Debug.Assert(success);
             stateChanged = true;
             ConcurrentBitmap56.VolatileWrite(ref _nodeState, nodeStateSnapshot, updateToken: true);
             if (newTotalChildCount == 1 && _parent is not ConcurrentBitmapNode)
@@ -493,9 +469,9 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
         int childStart = startIndex / _childMaxBitSize;
         int childStartOffset = startIndex % _childMaxBitSize;
         ConcurrentBitmap56 nodeStateSnapshot = ConcurrentBitmap56.VolatileRead(ref _nodeState);
-        for (int i = childStart; i < _usedChildCount && i < _children.Length; i++)
+        for (int i = childStart; i < _children.Length; i++)
         {
-            ConcurrentBitmapNode child = _children[i];
+            ConcurrentBitmapNode child = _children.Array[i];
             ConcurrentBitmap56 childState;
             if (i == childStart)
             {
@@ -529,9 +505,9 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
     public override int UnsafePopCount()
     {
         int count = 0;
-        for (int i = 0; i < _usedChildCount && i < _children.Length; i++)
+        for (int i = 0; i < _children.Length; i++)
         {
-            count += _children[i].UnsafePopCount();
+            count += _children.Array[i].UnsafePopCount();
         }
         return count;
     }
@@ -540,19 +516,19 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
     {
         sb.Append(' ', depth * 2)
             .Append($"InternalNode (Base offset: 0x{_baseAddress:x8}, ")
-            .Append(_usedChildCount)
+            .Append(_children.Length)
             .Append(" children, state: ")
             .Append(IsEmpty ? "Empty" : IsFull ? "Full" : "Partial")
             .Append(", internal node state: ")
             .Append(ConcurrentBitmap56.VolatileRead(ref _nodeState).ToString())
             .AppendLine(")");
 
-        for (int i = 0; i < _usedChildCount && i < _children.Length; i++)
+        for (int i = 0; i < _children.Length; i++)
         {
-            ConcurrentBitmapNode child = _children[i];
+            ConcurrentBitmapNode child = _children.Array[i];
             child.ToString(sb, depth + 1);
         }
-        for (int i = _usedChildCount; i < _children.Length; i++)
+        for (int i = _children.Length; i < _children.Array.Length; i++)
         {
             sb.Append(' ', (depth + 1) * 2)
                 .Append("Allocated node (reserved, not in use): ")
@@ -563,9 +539,9 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
 
     public override void Dispose()
     {
-        for (int i = 0; i < _usedChildCount && i < _children.Length; i++)
+        for (int i = 0; i < _children.Length; i++)
         {
-            ConcurrentBitmapNode child = _children[i];
+            ConcurrentBitmapNode child = _children.Array[i];
             child.Dispose();
         }
     }

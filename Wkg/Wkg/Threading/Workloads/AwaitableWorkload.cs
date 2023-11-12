@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using Wkg.Common.ThrowHelpers;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
@@ -15,6 +16,7 @@ using CommonFlags = WorkloadStatus.CommonFlags;
 /// </summary>
 public abstract class AwaitableWorkload : AbstractWorkloadBase
 {
+    private protected static readonly IQdisc _qdiscCompletionSentinel = new QdiscCompletionSentinel();
     private protected IQdisc? _qdisc;
 
     // result fields
@@ -389,5 +391,23 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
             }
         }
         return waitSuccessful;
+    }
+
+    private protected sealed class QdiscCompletionSentinel : IQdisc
+    {
+        private const string _message = "Internal error: Qdisc completion sentinel should never be accessed. This is a bug. Please report this issue.";
+        bool IQdisc.IsEmpty => ThrowHelper<bool>();
+        int IQdisc.Count => ThrowHelper<int>();
+        bool IQdisc.TryDequeueInternal(int workerId, bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload) => (workload = null) is null && ThrowHelper<bool>();
+        bool IQdisc.TryRemoveInternal(AwaitableWorkload workload) => ThrowHelper<bool>();
+        void IQdisc.InternalInitialize(INotifyWorkScheduled parentScheduler) => ThrowHelper<bool>();
+        void IQdisc.Complete() => ThrowHelper<bool>();
+        void IQdisc.OnWorkerTerminated(int workerId) => ThrowHelper<bool>();
+        bool IQdisc.TryPeekUnsafe(int workerId, [NotNullWhen(true)] out AbstractWorkloadBase? workload) => (workload = null) is null && ThrowHelper<bool>();
+        void IDisposable.Dispose() => ThrowHelper<bool>();
+
+        [DoesNotReturn]
+        [StackTraceHidden]
+        private static T ThrowHelper<T>() => throw new WorkloadSchedulingException(_message);
     }
 }

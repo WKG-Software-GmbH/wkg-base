@@ -13,7 +13,8 @@ public static class ArrayPool
     /// <inheritdoc cref="Std::ArrayPool{T}.Rent(int)"/>
     /// <remarks>
     /// Unlike <see cref="Std::ArrayPool{T}.Rent(int)"/>, this method returns a <see cref="PooledArray{T}"/> 
-    /// whose <see cref="PooledArray{T}.Length"/> property is guaranteed to be equal to the <paramref name="length"/> parameter.
+    /// whose <see cref="PooledArray{T}.Length"/> property is guaranteed to be equal to the <paramref name="length"/> parameter.<br/>
+    /// The underlying array may be larger than the specified length, but the <see cref="PooledArray{T}.Length"/> property will always be equal to the specified length.
     /// </remarks>
     public static PooledArray<T> Rent<T>(int length) => new(Std::ArrayPool<T>.Shared.Rent(length), length);
 

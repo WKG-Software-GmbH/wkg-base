@@ -88,6 +88,5 @@ public abstract class AbstractClasslessWorkloadFactory<THandle> : WorkloadFactor
         return workload;
     }
 
-    private protected virtual void ScheduleCore(AbstractWorkloadBase workload) =>
-        _root.Enqueue(workload);
+    private protected virtual void ScheduleCore(AbstractWorkloadBase workload) => RootRef.Enqueue(workload);
 }

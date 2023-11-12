@@ -306,6 +306,7 @@ public abstract class AbstractWorkloadBase
         void IQdisc.Complete() => ThrowHelper<bool>();
         void IQdisc.OnWorkerTerminated(int workerId) => ThrowHelper<bool>();
         bool IQdisc.TryPeekUnsafe(int workerId, [NotNullWhen(true)] out AbstractWorkloadBase? workload) => (workload = null) is null && ThrowHelper<bool>();
+        void IDisposable.Dispose() => ThrowHelper<bool>();
 
         [DoesNotReturn]
         [StackTraceHidden]

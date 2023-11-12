@@ -18,6 +18,7 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
     private bool disposedValue;
     // this class is very hot, as it's used by workload scheduling
     // we use an unmanaged array to avoid bound checking and the overhead of a managed array
+    // DO NOT MARK THIS FIELD AS READONLY - it is a mutable struct
     private Unmanaged<ConcurrentBitmap56State> _segments;
     private int _usedSegmentCount;
     private int _lastSegmentSize;

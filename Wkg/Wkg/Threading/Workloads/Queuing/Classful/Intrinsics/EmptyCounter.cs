@@ -12,6 +12,8 @@ internal class EmptyCounter
     // we use a single 64 bit value to allow for atomic operations on both parts
     private ulong _state;
 
+    public void SetEmpty() => Interlocked.Exchange(ref _state, ulong.MaxValue);
+
     public void Reset()
     {
         ulong state, newState;

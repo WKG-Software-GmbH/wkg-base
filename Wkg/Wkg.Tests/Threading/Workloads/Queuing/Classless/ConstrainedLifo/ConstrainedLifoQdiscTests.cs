@@ -184,5 +184,6 @@ public class ConstrainedLifoQdiscTests
 
 file readonly struct DummyScheduler : INotifyWorkScheduled
 {
+    void INotifyWorkScheduled.DisposeRoot() => Pass();
     void INotifyWorkScheduled.OnWorkScheduled() => Pass();
 }

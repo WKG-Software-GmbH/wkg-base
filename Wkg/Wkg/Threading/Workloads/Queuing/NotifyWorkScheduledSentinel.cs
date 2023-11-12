@@ -20,4 +20,6 @@ public class NotifyWorkScheduledSentinel : INotifyWorkScheduled
         DebugLog.WriteException(exception, LogWriter.Blocking);
         throw exception;
     }
+
+    void INotifyWorkScheduled.DisposeRoot() => Pass();
 }

@@ -185,9 +185,10 @@ public abstract class AbstractClassfulWorkloadFactory<THandle> : AbstractClassle
 
     private protected virtual void ScheduleCore(THandle handle, AbstractWorkloadBase workload)
     {
-        if (_root.Handle.Equals(handle))
+        IClasslessQdisc<THandle> root = RootRef;
+        if (root.Handle.Equals(handle))
         {
-            _root.Enqueue(workload);
+            root.Enqueue(workload);
         }
         else
         {

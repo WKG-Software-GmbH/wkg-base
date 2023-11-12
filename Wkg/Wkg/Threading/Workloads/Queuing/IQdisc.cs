@@ -1,10 +1,9 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Wkg.Threading.Workloads.Configuration;
-using Wkg.Threading.Workloads.Scheduling;
 
 namespace Wkg.Threading.Workloads.Queuing;
 
-public interface IQdisc
+public interface IQdisc : IDisposable
 {
     internal void InternalInitialize(INotifyWorkScheduled parentScheduler);
 

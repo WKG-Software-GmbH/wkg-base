@@ -123,11 +123,14 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
             {
                 SetCanceledResultUnsafe();
             }
-            InternalRunContinuations(-1);
         }
         else
         {
             DebugLog.WriteDiagnostic($"{this}: Failed to force internal cancellation. Status is '{Status}'.", LogWriter.Blocking);
+        }
+        if (!ContinuationsInvoked)
+        {
+            InternalRunContinuations(-1);
         }
     }
 
@@ -245,7 +248,7 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
     /// Attempts to unbind the workload from the specified qdisc. 
     /// This method requires that this workload has already been dequeued from the qdisc.
     /// </summary>
-    private void UnbindQdiscUnsafe() => Volatile.Write(ref _qdisc, _qdiscCompletionSentinel);
+    internal void UnbindQdiscUnsafe() => Volatile.Write(ref _qdisc, _qdiscCompletionSentinel);
 
     internal override void InternalRunContinuations(int workerId)
     {

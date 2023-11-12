@@ -11,7 +11,7 @@ public class ClasslessWorkloadFactory<THandle> : AbstractClasslessWorkloadFactor
     {
     }
 
-    public IClasslessQdisc<THandle> Root => _root;
+    public IClasslessQdisc<THandle> Root => RootRef;
 
     static ClasslessWorkloadFactory<THandle> IWorkloadFactory<THandle, ClasslessWorkloadFactory<THandle>>
         .Create(IClasslessQdisc<THandle> root, AnonymousWorkloadPoolManager? pool, WorkloadContextOptions? options) => 

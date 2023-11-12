@@ -12,7 +12,7 @@ internal class MetricsQdisc<THandle> : ClassfulQdisc<THandle>, IClassfulQdisc<TH
     private readonly IVirtualTimeTable _timeTable;
     private bool _initialized;
 
-    public MetricsQdisc(THandle handle, int maximumConcurrency, int maxSampleCount, bool usePrecise) : base(handle)
+    internal MetricsQdisc(THandle handle, int maximumConcurrency, int maxSampleCount, bool usePrecise) : base(handle)
     {
         _timeTable = usePrecise
             ? VirtualTimeTable.CreatePrecise(maximumConcurrency, 32, maxSampleCount)
@@ -108,4 +108,11 @@ internal class MetricsQdisc<THandle> : ClassfulQdisc<THandle>, IClassfulQdisc<TH
     protected override bool TryRemoveInternal(AwaitableWorkload workload) => _innerQdisc.TryRemoveInternal(workload);
     protected override bool CanClassify(object? state) => _innerQdisc.CanClassify(state);
     protected override bool TryFindRoute(THandle handle, ref RoutingPath<THandle> path) => _innerQdisc.TryFindRoute(handle, ref path);
+
+    protected override void DisposeManaged()
+    {
+        _innerQdisc.Complete();
+        _innerQdisc.Dispose();
+        base.DisposeManaged();
+    }
 }

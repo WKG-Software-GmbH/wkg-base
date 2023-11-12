@@ -9,14 +9,9 @@ namespace Wkg.Threading.Workloads.Queuing.Classless.Fifo;
 /// A qdisc that implements the First-In-First-Out (FIFO) scheduling algorithm.
 /// </summary>
 /// <typeparam name="THandle">The type of the handle.</typeparam>
-internal sealed class FifoQdisc<THandle> : ClasslessQdisc<THandle>, IClasslessQdisc<THandle> where THandle : unmanaged
+internal sealed class FifoQdisc<THandle>(THandle handle) : ClasslessQdisc<THandle>(handle), IClasslessQdisc<THandle> where THandle : unmanaged
 {
-    private readonly ConcurrentQueue<AbstractWorkloadBase> _queue;
-
-    public FifoQdisc(THandle handle) : base(handle)
-    {
-        _queue = new ConcurrentQueue<AbstractWorkloadBase>();
-    }
+    private readonly ConcurrentQueue<AbstractWorkloadBase> _queue = new();
 
     /// <inheritdoc/>
     public override bool IsEmpty => _queue.IsEmpty;

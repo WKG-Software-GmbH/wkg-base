@@ -8,15 +8,9 @@ namespace Wkg.Threading.Workloads.Scheduling;
 
 using CommonFlags = WorkloadStatus.CommonFlags;
 
-internal class WorkloadSchedulerWithDI : WorkloadScheduler
+internal class WorkloadSchedulerWithDI(IQdisc rootQdisc, int maximumConcurrencyLevel, IWorkloadServiceProviderFactory serviceProviderFactory) : WorkloadScheduler(rootQdisc, maximumConcurrencyLevel)
 {
-    private readonly IWorkloadServiceProviderFactory _serviceProviderFactory;
-
-    public WorkloadSchedulerWithDI(IQdisc rootQdisc, int maximumConcurrencyLevel, IWorkloadServiceProviderFactory serviceProviderFactory) 
-        : base(rootQdisc, maximumConcurrencyLevel)
-    {
-        _serviceProviderFactory = serviceProviderFactory;
-    }
+    private readonly IWorkloadServiceProviderFactory _serviceProviderFactory = serviceProviderFactory;
 
     protected override void WorkerLoop(object? state)
     {
@@ -25,13 +19,17 @@ internal class WorkloadSchedulerWithDI : WorkloadScheduler
 
         using IWorkloadServiceProvider serviceProvider = _serviceProviderFactory.GetInstance();
         bool previousExecutionFailed = false;
-        while (TryDequeueOrExitSafely(ref workerId, previousExecutionFailed, out AbstractWorkloadBase? workload))
+        // check for disposal before and after each dequeue (volatile read)
+        AbstractWorkloadBase? workload = null;
+        int previousWorkerId = workerId;
+        while (!_disposed && TryDequeueOrExitSafely(ref workerId, previousExecutionFailed, out workload) && !_disposed)
         {
+            previousWorkerId = workerId;
             workload.RegisterServiceProvider(serviceProvider);
             previousExecutionFailed = !workload.TryRunSynchronously();
             Debug.Assert(workload.Status.IsOneOf(CommonFlags.Completed));
             workload.InternalRunContinuations(workerId);
         }
-        DebugLog.WriteInfo($"Terminated worker with previous ID {workerId}.", LogWriter.Blocking);
+        OnWorkerTerminated(ref workerId, previousWorkerId, workload);
     }
 }

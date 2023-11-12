@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
@@ -14,6 +15,8 @@ internal class WorkloadScheduler : INotifyWorkScheduled
 {
     private readonly IQdisc _rootQdisc;
     private readonly int _maximumConcurrencyLevel;
+    protected readonly ManualResetEventSlim _fullyDisposed = new(false);
+    protected volatile bool _disposed;
 
     // do not mark as readonly, this struct is mutable
     // tracks the current degree of parallelism and the worker ids that are currently in use
@@ -38,11 +41,10 @@ internal class WorkloadScheduler : INotifyWorkScheduled
     void INotifyWorkScheduled.OnWorkScheduled()
     {
         DebugLog.WriteDiagnostic("Workload scheduler was poked.", LogWriter.Blocking);
-
         // this atomic clamped increment is committing, if we have room for another worker, we must start one
         // we are not allowed to abort the operation, because that could lead to starvation
         WorkerStateSnapshot state = _state.ClaimWorkerSlot();
-        if (state.CallerClaimedWorkerSlot)
+        if (!_disposed && state.CallerClaimedWorkerSlot)
         {
             // we have room for another worker, so we'll start one
             DebugLog.WriteDiagnostic($"Successfully queued new worker {state.CallerWorkerId}. Worker count incremented: {state.WorkerCount - 1} -> {state.WorkerCount}.", LogWriter.Blocking);
@@ -68,13 +70,45 @@ internal class WorkloadScheduler : INotifyWorkScheduled
         int workerId = (int)state!;
         DebugLog.WriteInfo($"Started worker {workerId}", LogWriter.Blocking);
         bool previousExecutionFailed = false;
-        while (TryDequeueOrExitSafely(ref workerId, previousExecutionFailed, out AbstractWorkloadBase? workload))
+        // check for disposal before and after each dequeue (volatile read)
+        AbstractWorkloadBase? workload = null;
+        int previousWorkerId = workerId;
+        while (!_disposed && TryDequeueOrExitSafely(ref workerId, previousExecutionFailed, out workload) && !_disposed)
         {
+            previousWorkerId = workerId;
             previousExecutionFailed = !workload.TryRunSynchronously();
             Debug.Assert(workload.Status.IsOneOf(CommonFlags.Completed));
             workload.InternalRunContinuations(workerId);
         }
-        DebugLog.WriteInfo($"Terminated worker with previous ID {workerId}.", LogWriter.Blocking);
+        OnWorkerTerminated(ref workerId, previousWorkerId, workload);
+    }
+
+    protected void OnWorkerTerminated(ref int workerId, int previousWorkerId, AbstractWorkloadBase? workload)
+    {
+        if (workerId != -1)
+        {
+            previousWorkerId = workerId;
+            _state.ResignWorker(ref workerId);
+        }
+        Debug.Assert(workerId == -1);
+        if (_disposed)
+        {
+            if (workload?.IsCompleted is false)
+            {
+                // if we dequeued a workload, but the scheduler was disposed, we need to abort the workload
+                workload.InternalAbort(ExceptionDispatchInfo.SetCurrentStackTrace(new ObjectDisposedException(nameof(WorkloadSchedulerWithDI))));
+                DebugLog.WriteDiagnostic($"Aborted workload {workload} due to scheduler disposal.", LogWriter.Blocking);
+            }
+            if (_state.VolatileWorkerCount <= 0)
+            {
+                _fullyDisposed.Set();
+            }
+            DebugLog.WriteInfo($"Scheduler was disposed. Terminated worker {previousWorkerId}.", LogWriter.Blocking);
+        }
+        else
+        {
+            DebugLog.WriteInfo($"Terminated worker {previousWorkerId}.", LogWriter.Blocking);
+        }
     }
 
     /// <summary>
@@ -90,7 +124,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
     protected bool TryDequeueOrExitSafely(ref int workerId, bool previousExecutionFailed, [NotNullWhen(true)] out AbstractWorkloadBase? workload)
     {
         DebugLog.WriteDiagnostic($"Worker {workerId} is attempting to dequeue a workload.", LogWriter.Blocking);
-        // race against scheduling threads
+        // race against scheduling threads (unless we are being disposed)
         while (true)
         {
             if (_rootQdisc.TryDequeueInternal(workerId, previousExecutionFailed, out workload))
@@ -105,47 +139,73 @@ internal class WorkloadScheduler : INotifyWorkScheduled
             // before we release the worker slot, we must allow the qdiscs to clean up worker-local states
             _rootQdisc.OnWorkerTerminated(workerId);
             // now we can release the worker slot
-            _state.ResignWorker(workerId);
+            int previousWorkerId = workerId;
+            _state.ResignWorker(ref workerId);
             // re-sample the queue
-            DebugLog.WriteDiagnostic($"Worker holding ID {workerId} previously found no tasks, resampling root qdisc to ensure true emptiness.", LogWriter.Blocking);
+            DebugLog.WriteDiagnostic($"Worker holding ID {previousWorkerId} previously found no tasks, resampling root qdisc to ensure true emptiness.", LogWriter.Blocking);
             // it is the responsibility of the qdisc implementation to ensure that this operation is thread-safe
-            if (_rootQdisc.IsEmpty)
+            if (_disposed || _rootQdisc.IsEmpty)
             {
-                // no more tasks, exit
-                DebugLog.WriteDebug($"Worker holding ID {workerId} previously found no tasks, exiting.", LogWriter.Blocking);
+                if (_disposed)
+                {
+                    // we are being disposed, exit
+                    DebugLog.WriteDebug($"Worker holding ID {previousWorkerId} previously found no tasks, exiting due to disposal.", LogWriter.Blocking);
+                }
+                else
+                {
+                    // no more tasks, exit
+                    DebugLog.WriteDebug($"Worker holding ID {previousWorkerId} previously found no tasks, exiting.", LogWriter.Blocking);
+                }
                 return false;
             }
-            DebugLog.WriteDiagnostic($"Worker holding ID {workerId} previously was interrupted while exiting due to new scheduling activity. Attempting to restore worker count.", LogWriter.Blocking);
+            DebugLog.WriteDiagnostic($"Worker holding ID {previousWorkerId} previously was interrupted while exiting due to new scheduling activity. Attempting to restore worker count.", LogWriter.Blocking);
             // failure case: someone else scheduled a task, possibly before we decremented the worker count,
             // so we could lose a worker here attempt abort the exit by re-claiming the worker slot
             // we could be racing against a scheduling thread, or any other worker that is also trying to exit
             // we attempt to atomically restore the worker count to the previous value and claim a new worker slot
             // note that restoring the worker count may result in a different worker id being assigned to us
             WorkerStateSnapshot state = _state.ClaimWorkerSlot();
-            if (!state.CallerClaimedWorkerSlot)
+            if (_disposed || !state.CallerClaimedWorkerSlot)
             {
-                // somehow someone else comitted to creating a new worker, that's unfortunate due to the scheduling overhead
-                // but they are committed now, so we must give up and exit
-                DebugLog.WriteDebug($"Worker holding ID {workerId} previously is exiting after encountering maximum concurrency level {_maximumConcurrencyLevel} during restore attempt.", LogWriter.Blocking);
+                if (_disposed)
+                {
+                    // we are being disposed, exit
+                    DebugLog.WriteDebug($"Worker holding ID {previousWorkerId} previously found no tasks, exiting due to disposal.", LogWriter.Blocking);
+                }
+                else
+                {
+                    // somehow someone else comitted to creating a new worker, that's unfortunate due to the scheduling overhead
+                    // but they are committed now, so we must give up and exit
+                    DebugLog.WriteDebug($"Worker holding ID {previousWorkerId} previously is exiting after encountering maximum concurrency level {_maximumConcurrencyLevel} during restore attempt.", LogWriter.Blocking);
+                }
                 return false;
             }
-            DebugLog.WriteDebug($"Worker holding ID {workerId} previously is resuming with new ID {state.CallerWorkerId} after successfully restoring worker count.", LogWriter.Blocking);
             workerId = state.CallerWorkerId;
+            DebugLog.WriteDebug($"Worker holding ID {previousWorkerId} previously is resuming with new ID {workerId} after successfully restoring worker count.", LogWriter.Blocking);
         }
     }
 
-    private protected struct WorkerState
+    void INotifyWorkScheduled.DisposeRoot()
     {
-        private readonly ConcurrentBag<int> _workerIds;
-        private readonly int _maximumConcurrencyLevel;
-        private int _currentDegreeOfParallelism;
-
-        public WorkerState(int maximumConcurrencyLevel)
+        DebugLog.WriteInfo($"Disposing workload scheduler with root qdisc {_rootQdisc}...", LogWriter.Blocking);
+        _disposed = true;
+        // it would be increadibly bad if we started waiting before we set the disposed flag
+        Thread.MemoryBarrier();
+        DebugLog.WriteInfo($"Waiting for all workers to terminate...", LogWriter.Blocking);
+        if (_state.VolatileWorkerCount > 0)
         {
-            _maximumConcurrencyLevel = maximumConcurrencyLevel;
-            _workerIds = new ConcurrentBag<int>(Enumerable.Range(0, maximumConcurrencyLevel));
-            _currentDegreeOfParallelism = 0;
+            _fullyDisposed.Wait();
         }
+        DebugLog.WriteInfo($"All workers terminated.", LogWriter.Blocking);
+    }
+
+    private protected struct WorkerState(int maximumConcurrencyLevel)
+    {
+        private readonly ConcurrentBag<int> _workerIds = new(Enumerable.Range(0, maximumConcurrencyLevel));
+        private readonly int _maximumConcurrencyLevel = maximumConcurrencyLevel;
+        private int _currentDegreeOfParallelism = 0;
+
+        public int VolatileWorkerCount => Volatile.Read(ref _currentDegreeOfParallelism);
 
         public WorkerStateSnapshot ClaimWorkerSlot()
         {
@@ -166,7 +226,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
             return new WorkerStateSnapshot(workerId, original);
         }
 
-        public void ResignWorker(int workerId)
+        public void ResignWorker(ref int workerId)
         {
             DebugLog.WriteDiagnostic($"Resigning worker {workerId}.", LogWriter.Blocking);
             // pre-decrement, so we start at the maximum value - 1
@@ -175,22 +235,17 @@ internal class WorkloadScheduler : INotifyWorkScheduled
             int[] workerIds;
             Debug.Assert(workerCount >= 0);
             Debug.Assert((workerIds = _workerIds.ToArray()) != null && workerIds.Length == workerIds.Distinct().Count());
+            workerId = -1;
         }
     }
 
     [StructLayout(LayoutKind.Explicit, Size = sizeof(ulong))]
-    private protected readonly ref struct WorkerStateSnapshot
+    private protected readonly ref struct WorkerStateSnapshot(int callerWorkerId, int workerCount)
     {
         [FieldOffset(0)]
-        public readonly int CallerWorkerId;
+        public readonly int CallerWorkerId = callerWorkerId;
         [FieldOffset(4)]
-        public readonly int WorkerCount;
-
-        public WorkerStateSnapshot(int callerWorkerId, int workerCount)
-        {
-            CallerWorkerId = callerWorkerId;
-            WorkerCount = workerCount;
-        }
+        public readonly int WorkerCount = workerCount;
 
         public bool CallerClaimedWorkerSlot => CallerWorkerId != -1;
     }

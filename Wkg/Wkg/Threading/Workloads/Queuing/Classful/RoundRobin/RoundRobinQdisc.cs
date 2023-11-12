@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Wkg.Common.Extensions;
 using Wkg.Internals.Diagnostic;
@@ -521,6 +522,20 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
         }
 
         base.OnWorkerTerminated(workerId);
+    }
+
+    protected override void DisposeManaged()
+    {
+        _childrenLock.Dispose();
+        IChildClassification<THandle>[] children = Interlocked.Exchange(ref _children, Array.Empty<IChildClassification<THandle>>());
+        foreach (IChildClassification<THandle> child in children)
+        {
+            child.Qdisc.Complete();
+            child.Qdisc.Dispose();
+        }
+        _localLasts.AsSpan().Clear();
+
+        base.DisposeManaged();
     }
 
     /// <inheritdoc/>

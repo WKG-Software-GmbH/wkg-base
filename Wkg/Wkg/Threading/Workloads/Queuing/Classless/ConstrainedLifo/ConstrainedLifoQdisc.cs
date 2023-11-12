@@ -5,12 +5,8 @@ using Wkg.Threading.Workloads.Queuing.Classless.ConstrainedFifo;
 
 namespace Wkg.Threading.Workloads.Queuing.Classless.ConstrainedLifo;
 
-internal sealed class ConstrainedLifoQdisc<THandle> : ConstrainedFifoQdisc<THandle>, IClasslessQdisc<THandle> where THandle : unmanaged
+internal sealed class ConstrainedLifoQdisc<THandle>(THandle handle, int maxCount) : ConstrainedFifoQdisc<THandle>(handle, maxCount), IClasslessQdisc<THandle> where THandle : unmanaged
 {
-    public ConstrainedLifoQdisc(THandle handle, int maxCount) : base(handle, maxCount)
-    {
-    }
-
     protected override bool TryDequeueInternal(int workerId, bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload)
     {
         // the only between this stack and the queue is that we dequeue from the end of the array

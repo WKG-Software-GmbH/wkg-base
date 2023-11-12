@@ -2,6 +2,7 @@
 using ConsoleApp1;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using Wkg.Collections.Concurrent;
 using Wkg.Logging;
 using Wkg.Logging.Configuration;
 using Wkg.Logging.Generators;
@@ -12,6 +13,7 @@ using Wkg.Threading.Workloads;
 using Wkg.Threading.Workloads.Configuration;
 using Wkg.Threading.Workloads.DependencyInjection.Implementations;
 using Wkg.Threading.Workloads.Factories;
+using Wkg.Threading.Workloads.Queuing.Classful.Fair;
 using Wkg.Threading.Workloads.Queuing.Classful.Metrics;
 using Wkg.Threading.Workloads.Queuing.Classful.RoundRobin;
 using Wkg.Threading.Workloads.Queuing.Classless.ConstrainedFifo;
@@ -22,12 +24,12 @@ using Wkg.Threading.Workloads.Queuing.Classless.Lifo;
 Log.UseLogger(Logger.Create(LoggerConfiguration.Create()
     //.AddSink<ColoredThreadBasedConsoleSink>()
     .AddSink<ColoredConsoleSink>()
-    .SetMinimumLogLevel(LogLevel.Debug)
+    .SetMinimumLogLevel(LogLevel.Diagnostic)
     .UseEntryGenerator<TracingLogEntryGenerator>()
     .RegisterMainThread(Thread.CurrentThread)
     .UseDefaultLogWriter(LogWriter.Blocking)));
 
-ClassfulWorkloadFactory<QdiscType> clubmappFactory = WorkloadFactoryBuilder.Create<QdiscType>()
+using (ClassfulWorkloadFactory<QdiscType> clubmappFactory = WorkloadFactoryBuilder.Create<QdiscType>()
     // the root scheduler is allowed to run up to 4 workers at the same time
     .UseMaximumConcurrency(4)
     // async/await continuations will run in the same async context as the scheduling thread
@@ -49,68 +51,64 @@ ClassfulWorkloadFactory<QdiscType> clubmappFactory = WorkloadFactoryBuilder.Crea
         .AddClasslessChild<Fifo>(QdiscType.Fifo)
         // the other child scheduler will dequeue workloads in a Last In First Out manner
         .AddClasslessChild<ConstrainedLifo>(QdiscType.Lifo, qdisc => qdisc
-            .WithCapacity(16)));
-
-await clubmappFactory.ScheduleAsync(QdiscType.Fifo, flag =>
+            .WithCapacity(16))))
 {
-    Log.WriteInfo("Starting background work...");
-    for (int i = 0; i < 10; i++)
+    await clubmappFactory.ScheduleAsync(QdiscType.Fifo, flag =>
     {
-        flag.ThrowIfCancellationRequested();
-        Log.WriteDiagnostic($"doing work ...");
-        Thread.Sleep(100);
-    }
-    Log.WriteInfo("Done with background work.");
-});
+        Log.WriteInfo("Starting background work...");
+        for (int i = 0; i < 10; i++)
+        {
+            flag.ThrowIfCancellationRequested();
+            Log.WriteDiagnostic($"doing work ...");
+            Thread.Sleep(100);
+        }
+        Log.WriteInfo("Done with background work.");
+    });
+}
 
-ClassfulWorkloadFactoryWithDI<int> factory = WorkloadFactoryBuilder.Create<int>()
-    .UseMaximumConcurrency(16)
+using ClassfulWorkloadFactoryWithDI<int> factory = WorkloadFactoryBuilder.Create<int>()
+    .UseMaximumConcurrency(4)
     .FlowExecutionContextToContinuations()
     .RunContinuationsOnCapturedContext()
     .UseDependencyInjection<PooledWorkloadServiceProviderFactory>(services => services
         .AddService<IMyService, MyService>(() => new MyService())
         .AddService(() => new MyService()))
     .UseAnonymousWorkloadPooling(poolSize: 64)
-    .UseClassfulRoot<Metrics>(1, metrics => metrics
-        .ConfigureQdisc(metrics => metrics
-            .UseMaxSampleCount(-1)
-            .UsePreciseMeasurements(false))
-        .AddClassfulChild<RoundRobin>(1, roundRobinRootBuilder => roundRobinRootBuilder
-            .ConfigureClassificationPredicates(classifier => classifier
-                .AddPredicate<State>(state => state.QdiscType == QdiscType.RoundRobin))
-            .ConfigureQdisc(rootQdisc => rootQdisc.WithLocalQueue<Lifo>())
-            .AddClasslessChild<Fifo>(2, classifier => classifier
-                .AddPredicate<State>(state => state.QdiscType == QdiscType.Fifo)
-                .AddPredicate<int>(i => (i & 1) == 0))
-            .AddClassfulChild<RoundRobin>(3, child => child
-                .AddClassfulChild<RoundRobin>(10, child => child
-                    .AddClassfulChild<RoundRobin>(11, child => child
-                        .AddClassfulChild<RoundRobin>(12, child => child
-                            .AddClassfulChild<RoundRobin>(13, child => child
-                                .AddClasslessChild<Lifo>(14))))))
-                .AddClasslessChild<Lifo>(4)
-                .AddClasslessChild<Fifo>(5)
-                .AddClasslessChild<Lifo>(6)
-            .AddClasslessChild<Lifo>(7, classifier => classifier
-                .AddPredicate<State>(state => state.QdiscType == QdiscType.Lifo)
-                .AddPredicate<int>(i => (i & 1) == 1))
-            .AddClasslessChild<ConstrainedFifo>(8, qdisc => qdisc
-                .WithCapacity(8))));
+    .UseClassfulRoot<Fair>(1, root => root
+        .ConfigureClassificationPredicates(classifier => classifier
+            .AddPredicate<State>(state => state.QdiscType == QdiscType.RoundRobin))
+        .ConfigureQdisc(fairQdisc => fairQdisc
+            .WithLocalQueue<Fifo>()
+            .AssumeMaximimNumberOfDistinctPayloads(16)
+            .PreferFairness(PreferredFairness.ShortTerm)
+            .SetMeasurementSampleLimit(1000)
+            .UsePreciseMeasurements(false)
+            .UseSchedulerTimeModel(VirtualTimeModel.WorstCase)
+            .UseExecutionTimeModel(VirtualTimeModel.Average))
+        .AddClasslessChild<Fifo>(2, classifier => classifier
+            .AddPredicate<State>(state => state.QdiscType == QdiscType.Fifo)
+            .AddPredicate<int>(i => (i & 1) == 0))
+        .AddClasslessChild<Lifo>(14)
+        .AddClasslessChild<Lifo>(7, classifier => classifier
+            .AddPredicate<State>(state => state.QdiscType == QdiscType.Lifo)
+            .AddPredicate<int>(i => (i & 1) == 1))
+        .AddClasslessChild<ConstrainedFifo>(8, qdisc => qdisc
+            .WithCapacity(8)));
 
-List<int> myData = Enumerable.Range(0, 10000).ToList();
-int sum = myData.Sum();
-Log.WriteInfo($"Sum: {sum}");
+//List<int> myData = Enumerable.Range(0, 10000).ToList();
+//int sum = myData.Sum();
+//Log.WriteInfo($"Sum: {sum}");
 
-List<int> result = await factory.TransformAllAsync(myData, (data, cancellationFlag) => data * 10);
+//List<int> result = await factory.TransformAllAsync(myData, (data, cancellationFlag) => data * 10);
 
-Log.WriteInfo($"Result Sum 1: {result.Select(i => (long)i).Sum()}");
-await Task.Delay(2500);
-Log.WriteInfo($"Sum: {sum}");
+//Log.WriteInfo($"Result Sum 1: {result.Select(i => (long)i).Sum()}");
+//await Task.Delay(2500);
+//Log.WriteInfo($"Sum: {sum}");
 
-List<int> resultClassified = await factory.ClassifyAndTransformAllAsync(myData, (data, cancellationFlag) => data * 10);
+//List<int> resultClassified = await factory.ClassifyAndTransformAllAsync(myData, (data, cancellationFlag) => data * 10);
 
-Log.WriteInfo($"Result Sum 2: {resultClassified.Select(i => (long)i).Sum()}");
-await Task.Delay(2500);
+//Log.WriteInfo($"Result Sum 2: {resultClassified.Select(i => (long)i).Sum()}");
+//await Task.Delay(2500);
 
 CancellationTokenSource cts = new();
 Workload workload = factory.ScheduleAsync(flag =>
@@ -219,7 +217,7 @@ for (int times = 0; times < 2; times++)
             workloads2[i] = factory.ClassifyAsync(lifoState, _ => workloads2[4].TryCancel());
             continue;
         }
-        workloads2[i] = factory.ClassifyAsync(lifoState, DoStuff);
+        workloads2[i] = factory.ClassifyAsync(lifoState, DoStuffShort);
     }
 
     factory.Classify(fifoState, () =>
@@ -243,7 +241,7 @@ Log.WriteInfo("Waiting for all workloads to complete...");
 await Workload.WhenAll(wls);
 Log.WriteFatal("DONE WITH TESTS");
 
-ClasslessWorkloadFactory<int> simpleFactory = WorkloadFactoryBuilder.Create<int>()
+using ClasslessWorkloadFactory<int> simpleFactory = WorkloadFactoryBuilder.Create<int>()
     .UseMaximumConcurrency(16)
     .FlowExecutionContextToContinuations()
     .RunContinuationsOnCapturedContext()
@@ -264,6 +262,17 @@ static void DoStuff(CancellationFlag cancellationFlag)
 {
     Log.WriteInfo("Doing stuff...");
     for (int i = 0; i < 10; i++)
+    {
+        cancellationFlag.ThrowIfCancellationRequested();
+        Thread.Sleep(100);
+    }
+    Log.WriteInfo("Done doing stuff.");
+}
+
+static void DoStuffShort(CancellationFlag cancellationFlag)
+{
+    Log.WriteInfo("Doing stuff...");
+    for (int i = 0; i < 5; i++)
     {
         cancellationFlag.ThrowIfCancellationRequested();
         Thread.Sleep(100);

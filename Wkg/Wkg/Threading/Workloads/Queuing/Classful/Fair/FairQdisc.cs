@@ -28,7 +28,6 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
     private readonly VirtualTimeModel _executionTimeModel;
 
     private uint _generationCounter;
-    // TODO: dispose ConcurrentBitmap (unmanaged resources)
     private readonly ConcurrentBitmap _hasDataMap;
     private volatile ChildQdiscState[] _childStates;
 
@@ -180,7 +179,7 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
                             VirtualTimeModel.WorstCase => latestTimingInfo.WorstCaseAverageExecutionTime,
                             VirtualTimeModel.Average or _ => latestTimingInfo.AverageExecutionTime,
                         };
-                        DebugLog.WriteDiagnostic($"{this}: scheduling workload {workload} with virtual execution time {state.VirtualExecutionTime} and expected execution time {assumedExecutionTime}.", LogWriter.Blocking);
+                        DebugLog.WriteDiagnostic($"{this}: dequeued workload {workload} with virtual execution time {state.VirtualExecutionTime} and expected execution time {assumedExecutionTime}.", LogWriter.Blocking);
                         double lastVirtualFinishTime = virtualBaseTime + assumedExecutionTime;
                         Volatile.Write(ref child.LastVirtualFinishTimeRef, lastVirtualFinishTime);
                         // we just changed the virtual finish time of a child, so we need to increment the generation counter
@@ -712,6 +711,21 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
     }
 
     protected override bool TryRemoveInternal(AwaitableWorkload workload) => false;
+
+    protected override void DisposeManaged()
+    {
+        // by contract, we should be the only thread accessing the qdisc at this point
+        // so we don't need to acquire any locks
+        _schedulerLock.Dispose();
+        _childModificationLock.Dispose();
+        _hasDataMap.Dispose();
+        ChildQdiscState[] childStates = Interlocked.Exchange(ref _childStates, Array.Empty<ChildQdiscState>());
+        foreach (ChildQdiscState childState in childStates)
+        {
+            childState.Child.Qdisc.Complete();
+            childState.Child.Qdisc.Dispose();
+        }
+    }
 
     [DebuggerDisplay("Qdisc: {Child.Qdisc}, LVFT: {_lastVirtualFinishTime}, Candidate: {_candidate}")]
     private class ChildQdiscState

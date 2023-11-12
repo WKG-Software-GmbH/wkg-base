@@ -1,4 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Runtime.ExceptionServices;
+using Wkg.Common.Extensions;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
 using Wkg.Threading.Workloads.Scheduling;
@@ -13,6 +15,7 @@ public abstract class ClasslessQdisc<THandle> : IClasslessQdisc<THandle> where T
 {
     private readonly THandle _handle;
     private INotifyWorkScheduled _parentScheduler;
+    private protected bool _disposedValue;
 
     protected ClasslessQdisc(THandle handle)
     {
@@ -34,7 +37,24 @@ public abstract class ClasslessQdisc<THandle> : IClasslessQdisc<THandle> where T
     /// <inheritdoc/>
     public abstract int Count { get; }
 
-    internal bool IsCompleted => ReferenceEquals(ParentScheduler, NotifyWorkScheduledSentinel.Completed);
+    bool IClasslessQdisc.IsCompleted => ReferenceEquals(ParentScheduler, NotifyWorkScheduledSentinel.Completed);
+
+    void IClasslessQdisc.AssertNotCompleted()
+    {
+        if (this.To<IClasslessQdisc>().IsCompleted)
+        {
+            ThrowCompleted();
+        }
+    }
+
+    [DoesNotReturn]
+    private void ThrowCompleted()
+    {
+        ObjectDisposedException exception = new(ToString(), "This qdisc was already marked as completed and is no longer accepting new workloads.");
+        ExceptionDispatchInfo.SetCurrentStackTrace(exception);
+        DebugLog.WriteException(exception, LogWriter.Blocking);
+        throw exception;
+    }
 
     /// <summary>
     /// Called after this qdisc has been bound to a parent scheduler.
@@ -44,7 +64,7 @@ public abstract class ClasslessQdisc<THandle> : IClasslessQdisc<THandle> where T
 
     void IQdisc.InternalInitialize(INotifyWorkScheduled parentScheduler)
     {
-        DebugLog.WriteDiagnostic($"Initializing qdisc {GetType().Name} ({Handle}) with parent scheduler {parentScheduler}.", LogWriter.Blocking);
+        DebugLog.WriteDiagnostic($"Initializing qdisc {this} with parent scheduler {parentScheduler}.", LogWriter.Blocking);
         if (!ReferenceEquals(Interlocked.CompareExchange(ref _parentScheduler, parentScheduler, NotifyWorkScheduledSentinel.Uninitialized), NotifyWorkScheduledSentinel.Uninitialized))
         {
             WorkloadSchedulingException exception = WorkloadSchedulingException.CreateVirtual("A workload scheduler was already set for this qdisc. This is a bug in the qdisc implementation.");
@@ -95,7 +115,7 @@ public abstract class ClasslessQdisc<THandle> : IClasslessQdisc<THandle> where T
 
     void IQdisc.Complete()
     {
-        DebugLog.WriteDiagnostic($"Completing qdisc {GetType().Name} ({Handle}).", LogWriter.Blocking);
+        DebugLog.WriteDiagnostic($"Marking qdisc {GetType().Name} ({Handle}) as completed. Future scheduling attempts will be rejected.", LogWriter.Blocking);
         if (ReferenceEquals(Interlocked.Exchange(ref _parentScheduler, NotifyWorkScheduledSentinel.Completed), NotifyWorkScheduledSentinel.Uninitialized))
         {
             WorkloadSchedulingException exception = WorkloadSchedulingException.CreateVirtual("This qdisc was already completed. This is a bug in the qdisc implementation.");
@@ -106,10 +126,48 @@ public abstract class ClasslessQdisc<THandle> : IClasslessQdisc<THandle> where T
 
     void IClasslessQdisc.Enqueue(AbstractWorkloadBase workload) => EnqueueDirect(workload);
 
+    INotifyWorkScheduled IClasslessQdisc.ParentScheduler => ParentScheduler;
+
     void IQdisc.OnWorkerTerminated(int workerId) => OnWorkerTerminated(workerId);
 
     bool IQdisc.TryPeekUnsafe(int workerId, [NotNullWhen(true)] out AbstractWorkloadBase? workload) => TryPeekUnsafe(workerId, out workload);
 
     /// <inheritdoc/>
     public override string ToString() => $"{GetType().Name} ({Handle})";
+
+    /// <summary>
+    /// Disposes of any managed resources held by this qdisc.
+    /// </summary>
+    protected virtual void DisposeManaged() => Pass();
+
+    /// <summary>
+    /// Disposes of any unmanaged resources held by this qdisc.
+    /// </summary>
+    protected virtual void DisposeUnmanaged() => Pass();
+
+    /// <summary>
+    /// Disposes of any resources held by this qdisc.
+    /// </summary>
+    /// <param name="disposing"><see langword="true"/> if this method is called from <see cref="Dispose()"/>; <see langword="false"/> if this method is called from the finalizer.</param>
+    protected void Dispose(bool disposing)
+    {
+        if (!_disposedValue)
+        {
+            if (disposing)
+            {
+                DisposeManaged();
+            }
+
+            DisposeUnmanaged();
+            _disposedValue = true;
+        }
+    }
+
+    /// <inheritdoc/>
+    public void Dispose()
+    {
+        // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
+    }
 }

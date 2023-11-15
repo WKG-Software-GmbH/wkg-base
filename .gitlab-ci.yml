@@ -11,12 +11,12 @@ variables:
 
 include:
     - project: 'wkg/gitlab-templates'
-      ref: 'v1.1.0'
+      ref: 'v1.1.11'
       file:
-          - '/jobs/build_dotnet_7.yml'
-          - '/jobs/test_dotnet_7.yml'
+          - '/jobs/build_dotnet_8.yml'
+          - '/jobs/test_dotnet_8.yml'
           - '/jobs/increase_version.yml'
-          - '/jobs/deploy_baget_dotnet_7.yml'
+          - '/jobs/deploy_baget_dotnet_8.yml'
 
 build:
     extends: .build

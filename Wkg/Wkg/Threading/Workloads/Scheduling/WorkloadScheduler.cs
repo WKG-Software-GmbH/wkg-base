@@ -65,7 +65,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
         }
     }
 
-    protected virtual void WorkerLoop(object? state)
+    internal protected virtual void WorkerLoop(object? state)
     {
         int workerId = (int)state!;
         DebugLog.WriteInfo($"Started worker {workerId}", LogWriter.Blocking);

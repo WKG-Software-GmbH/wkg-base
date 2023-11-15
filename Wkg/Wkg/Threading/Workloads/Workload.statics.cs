@@ -101,17 +101,12 @@ public partial class Workload
         return new ValueTask<AwaitableWorkload>(state._tcs.Task);
     }
 
-    private class WhenAnyAwaiterState : IWorkloadContinuation
+    private class WhenAnyAwaiterState(IList<AwaitableWorkload> _workloads) : IWorkloadContinuation
     {
         public readonly TaskCompletionSource<AwaitableWorkload> _tcs = new();
-        private readonly IList<AwaitableWorkload> _workloads;
+        private readonly IList<AwaitableWorkload> _workloads = _workloads;
         private uint _completed;
         private volatile AwaitableWorkload? _completedWorkload;
-
-        public WhenAnyAwaiterState(IList<AwaitableWorkload> workloads)
-        {
-            _workloads = workloads;
-        }
 
         public bool IsCompleted => Volatile.Read(ref _completed) == TRUE;
 
@@ -130,6 +125,19 @@ public partial class Workload
                 // do this on a threadpool thread to avoid accidentally promoting a worker thread
                 // to run the TCS completion callback (which would cause a deadlock)
                 ThreadPool.QueueUserWorkItem(Cleanup, this);
+            }
+        }
+
+        public void InvokeInline(AbstractWorkloadBase workload)
+        {
+            // fire the TCS only once (the first time this method is invoked)
+            if (Interlocked.CompareExchange(ref _completed, TRUE, FALSE) == FALSE)
+            {
+                // we know that the workload is an AwaitableWorkload because that's the only type
+                // we subscribe to continuations on
+                _completedWorkload = (AwaitableWorkload)workload;
+                // we can simply call the cleanup method here, because we are running inlined
+                Cleanup(this);
             }
         }
 

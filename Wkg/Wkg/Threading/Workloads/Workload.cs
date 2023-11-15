@@ -1,5 +1,7 @@
-﻿using Wkg.Internals.Diagnostic;
+﻿using System.Diagnostics;
+using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
+using Wkg.Threading.Workloads.Continuations;
 
 namespace Wkg.Threading.Workloads;
 
@@ -47,6 +49,24 @@ public abstract partial class Workload : AwaitableWorkload
     }
 
     /// <summary>
+    /// Creates a continuation that is passed the workload result when the workload completes.
+    /// </summary>
+    /// <param name="continuation">The action to invoke when the workload completes.</param>
+    public void ContinueWith(Action<WorkloadResult> continuation)
+    {
+        ArgumentNullException.ThrowIfNull(continuation);
+
+        if (IsCompleted)
+        {
+            continuation(GetResultUnsafe());
+        }
+        else
+        {
+            ContinueWithCore(new WorkloadContinueWithContination(continuation));
+        }
+    }
+
+    /// <summary>
     /// Gets an awaiter used to await this workload.
     /// </summary>
     /// <remarks>
@@ -61,4 +81,13 @@ public abstract partial class Workload : AwaitableWorkload
         Volatile.Write(ref _exception, ex);
 
     internal WorkloadResult GetResultUnsafe() => new(Status, Volatile.Read(ref _exception));
+
+    private class WorkloadContinueWithContination(Action<WorkloadResult> _continuation) : TypedWorkloadContinuation<Workload>
+    {
+        protected override void InvokeInternal(Workload workload)
+        {
+            Debug.Assert(workload.IsCompleted, "Workload must be completed at this point.");
+            _continuation(workload.GetResultUnsafe());
+        }
+    }
 }

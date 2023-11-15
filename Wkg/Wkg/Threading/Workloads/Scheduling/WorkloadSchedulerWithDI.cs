@@ -13,7 +13,7 @@ internal class WorkloadSchedulerWithDI(IQdisc rootQdisc, int maximumConcurrencyL
 {
     private readonly IWorkloadServiceProviderFactory _serviceProviderFactory = serviceProviderFactory;
 
-    protected override void WorkerLoop(object? state)
+    internal protected override void WorkerLoop(object? state)
     {
         int workerId = (int)state!;
         DebugLog.WriteInfo($"Started worker {workerId}", LogWriter.Blocking);

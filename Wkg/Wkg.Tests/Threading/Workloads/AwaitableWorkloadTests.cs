@@ -2,6 +2,8 @@
 using Wkg.Threading.Workloads.Factories;
 using Wkg.Threading.Workloads.Configuration;
 using Wkg.Threading.Workloads.Queuing.Classless.Fifo;
+using System.Diagnostics;
+using Wkg.Threading.Workloads.Scheduling;
 
 namespace Wkg.Threading.Workloads.Tests;
 
@@ -84,6 +86,82 @@ public class AwaitableWorkloadTests
 
         WorkloadResult result = workload.Result;
         Assert.IsTrue(result.IsSuccess);
+    }
+
+    [TestMethod]
+    public void TestContinueWith1()
+    {
+        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        Workload<int> workload = factory.ScheduleAsync(_ =>
+        {
+            Thread.Sleep(100);
+            return 1;
+        });
+        ManualResetEventSlim mres = new(false);
+        workload.ContinueWith(result =>
+        {
+            Assert.IsTrue(result.IsSuccess);
+            Assert.AreEqual(1, result.Result);
+            Assert.IsTrue(new StackTrace().GetFrames().All(frame => frame.GetMethod()?.Name != nameof(WorkloadScheduler.WorkerLoop)));
+            // ensure that the continuation is invoked inline
+            Assert.IsTrue(new StackTrace().GetFrames().All(frame => frame.GetMethod()?.Name != nameof(TestContinueWith1)));
+            mres.Set();
+        });
+        mres.Wait();
+    }
+
+    [TestMethod]
+    public void TestContinueWith2()
+    {
+        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        Workload workload = factory.ScheduleAsync(_ => Thread.Sleep(100));
+        ManualResetEventSlim mres = new(false);
+        workload.ContinueWith(result =>
+        {
+            Assert.IsTrue(result.IsSuccess);
+            Assert.IsTrue(new StackTrace().GetFrames().All(frame => frame.GetMethod()?.Name != nameof(WorkloadScheduler.WorkerLoop)));
+            // ensure that the continuation is invoked inline
+            Assert.IsTrue(new StackTrace().GetFrames().All(frame => frame.GetMethod()?.Name != nameof(TestContinueWith2)));
+            mres.Set();
+        });
+        mres.Wait();
+    }
+
+    [TestMethod]
+    public void TestContinueWithInline1()
+    {
+        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        Workload<int> workload = factory.ScheduleAsync(_ => 1);
+        Thread.Sleep(100);
+        ManualResetEventSlim mres = new(false);
+        workload.ContinueWith(result =>
+        {
+            Assert.IsTrue(result.IsSuccess);
+            Assert.AreEqual(1, result.Result);
+            Assert.IsTrue(new StackTrace().GetFrames().All(frame => frame.GetMethod()?.Name != nameof(WorkloadScheduler.WorkerLoop)));
+            // ensure that the continuation is invoked inline
+            Assert.IsTrue(new StackTrace().GetFrames().Any(frame => frame.GetMethod()?.Name == nameof(TestContinueWithInline1)));
+            mres.Set();
+        });
+        mres.Wait();
+    }
+
+    [TestMethod]
+    public void TestContinueWithInline2()
+    {
+        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        Workload workload = factory.ScheduleAsync(Pass);
+        Thread.Sleep(100);
+        ManualResetEventSlim mres = new(false);
+        workload.ContinueWith(result =>
+        {
+            Assert.IsTrue(result.IsSuccess);
+            Assert.IsTrue(new StackTrace().GetFrames().All(frame => frame.GetMethod()?.Name != nameof(WorkloadScheduler.WorkerLoop)));
+            // ensure that the continuation is invoked inline
+            Assert.IsTrue(new StackTrace().GetFrames().Any(frame => frame.GetMethod()?.Name == nameof(TestContinueWithInline2)));
+            mres.Set();
+        });
+        mres.Wait();
     }
 
     [TestMethod]

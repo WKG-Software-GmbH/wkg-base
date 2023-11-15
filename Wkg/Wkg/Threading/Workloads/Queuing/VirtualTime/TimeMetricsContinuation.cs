@@ -20,7 +20,9 @@ internal class TimeMetricsContinuation : IWorkloadContinuation, IPoolable<TimeMe
         _startTime = timeTable.Now();
     }
 
-    public void Invoke(AbstractWorkloadBase workload)
+    public void Invoke(AbstractWorkloadBase workload) => InvokeInline(workload);
+
+    public void InvokeInline(AbstractWorkloadBase workload)
     {
         long endTime = _timeTable.Now();
         long delta = endTime - _startTime;

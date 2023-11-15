@@ -92,12 +92,19 @@ public abstract class AbstractWorkloadBase
         }
     }
 
-    internal virtual void AddOrRunContinuation(IWorkloadContinuation continuation, bool scheduleBeforeOthers = false)
+    internal virtual void AddOrRunContinuation(IWorkloadContinuation continuation, bool scheduleBeforeOthers = false, bool runInline = false)
     {
         if (!TryAddContinuation(continuation, scheduleBeforeOthers))
         {
             DebugLog.WriteDiagnostic($"{this}: Failed to add continuation. Invoking on context.", LogWriter.Blocking);
-            continuation.Invoke(this);
+            if (runInline)
+            {
+                continuation.InvokeInline(this);
+            }
+            else
+            {
+                continuation.Invoke(this);
+            }
         }
     }
 

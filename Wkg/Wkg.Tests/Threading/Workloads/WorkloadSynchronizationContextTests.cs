@@ -9,16 +9,17 @@ namespace Wkg.Threading.Workloads.Tests;
 [TestClass]
 public class WorkloadSynchronizationContextTests
 {
-    private static ClasslessWorkloadFactory<int> CreateDefaultFactory(bool continueOnCapturedContext) => WorkloadFactoryBuilder.Create<int>()
+    private static ClasslessWorkloadFactory<int> CreateDefaultFactory(bool continueOnCapturedContext, bool flowExecutionContext) => WorkloadFactoryBuilder.Create<int>()
         .UseAnonymousWorkloadPooling(4)
         .UseMaximumConcurrency(1)
+        .FlowExecutionContextToContinuations(flowExecutionContext)
         .RunContinuationsOnCapturedContext(continueOnCapturedContext)
         .UseClasslessRoot<Fifo>(1);
 
     [TestMethod]
-    public async Task TestContinueOnCapturedContextFalse()
+    public async Task TestContinueOnCapturedContextFalseAsync()
     {
-        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory(continueOnCapturedContext: false);
+        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory(continueOnCapturedContext: false, flowExecutionContext: true);
         SynchronizationContext.SetSynchronizationContext(new MySynchronizationContext() { State = 1 });
         Assert.AreEqual(1, SynchronizationContext.Current.As<MySynchronizationContext>()?.State);
         await factory.ScheduleAsync(_ => Thread.Sleep(50));
@@ -26,13 +27,97 @@ public class WorkloadSynchronizationContextTests
     }
 
     [TestMethod]
-    public async Task TestContinueOnCapturedContextTrue()
+    public async Task TestContinueOnCapturedContextTrueAsync()
     {
-        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory(continueOnCapturedContext: true);
+        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory(continueOnCapturedContext: true, flowExecutionContext: true);
         SynchronizationContext.SetSynchronizationContext(new MySynchronizationContext() { State = 1 });
         Assert.AreEqual(1, SynchronizationContext.Current.As<MySynchronizationContext>()?.State);
         await factory.ScheduleAsync(_ => Thread.Sleep(50));
         Assert.AreEqual(1, SynchronizationContext.Current.As<MySynchronizationContext>()?.State);
+    }
+
+    [TestMethod]
+    public void TestContinueOnCapturedContextFalseFlowExecutionContextFalse()
+    {
+        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory(continueOnCapturedContext: false, flowExecutionContext: false);
+        SynchronizationContext.SetSynchronizationContext(new MySynchronizationContext() { State = 1 });
+        AsyncLocal<int> asyncLocal = new()
+        {
+            Value = 1
+        };
+        Assert.AreEqual(1, SynchronizationContext.Current.As<MySynchronizationContext>()?.State);
+        Assert.AreEqual(1, asyncLocal.Value);
+        ManualResetEventSlim mres = new(false);
+        factory.ScheduleAsync(_ => Thread.Sleep(50)).ContinueWith(() =>
+        {
+            Assert.AreNotEqual(1, SynchronizationContext.Current.As<MySynchronizationContext>()?.State);
+            Assert.AreNotEqual(1, asyncLocal.Value);
+            mres.Set();
+        }); 
+        mres.Wait();
+    }
+
+    [TestMethod]
+    public void TestContinueOnCapturedContextFalseFlowExecutionContextTrue()
+    {
+        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory(continueOnCapturedContext: false, flowExecutionContext: true);
+        SynchronizationContext.SetSynchronizationContext(new MySynchronizationContext() { State = 1 });
+        AsyncLocal<int> asyncLocal = new()
+        {
+            Value = 1
+        };
+        Assert.AreEqual(1, SynchronizationContext.Current.As<MySynchronizationContext>()?.State);
+        Assert.AreEqual(1, asyncLocal.Value);
+        ManualResetEventSlim mres = new(false);
+        factory.ScheduleAsync(_ => Thread.Sleep(50)).ContinueWith(() =>
+        {
+            Assert.AreNotEqual(1, SynchronizationContext.Current.As<MySynchronizationContext>()?.State);
+            Assert.AreEqual(1, asyncLocal.Value);
+            mres.Set();
+        });
+        mres.Wait();
+    }
+
+    [TestMethod]
+    public void TestContinueOnCapturedContextTrueFlowExecutionContextFalse()
+    {
+        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory(continueOnCapturedContext: true, flowExecutionContext: false);
+        SynchronizationContext.SetSynchronizationContext(new MySynchronizationContext() { State = 1 });
+        AsyncLocal<int> asyncLocal = new()
+        {
+            Value = 1
+        };
+        Assert.AreEqual(1, SynchronizationContext.Current.As<MySynchronizationContext>()?.State);
+        Assert.AreEqual(1, asyncLocal.Value);
+        ManualResetEventSlim mres = new(false);
+        factory.ScheduleAsync(_ => Thread.Sleep(50)).ContinueWith(() =>
+        {
+            Assert.AreEqual(1, SynchronizationContext.Current.As<MySynchronizationContext>()?.State);
+            Assert.AreNotEqual(1, asyncLocal.Value);
+            mres.Set();
+        });
+        mres.Wait();
+    }
+
+    [TestMethod]
+    public void TestContinueOnCapturedContextTrueFlowExecutionContextTrue()
+    {
+        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory(continueOnCapturedContext: true, flowExecutionContext: true);
+        SynchronizationContext.SetSynchronizationContext(new MySynchronizationContext() { State = 1 });
+        AsyncLocal<int> asyncLocal = new()
+        {
+            Value = 1
+        };
+        Assert.AreEqual(1, SynchronizationContext.Current.As<MySynchronizationContext>()?.State);
+        Assert.AreEqual(1, asyncLocal.Value);
+        ManualResetEventSlim mres = new(false);
+        factory.ScheduleAsync(_ => Thread.Sleep(50)).ContinueWith(() =>
+        {
+            Assert.AreEqual(1, SynchronizationContext.Current.As<MySynchronizationContext>()?.State);
+            Assert.AreEqual(1, asyncLocal.Value);
+            mres.Set();
+        });
+        mres.Wait();
     }
 
     private class MySynchronizationContext : SynchronizationContext

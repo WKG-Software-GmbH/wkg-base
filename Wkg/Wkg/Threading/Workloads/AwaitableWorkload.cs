@@ -263,12 +263,48 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
         base.InternalRunContinuations(workerId);
     }
 
+    /// <summary>
+    /// Creates a continuation that will be invoked when the workload completes execution in any of the terminal states: <see cref="WorkloadStatus.RanToCompletion"/>, <see cref="WorkloadStatus.Faulted"/>, or <see cref="WorkloadStatus.Canceled"/>.
+    /// </summary>
+    /// <param name="action">The action to invoke when the workload completes execution.</param>
+    public void ContinueWith(Action action) => ContinueWithCore(new WorkloadContinuationAction(action));
+
+    internal void ContinueWithCore(IWorkloadContinuation continuation)
+    {
+        IWorkloadContinuation box;
+
+        // check if we need to capture the current synchronization context
+        // we only capture it if it's not the default one and if the caller requested it
+        if (_continuationOptions.ContinueOnCapturedContext
+            && SynchronizationContext.Current is SynchronizationContext syncContext
+            && syncContext.GetType() != typeof(SynchronizationContext))
+        {
+            DebugLog.WriteDiagnostic($"{this}: Capturing synchronization context for continuation.", LogWriter.Blocking);
+            box = new SCCapturingContinuation(continuation, syncContext, _continuationOptions.FlowExecutionContext);
+        }
+        else if (_continuationOptions.FlowExecutionContext)
+        {
+            // otherwise, capture the execution context if requested or just post the continuation to the thread pool
+            DebugLog.WriteDiagnostic(_continuationOptions.FlowExecutionContext
+                ? $"{this}: Flowing execution context for continuation."
+                : $"{this}: Not flowing execution context for continuation.", LogWriter.Blocking);
+            // capture the execution context if requested
+            box = new ECFlowingContinuation(continuation, true);
+        }
+        else
+        {
+            box = new ThreadPoolContinuation(continuation);
+        }
+        // try to add the continuation or run it inline if we failed (inlining will work because we are on the caller's thread)
+        AddOrRunContinuation(box, scheduleBeforeOthers: false, runInline: true);
+    }
+
     internal void SetContinuationForAwait(Action continuationAction)
     {
         Debug.Assert(continuationAction != null);
         DebugLog.WriteDiagnostic($"{this}: Setting continuation for await.", LogWriter.Blocking);
 
-        IWorkloadContinuation wc;
+        IWorkloadContinuation wc = new WorkloadContinuationAction(continuationAction);
 
         // check if we need to capture the current synchronization context
         // we only capture it if it's not the default one and if the caller requested it
@@ -277,18 +313,16 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
             && syncContext.GetType() != typeof(SynchronizationContext))
         {
             DebugLog.WriteDiagnostic($"{this}: Capturing synchronization context for continuation.", LogWriter.Blocking);
-            wc = new SynchronizationContextAwareWorkloadAwaiterContinuation(continuationAction, syncContext, _continuationOptions.FlowExecutionContext);
+            // don't need to capture the EC here (it's already captured by the AsyncMethodBuilder/AsyncStateMachine)
+            wc = new SCCapturingContinuation(wc, syncContext, false);
         }
         else
         {
-            // otherwise, capture the execution context if requested or just post the continuation to the thread pool
-            DebugLog.WriteDiagnostic(_continuationOptions.FlowExecutionContext
-                ? $"{this}: Flowing execution context for continuation."
-                : $"{this}: Not flowing execution context for continuation.", LogWriter.Blocking);
-            wc = new WorkloadAwaiterContinuation(continuationAction, _continuationOptions.FlowExecutionContext);
+            // don't need to capture the EC here (it's already captured by the AsyncMethodBuilder/AsyncStateMachine)
+            wc = new ThreadPoolContinuation(wc);
         }
         // try to add the continuation or run it inline if we failed (inlining will work because we are on the caller's thread)
-        AddOrRunContinuation(wc, scheduleBeforeOthers: false);
+        AddOrRunContinuation(wc, scheduleBeforeOthers: false, runInline: true);
     }
 
     /// <summary>

@@ -1,5 +1,4 @@
 ﻿using BenchmarkDotNet.Attributes;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 

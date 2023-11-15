@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Wkg.Common.Extensions;
 using Wkg.Internals.Diagnostic;
@@ -34,7 +33,7 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
     {
         _localQueue = localQueueBuilder.BuildUnsafe(default(THandle));
         _localLasts = new IQdisc[maxConcurrency];
-        _children = new IChildClassification<THandle>[] { new NoChildClassification<THandle>(_localQueue) };
+        _children = [new NoChildClassification<THandle>(_localQueue)];
         _predicate = predicate;
         _childrenLock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
         _emptyCounter = new EmptyCounter();

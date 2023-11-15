@@ -9,7 +9,7 @@ public readonly struct PooledArray<T>
 
     public PooledArray(T[] array, int actualLength)
     {
-        Throw.ArgumentNullException.IfNull(array, nameof(array));
+        ArgumentNullException.ThrowIfNull(array, nameof(array));
         Throw.ArgumentOutOfRangeException.IfNotInRange(actualLength, 0, array.Length, nameof(actualLength));
 
         _array = array;
@@ -38,7 +38,7 @@ public readonly struct PooledArray<T>
 
     public bool TryResize(int newLength, out PooledArray<T> resized)
     {
-        Throw.ArgumentOutOfRangeException.IfNegative(newLength, nameof(newLength));
+        ArgumentOutOfRangeException.ThrowIfNegative(newLength, nameof(newLength));
 
         if (newLength > _array.Length)
         {

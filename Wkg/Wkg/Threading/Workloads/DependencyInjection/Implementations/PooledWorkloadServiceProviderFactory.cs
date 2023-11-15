@@ -11,7 +11,7 @@ namespace Wkg.Threading.Workloads.DependencyInjection.Implementations;
 /// </summary>
 public class PooledWorkloadServiceProviderFactory : WorkloadServiceProviderFactory, IWorkloadServiceProviderFactory
 {
-    private readonly Dictionary<Type, Func<object>> _serviceFactories = new();
+    private readonly Dictionary<Type, Func<object>> _serviceFactories = [];
     private readonly ReaderWriterLockSlim _poolLock = new(LockRecursionPolicy.NoRecursion);
     private volatile PooledWorkloadServiceProvider?[] _pool = new PooledWorkloadServiceProvider[8];
 

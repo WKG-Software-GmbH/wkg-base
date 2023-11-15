@@ -7,6 +7,7 @@ namespace Wkg.Unmanaged.MemoryManagement.Implementations.AllocationTracking;
 /// Represents an <see cref="IMemoryManager"/> capable of tracking allocations.
 /// </summary>
 /// <typeparam name="TMemoryManager"></typeparam>
+[StackTraceHidden]
 public readonly unsafe struct AllocationTracker<TMemoryManager> : IMemoryManager, IAllocationTracker where TMemoryManager : struct, IMemoryManager
 {
     private static readonly ConcurrentDictionary<nuint, Allocation> _allocations = new();
@@ -32,7 +33,6 @@ public readonly unsafe struct AllocationTracker<TMemoryManager> : IMemoryManager
     public void Clear() => _allocations.Clear();
 
     /// <inheritdoc/>
-    [StackTraceHidden]
     public static void* Calloc(int count, int size)
     {
         void* p = TMemoryManager.Calloc(count, size);
@@ -49,7 +49,6 @@ public readonly unsafe struct AllocationTracker<TMemoryManager> : IMemoryManager
     }
 
     /// <inheritdoc/>
-    [StackTraceHidden]
     public static void* Malloc(int size)
     {
         void* p = TMemoryManager.Malloc(size);
@@ -59,7 +58,6 @@ public readonly unsafe struct AllocationTracker<TMemoryManager> : IMemoryManager
     }
 
     /// <inheritdoc/>
-    [StackTraceHidden]
     public static void* Realloc(void* previous, int newSize)
     {
         _allocations.TryRemove((nuint)previous, out _);
@@ -70,7 +68,6 @@ public readonly unsafe struct AllocationTracker<TMemoryManager> : IMemoryManager
     }
 
     /// <inheritdoc/>
-    [StackTraceHidden]
     public T* Calloc<T>(int count) where T : unmanaged
     {
         T* p = _impl.Calloc<T>(count);
@@ -92,7 +89,6 @@ public readonly unsafe struct AllocationTracker<TMemoryManager> : IMemoryManager
     }
 
     /// <inheritdoc/>
-    [StackTraceHidden]
     public T* Realloc<T>(T* previous, int newCount) where T : unmanaged
     {
         _allocations.TryRemove((nuint)previous, out _);
@@ -103,7 +99,6 @@ public readonly unsafe struct AllocationTracker<TMemoryManager> : IMemoryManager
     }
 
     /// <inheritdoc/>
-    [StackTraceHidden]
     public void RegisterExternalAllocation(void* handle, nuint size)
     {
         Allocation allocation = new(new IntPtr(handle), size, new StackTrace());

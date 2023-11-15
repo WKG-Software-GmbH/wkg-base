@@ -11,20 +11,18 @@ public class BackgroundLogWriter : ILogWriter
     public void Write(ref LogEntry logEntry, ILogSink sink)
     {
         LogEntryBox box = new(sink, ref logEntry);
-        ThreadPool.QueueUserWorkItem(box.WriteToSink);
+        ThreadPool.QueueUserWorkItem(LogEntryBox.WriteToSink, box);
     }
 }
 
-file class LogEntryBox
+file class LogEntryBox(ILogSink sink, ref readonly LogEntry entry)
 {
-    private readonly ILogSink _sink;
-    private LogEntry _entry;
+    private readonly ILogSink _sink = sink;
+    private LogEntry _entry = entry;
 
-    public LogEntryBox(ILogSink sink, ref LogEntry entry)
+    public static void WriteToSink(object? state)
     {
-        _sink = sink;
-        _entry = entry;
+        LogEntryBox box = (LogEntryBox)state!;
+        box._sink.Log(ref box._entry);
     }
-
-    public void WriteToSink(object? _) => _sink.Log(ref _entry);
 }

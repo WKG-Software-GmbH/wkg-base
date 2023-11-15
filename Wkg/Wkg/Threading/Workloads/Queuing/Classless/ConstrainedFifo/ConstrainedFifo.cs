@@ -1,5 +1,4 @@
-﻿using Wkg.Common.ThrowHelpers;
-using Wkg.Threading.Workloads.Configuration;
+﻿using Wkg.Threading.Workloads.Configuration;
 using Wkg.Threading.Workloads.Configuration.Classless;
 
 namespace Wkg.Threading.Workloads.Queuing.Classless.ConstrainedFifo;
@@ -12,8 +11,8 @@ public sealed class ConstrainedFifo : ClasslessQdiscBuilder<ConstrainedFifo>, IC
 
     public ConstrainedFifo WithCapacity(int capacity)
     {
-        Throw.ArgumentOutOfRangeException.IfNegativeOrZero(capacity, nameof(capacity));
-        Throw.ArgumentOutOfRangeException.IfGreaterThan(capacity, ushort.MaxValue, nameof(capacity));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity, nameof(capacity));
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(capacity, ushort.MaxValue, nameof(capacity));
         if (_capacity != -1)
         {
             throw new InvalidOperationException("Capacity was already specified.");

@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using Wkg.Common.ThrowHelpers;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
 using Wkg.Threading.Workloads.Continuations;
@@ -324,7 +323,7 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
 
     internal bool InternalWait(int millisecondsTimeout, CancellationToken token)
     {
-        Throw.ArgumentOutOfRangeException.IfLessThan(millisecondsTimeout, -1, nameof(millisecondsTimeout));
+        ArgumentOutOfRangeException.ThrowIfLessThan(millisecondsTimeout, -1, nameof(millisecondsTimeout));
 
         if (IsCompleted)
         {

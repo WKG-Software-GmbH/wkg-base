@@ -1,5 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using Wkg.Threading.Workloads.Queuing;
 using Wkg.Threading.Workloads.Scheduling;
 using Wkg.Threading.Workloads.DependencyInjection;

@@ -2,7 +2,7 @@
 
 public class SimplePredicateBuilder : IPredicateBuilder
 {
-    private readonly List<IPredicate> _predicates = new();
+    private readonly List<IPredicate> _predicates = [];
 
     public SimplePredicateBuilder AddPredicate<TState>(Predicate<TState> predicate)
     {
@@ -17,11 +17,9 @@ public class SimplePredicateBuilder : IPredicateBuilder
         _ => new Predicate<object?>(new CompiledPredicates(this).Invoke),
     };
 
-    private class CompiledPredicates : IPredicate
+    private class CompiledPredicates(SimplePredicateBuilder predicates) : IPredicate
     {
-        private readonly IPredicate[] _predicates;
-
-        public CompiledPredicates(SimplePredicateBuilder predicates) => _predicates = predicates._predicates.ToArray();
+        private readonly IPredicate[] _predicates = [.. predicates._predicates];
 
         public bool Invoke(object? state)
         {

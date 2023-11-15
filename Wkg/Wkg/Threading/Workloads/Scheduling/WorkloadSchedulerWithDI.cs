@@ -8,7 +8,8 @@ namespace Wkg.Threading.Workloads.Scheduling;
 
 using CommonFlags = WorkloadStatus.CommonFlags;
 
-internal class WorkloadSchedulerWithDI(IQdisc rootQdisc, int maximumConcurrencyLevel, IWorkloadServiceProviderFactory serviceProviderFactory) : WorkloadScheduler(rootQdisc, maximumConcurrencyLevel)
+internal class WorkloadSchedulerWithDI(IQdisc rootQdisc, int maximumConcurrencyLevel, IWorkloadServiceProviderFactory serviceProviderFactory) 
+    : WorkloadScheduler(rootQdisc, maximumConcurrencyLevel)
 {
     private readonly IWorkloadServiceProviderFactory _serviceProviderFactory = serviceProviderFactory;
 

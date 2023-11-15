@@ -33,10 +33,7 @@ internal readonly struct RingBufferPointer<T>
     /// <param name="buffer">The ring buffer.</param>
     public RingBufferPointer(T?[] buffer) : this(buffer, 0)
     {
-        if (buffer.Length < 1)
-        {
-            throw new ArgumentOutOfRangeException(nameof(buffer), $"{nameof(buffer)} must not be empty.");
-        }
+        ArgumentOutOfRangeException.ThrowIfLessThan(buffer.Length, 1, nameof(buffer.Length));
     }
 
     /// <summary>

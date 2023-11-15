@@ -1,5 +1,4 @@
 ﻿using System.Collections.Concurrent;
-using Wkg.Common.ThrowHelpers;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
 using Wkg.Threading;
@@ -22,8 +21,8 @@ public class StrongPool<T> : IPool<T> where T : class, IPoolable<T>
     /// <param name="maxCapacity">The maximum capacity of the pool.</param>
     public StrongPool(int maxCapacity)
     {
-        Throw.ArgumentOutOfRangeException.IfNegativeOrZero(maxCapacity, nameof(maxCapacity));
-        _pool = new ConcurrentBag<T>();
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxCapacity, nameof(maxCapacity));
+        _pool = [];
         _maxCapacity = maxCapacity;
         _capacity = 0;
     }

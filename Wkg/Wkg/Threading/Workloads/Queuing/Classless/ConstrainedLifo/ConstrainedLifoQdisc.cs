@@ -5,7 +5,8 @@ using Wkg.Threading.Workloads.Queuing.Classless.ConstrainedFifo;
 
 namespace Wkg.Threading.Workloads.Queuing.Classless.ConstrainedLifo;
 
-internal sealed class ConstrainedLifoQdisc<THandle>(THandle handle, int maxCount) : ConstrainedFifoQdisc<THandle>(handle, maxCount), IClasslessQdisc<THandle> where THandle : unmanaged
+internal sealed class ConstrainedLifoQdisc<THandle>(THandle handle, int maxCount) 
+    : ConstrainedFifoQdisc<THandle>(handle, maxCount), IClasslessQdisc<THandle> where THandle : unmanaged
 {
     protected override bool TryDequeueInternal(int workerId, bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload)
     {

@@ -10,7 +10,6 @@ using Wkg.Threading.Workloads.Queuing.Classful.Classification;
 using Wkg.Threading.Workloads.Configuration.Classful;
 using Wkg.Threading.Workloads.Configuration.Classless;
 using Wkg.Threading.Workloads.Configuration.Classful.Custom;
-using Wkg.Threading.Workloads.Queuing;
 using Wkg.Threading.Workloads.WorkloadTypes;
 
 namespace Wkg.Threading.Workloads.Configuration;

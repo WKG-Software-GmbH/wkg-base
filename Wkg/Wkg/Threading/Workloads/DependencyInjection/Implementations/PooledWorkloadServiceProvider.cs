@@ -1,15 +1,7 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿namespace Wkg.Threading.Workloads.DependencyInjection.Implementations;
 
-namespace Wkg.Threading.Workloads.DependencyInjection.Implementations;
-
-internal class PooledWorkloadServiceProvider : SimpleWorkloadServiceProvider
+internal class PooledWorkloadServiceProvider(PooledWorkloadServiceProviderFactory _pool, IEnumerable<KeyValuePair<Type, Func<object>>> serviceFactories) 
+    : SimpleWorkloadServiceProvider(serviceFactories)
 {
-    private readonly PooledWorkloadServiceProviderFactory _pool;
-
-    public PooledWorkloadServiceProvider(PooledWorkloadServiceProviderFactory pool, IEnumerable<KeyValuePair<Type, Func<object>>> serviceFactories) : base(serviceFactories)
-    {
-        _pool = pool;
-    }
-
     public override void Dispose() => _pool.ReturnInstance(this);
 }

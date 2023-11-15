@@ -175,7 +175,7 @@ public class ConstrainedFifoQdiscTests
         Assert.IsTrue(qdisc.IsEmpty);
     }
 
-    private static AbstractWorkloadBase NewDummyWorkload()
+    private static AnonymousWorkloadImpl NewDummyWorkload()
     {
         AnonymousWorkloadImpl workload = new(Pass);
         return workload;

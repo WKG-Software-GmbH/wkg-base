@@ -1,5 +1,4 @@
 ﻿using System.Collections;
-using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 
@@ -184,10 +183,7 @@ public class ConcurrentHashSet<T> : IReadOnlyCollection<T>, ICollection<T>
     public ConcurrentHashSet(IEnumerable<T> collection, IEqualityComparer<T>? comparer)
         : this(comparer)
     {
-        if (collection == null)
-        {
-            throw new ArgumentNullException(nameof(collection));
-        }
+        ArgumentNullException.ThrowIfNull(collection, nameof(collection));
 
         InitializeFromCollection(collection);
     }
@@ -213,10 +209,7 @@ public class ConcurrentHashSet<T> : IReadOnlyCollection<T>, ICollection<T>
     public ConcurrentHashSet(int concurrencyLevel, IEnumerable<T> collection, IEqualityComparer<T>? comparer)
         : this(concurrencyLevel, DefaultCapacity, false, comparer)
     {
-        if (collection == null)
-        {
-            throw new ArgumentNullException(nameof(collection));
-        }
+        ArgumentNullException.ThrowIfNull(collection);
 
         InitializeFromCollection(collection);
     }
@@ -244,15 +237,8 @@ public class ConcurrentHashSet<T> : IReadOnlyCollection<T>, ICollection<T>
 
     private ConcurrentHashSet(int concurrencyLevel, int capacity, bool growLockArray, IEqualityComparer<T>? comparer)
     {
-        if (concurrencyLevel < 1)
-        {
-            throw new ArgumentOutOfRangeException(nameof(concurrencyLevel));
-        }
-
-        if (capacity < 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(capacity));
-        }
+        ArgumentOutOfRangeException.ThrowIfLessThan(concurrencyLevel, 1);
+        ArgumentOutOfRangeException.ThrowIfNegative(capacity);
 
         // The capacity should be at least as large as the concurrency level. Otherwise, we would have locks that don't guard
         // any buckets.
@@ -437,7 +423,10 @@ public class ConcurrentHashSet<T> : IReadOnlyCollection<T>, ICollection<T>
     /// <summary>
     /// Represents an enumerator for <see cref="ConcurrentHashSet{T}" />.
     /// </summary>
-    public struct Enumerator : IEnumerator<T>
+    /// <remarks>
+    /// Constructs an enumerator for <see cref="ConcurrentHashSet{T}" />.
+    /// </remarks>
+    public struct Enumerator(ConcurrentHashSet<T> set) : IEnumerator<T>
     {
         // Provides a manually-implemented version of (approximately) this iterator:
         //     Node?[] buckets = _tables.Buckets;
@@ -445,12 +434,12 @@ public class ConcurrentHashSet<T> : IReadOnlyCollection<T>, ICollection<T>
         //         for (Node? current = Volatile.Read(ref buckets[i]); current != null; current = current.Next)
         //             yield return new current.Item;
 
-        private readonly ConcurrentHashSet<T> _set;
+        private readonly ConcurrentHashSet<T> _set = set;
 
-        private Node?[]? _buckets;
-        private Node? _node;
-        private int _i;
-        private int _state;
+        private Node?[]? _buckets = null;
+        private Node? _node = null;
+        private int _i = -1;
+        private int _state = StateUninitialized;
 
         private const int StateUninitialized = 0;
         private const int StateOuterloop = 1;
@@ -458,23 +447,10 @@ public class ConcurrentHashSet<T> : IReadOnlyCollection<T>, ICollection<T>
         private const int StateDone = 3;
 
         /// <summary>
-        /// Constructs an enumerator for <see cref="ConcurrentHashSet{T}" />.
-        /// </summary>
-        public Enumerator(ConcurrentHashSet<T> set)
-        {
-            _set = set;
-            _buckets = null;
-            _node = null;
-            Current = default!;
-            _i = -1;
-            _state = StateUninitialized;
-        }
-
-        /// <summary>
         /// Gets the element in the collection at the current position of the enumerator.
         /// </summary>
         /// <value>The element in the collection at the current position of the enumerator.</value>
-        public T Current { get; private set; }
+        public T Current { get; private set; } = default!;
 
         readonly object? IEnumerator.Current => Current;
 
@@ -546,15 +522,8 @@ public class ConcurrentHashSet<T> : IReadOnlyCollection<T>, ICollection<T>
 
     void ICollection<T>.CopyTo(T[] array, int arrayIndex)
     {
-        if (array == null)
-        {
-            throw new ArgumentNullException(nameof(array));
-        }
-
-        if (arrayIndex < 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(arrayIndex));
-        }
+        ArgumentNullException.ThrowIfNull(array);
+        ArgumentOutOfRangeException.ThrowIfNegative(arrayIndex);
 
         int locksAcquired = 0;
         try
@@ -895,33 +864,17 @@ public class ConcurrentHashSet<T> : IReadOnlyCollection<T>, ICollection<T>
         }
     }
 
-    private class Tables
+    private class Tables(Node?[] buckets, object[] locks, int[] countPerLock)
     {
-        public readonly Node?[] Buckets;
-        public readonly object[] Locks;
-
-        public readonly int[] CountPerLock;
-
-        public Tables(Node?[] buckets, object[] locks, int[] countPerLock)
-        {
-            Buckets = buckets;
-            Locks = locks;
-            CountPerLock = countPerLock;
-        }
+        public readonly Node?[] Buckets = buckets;
+        public readonly object[] Locks = locks;
+        public readonly int[] CountPerLock = countPerLock;
     }
 
-    private class Node
+    private class Node(T item, int hashcode, Node? next)
     {
-        public readonly T Item;
-        public readonly int Hashcode;
-
-        public volatile Node? Next;
-
-        public Node(T item, int hashcode, Node? next)
-        {
-            Item = item;
-            Hashcode = hashcode;
-            Next = next;
-        }
+        public readonly T Item = item;
+        public readonly int Hashcode = hashcode;
+        public volatile Node? Next = next;
     }
 }

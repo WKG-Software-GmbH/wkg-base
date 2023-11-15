@@ -1,15 +1,8 @@
 ﻿namespace Wkg.Threading.Workloads.Queuing.Classful.Routing;
 
-public readonly struct RoutingPathNode<THandle> where THandle : unmanaged
+public readonly struct RoutingPathNode<THandle>(IClassfulQdisc<THandle> qdisc, THandle handle, int offset) where THandle : unmanaged
 {
-    internal readonly IClassfulQdisc<THandle> Qdisc;
-    public readonly THandle Handle;
-    public readonly int Offset;
-
-    public RoutingPathNode(IClassfulQdisc<THandle> qdisc, THandle handle, int offset)
-    {
-        Qdisc = qdisc;
-        Handle = handle;
-        Offset = offset;
-    }
+    internal readonly IClassfulQdisc<THandle> Qdisc = qdisc;
+    public readonly THandle Handle = handle;
+    public readonly int Offset = offset;
 }

@@ -5,19 +5,13 @@ using Wkg.Threading.Workloads.DependencyInjection;
 
 namespace Wkg.Threading.Workloads.WorkloadTypes;
 
-internal class AnonymousWorkloadPoolManager
+internal class AnonymousWorkloadPoolManager(int _capacity)
 {
-    private readonly int _capacity;
     private readonly object _lock = new();
     private WeakPool<AnonymousWorkloadImpl>? _pool;
     private WeakPool<AnonymousWorkloadImplWithDI>? _poolWithDI;
 
-    public AnonymousWorkloadPoolManager(int capacity)
-    {
-        _capacity = capacity;
-    }
-
-    private IPool<AnonymousWorkloadImpl> Pool
+    private WeakPool<AnonymousWorkloadImpl> Pool
     {
         get
         {
@@ -39,7 +33,7 @@ internal class AnonymousWorkloadPoolManager
         }
     }
 
-    private IPool<AnonymousWorkloadImplWithDI> PoolWithDI
+    private WeakPool<AnonymousWorkloadImplWithDI> PoolWithDI
     {
         get
         {

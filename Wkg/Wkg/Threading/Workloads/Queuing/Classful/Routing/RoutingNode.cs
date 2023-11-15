@@ -1,6 +1,5 @@
 ﻿using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
-using Wkg.Common.ThrowHelpers;
 using Wkg.Threading.Workloads.Queuing.Classless;
 
 namespace Wkg.Threading.Workloads.Queuing.Classful.Routing;
@@ -35,7 +34,7 @@ public ref struct RoutingPath<THandle> where THandle : unmanaged
     [MemberNotNull(nameof(_leaf))]
     public void Complete(IClasslessQdisc leaf)
     {
-        Throw.ArgumentNullException.IfNull(leaf, nameof(leaf));
+        ArgumentNullException.ThrowIfNull(leaf, nameof(leaf));
         if (_leaf is not null)
         {
             throw new InvalidOperationException("The routing path has already been completed.");

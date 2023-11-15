@@ -1,7 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using Wkg.Collections.Concurrent;
-using Wkg.Common.ThrowHelpers;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
 using Wkg.Threading.Extensions;
@@ -33,8 +32,8 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
 
     public FairQdisc(THandle handle, FairQdiscParams parameters) : base(handle)
     {
-        Throw.ArgumentNullException.IfNull(parameters.Predicate, nameof(parameters.Predicate));
-        Throw.ArgumentNullException.IfNull(parameters.Inner, nameof(parameters.Inner));
+        ArgumentNullException.ThrowIfNull(parameters.Predicate, nameof(parameters.Predicate));
+        ArgumentNullException.ThrowIfNull(parameters.Inner, nameof(parameters.Inner));
 
         _timeTable = parameters.PreferPreciseMeasurements
             ? VirtualTimeTable.CreatePrecise(parameters.ConcurrencyLevel, parameters.ExpectedNumberOfDistinctPayloads, parameters.MeasurementSampleLimit)
@@ -44,7 +43,7 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
         _schedulerTimeModel = parameters.SchedulerTimeModel;
         _executionTimeModel = parameters.ExecutionTimeModel;
         _localQueue = parameters.Inner.BuildUnsafe(default(THandle));
-        _childStates = new ChildQdiscState[1] { new ChildQdiscState(new NoChildClassification<THandle>(_localQueue)) };
+        _childStates = [new ChildQdiscState(new NoChildClassification<THandle>(_localQueue))];
         // by default we have one child, so the bit map is initialized with a single bit
         // if we have more children, the bit map will be resized automatically
         _hasDataMap = new ConcurrentBitmap(1);
@@ -536,7 +535,7 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
             WorkloadSchedulingException exception = WorkloadSchedulingException.CreateVirtual($"Scheduler inconsistency: {nameof(__LAST_ENQUEUED_CHILD_INDEX)} is null.");
             DebugLog.WriteException(exception, LogWriter.Blocking);
             // we can actually just throw here, since we aren't in a worker thread
-            throw new NotSupportedException("This scheduler does not support scheduling workloads directly onto child qdiscs. Please use the methods provided by the parent workload factory.");
+            throw new NotSupportedException("This scheduler does not support scheduling workloads directly onto child qdiscs. Please use the methods provided by the parent workload factory.", exception);
         }
         // clear the empty flag for the child that was just enqueued to
         int index = lastEnqueuedChildIndex.Value;

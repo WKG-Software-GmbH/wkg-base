@@ -411,8 +411,8 @@ public ref struct ConcurrentBitmap56
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static ulong GetFullMask(int capacity)
     {
-        Throw.ArgumentOutOfRangeException.IfNegativeOrZero(capacity, nameof(capacity));
-        Throw.ArgumentOutOfRangeException.IfGreaterThan(capacity, 56, nameof(capacity));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity, nameof(capacity));
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(capacity, 56, nameof(capacity));
         return GetFullMaskUnsafe(capacity);
     }
 

@@ -1,9 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Runtime.ExceptionServices;
-using Wkg.Common.Extensions;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
-using Wkg.Threading.Workloads.Queuing;
 using Wkg.Threading.Workloads.Queuing.Classless;
 using Wkg.Threading.Workloads.WorkloadTypes;
 

@@ -1,5 +1,4 @@
-﻿using Wkg.Common.ThrowHelpers;
-using Wkg.Threading.Workloads.Configuration;
+﻿using Wkg.Threading.Workloads.Configuration;
 using Wkg.Threading.Workloads.Configuration.Classful;
 using Wkg.Threading.Workloads.Configuration.Classless;
 using Wkg.Threading.Workloads.Queuing.Classless.Fifo;
@@ -42,7 +41,7 @@ public class Fair : ClassfulQdiscBuilder<Fair>, IClassfulQdiscBuilder<Fair>
     /// <returns>The current <see cref="Fair"/> instance.</returns>
     public Fair AssumeMaximimNumberOfDistinctPayloads(int expectedNumberOfDistinctPayloads)
     {
-        Throw.ArgumentOutOfRangeException.IfNegativeOrZero(expectedNumberOfDistinctPayloads, nameof(expectedNumberOfDistinctPayloads));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(expectedNumberOfDistinctPayloads, nameof(expectedNumberOfDistinctPayloads));
 
         _params.ExpectedNumberOfDistinctPayloads = expectedNumberOfDistinctPayloads;
         return this;
@@ -69,8 +68,8 @@ public class Fair : ClassfulQdiscBuilder<Fair>, IClassfulQdiscBuilder<Fair>
     /// <returns>The current <see cref="Fair"/> instance.</returns>
     public Fair SetMeasurementSampleLimit(int measurementSampleLimit)
     {
-        Throw.ArgumentOutOfRangeException.IfLessThan(measurementSampleLimit, -1, nameof(measurementSampleLimit));
-        Throw.ArgumentOutOfRangeException.IfZero(measurementSampleLimit, nameof(measurementSampleLimit));
+        ArgumentOutOfRangeException.ThrowIfLessThan(measurementSampleLimit, -1, nameof(measurementSampleLimit));
+        ArgumentOutOfRangeException.ThrowIfZero(measurementSampleLimit, nameof(measurementSampleLimit));
 
         _params.MeasurementSampleLimit = measurementSampleLimit;
         return this;

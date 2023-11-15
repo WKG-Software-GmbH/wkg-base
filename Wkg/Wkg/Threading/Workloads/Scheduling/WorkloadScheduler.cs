@@ -234,7 +234,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
             _workerIds.Add(workerId);
             int[] workerIds;
             Debug.Assert(workerCount >= 0);
-            Debug.Assert((workerIds = _workerIds.ToArray()) != null && workerIds.Length == workerIds.Distinct().Count());
+            Debug.Assert((workerIds = [.. _workerIds]) != null && workerIds.Length == workerIds.Distinct().Count());
             workerId = -1;
         }
     }

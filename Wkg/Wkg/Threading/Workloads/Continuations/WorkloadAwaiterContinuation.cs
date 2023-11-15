@@ -1,5 +1,4 @@
-﻿using System.Numerics;
-using Wkg.Internals.Diagnostic;
+﻿using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
 
 namespace Wkg.Threading.Workloads.Continuations;

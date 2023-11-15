@@ -1,6 +1,4 @@
-﻿using Wkg.Common.ThrowHelpers;
-
-namespace Wkg.Threading.Workloads.DependencyInjection.Configuration;
+﻿namespace Wkg.Threading.Workloads.DependencyInjection.Configuration;
 
 public class WorkloadServiceProviderBuilder
 {
@@ -22,7 +20,7 @@ public class WorkloadServiceProviderBuilder
 
     public WorkloadServiceProviderBuilder AddSingleton<TInterface, TImplementation>(TImplementation singleton) where TImplementation : class, TInterface
     {
-        Throw.ArgumentNullException.IfNull(singleton, nameof(singleton));
+        ArgumentNullException.ThrowIfNull(singleton, nameof(singleton));
 
         _factory.AddService<TInterface, TImplementation>(() => singleton);
         return this;

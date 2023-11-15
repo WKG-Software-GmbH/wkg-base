@@ -1,5 +1,5 @@
-﻿using Wkg.Common.ThrowHelpers;
-using Wkg.Threading.Workloads.Queuing.Classless;
+﻿using Wkg.Threading.Workloads.Queuing.Classless;
+using Wkg.Threading.Workloads.Scheduling;
 
 namespace Wkg.Threading.Workloads.Configuration.Classless;
 
@@ -23,7 +23,7 @@ public abstract class ClasslessQdiscBuilder<TSelf> : IClasslessQdiscBuilder wher
 
     IClasslessQdisc<THandle> IClasslessQdiscBuilder.Build<THandle>(THandle handle)
     {
-        Throw.WorkloadSchedulingException.IfHandleIsDefault(handle);
+        WorkloadSchedulingException.ThrowIfHandleIsDefault(handle);
 
         return BuildInternal(handle);
     }

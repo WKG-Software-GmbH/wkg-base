@@ -34,7 +34,7 @@ public unsafe struct Unmanaged<T>(int count, bool initialize = true) : IDisposab
     /// </summary>
     public readonly T* GetPointer()
     {
-        Throw.ObjectDisposedException.If(disposedValue, nameof(Unmanaged<T>));
+        ObjectDisposedException.ThrowIf(disposedValue, nameof(Unmanaged<T>));
         return _ptr;
     }
 
@@ -67,7 +67,7 @@ public unsafe struct Unmanaged<T>(int count, bool initialize = true) : IDisposab
     public readonly ref T GetRefUnsafe(int index)
     {
 #if DEBUG
-        Throw.ObjectDisposedException.If(disposedValue, nameof(Unmanaged<T>));
+        ObjectDisposedException.ThrowIf(disposedValue, nameof(Unmanaged<T>));
         Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, Length - 1, nameof(index));
 #endif
         return ref Unsafe.AsRef<T>(_ptr + index);
@@ -81,7 +81,7 @@ public unsafe struct Unmanaged<T>(int count, bool initialize = true) : IDisposab
     /// <returns>A reference to the element at the specified index.</returns>
     public readonly ref T GetRef(int index)
     {
-        Throw.ObjectDisposedException.If(disposedValue, nameof(Unmanaged<T>));
+        ObjectDisposedException.ThrowIf(disposedValue, nameof(Unmanaged<T>));
         Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, Length - 1, nameof(index));
         return ref GetRefUnsafe(index);
     }
@@ -92,7 +92,7 @@ public unsafe struct Unmanaged<T>(int count, bool initialize = true) : IDisposab
     /// <param name="newCount">The new total number of elements to hold after the reallocation.</param>
     public void Realloc(int newCount)
     {
-        Throw.ObjectDisposedException.If(disposedValue, nameof(Unmanaged<T>));
+        ObjectDisposedException.ThrowIf(disposedValue, nameof(Unmanaged<T>));
         Throw.ArgumentOutOfRangeException.IfNotInRange(newCount, 0, int.MaxValue, nameof(newCount));
 
         if (newCount <= Length)

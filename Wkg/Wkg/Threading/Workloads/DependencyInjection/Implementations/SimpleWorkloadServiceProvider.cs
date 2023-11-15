@@ -4,8 +4,8 @@ namespace Wkg.Threading.Workloads.DependencyInjection.Implementations;
 
 internal class SimpleWorkloadServiceProvider : WorkloadServiceProviderBase
 {
-    private protected readonly Dictionary<Type, Func<object>> _servicesFactories = new();
-    private protected readonly Dictionary<Type, object> _services = new();
+    private protected readonly Dictionary<Type, Func<object>> _servicesFactories = [];
+    private protected readonly Dictionary<Type, object> _services = [];
     private bool disposedValue;
 
     public SimpleWorkloadServiceProvider(IEnumerable<KeyValuePair<Type, Func<object>>> serviceFactories)

@@ -1,5 +1,4 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Wkg.Common.Extensions;
 
 namespace Wkg.Collections.Concurrent.Tests;
 

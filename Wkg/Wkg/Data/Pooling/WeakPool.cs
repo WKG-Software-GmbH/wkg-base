@@ -1,5 +1,4 @@
-﻿using Wkg.Common.ThrowHelpers;
-using Wkg.Internals.Diagnostic;
+﻿using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
 using Wkg.Threading;
 
@@ -26,7 +25,7 @@ public class WeakPool<T> : IPool<T> where T : class, IPoolable<T>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxCapacity"/> is less than or equal to zero.</exception>
     public WeakPool(int maxCapacity)
     {
-        Throw.ArgumentOutOfRangeException.IfNegativeOrZero(maxCapacity, nameof(maxCapacity));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxCapacity, nameof(maxCapacity));
         _pool = new T[maxCapacity];
         _index = 0;
     }

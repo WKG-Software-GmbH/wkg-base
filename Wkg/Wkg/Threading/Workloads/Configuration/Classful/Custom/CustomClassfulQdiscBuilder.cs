@@ -1,6 +1,6 @@
-﻿using Wkg.Common.ThrowHelpers;
-using Wkg.Threading.Workloads.Queuing.Classful;
+﻿using Wkg.Threading.Workloads.Queuing.Classful;
 using Wkg.Threading.Workloads.Queuing.Classful.Classification;
+using Wkg.Threading.Workloads.Scheduling;
 
 namespace Wkg.Threading.Workloads.Configuration.Classful.Custom;
 
@@ -20,7 +20,7 @@ public abstract class CustomClassfulQdiscBuilder<THandle, TPredicateBuilder, TSe
 
     internal IClassfulQdisc<THandle> Build()
     {
-        Throw.WorkloadSchedulingException.IfHandleIsDefault(_handle);
+        WorkloadSchedulingException.ThrowIfHandleIsDefault(_handle);
 
         return BuildInternal(_handle);
     }

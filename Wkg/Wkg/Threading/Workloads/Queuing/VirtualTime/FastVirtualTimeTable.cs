@@ -1,6 +1,4 @@
-﻿using Wkg.Data.Pooling;
-
-namespace Wkg.Threading.Workloads.Queuing.VirtualTime;
+﻿namespace Wkg.Threading.Workloads.Queuing.VirtualTime;
 
 internal class FastVirtualTimeTable : VirtualTimeTableBase
 {

@@ -1,7 +1,6 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Wkg.Threading.Workloads.Factories;
 using Wkg.Threading.Workloads.Configuration;
-using Microsoft.VisualStudio.TestPlatform.ObjectModel;
 using Wkg.Common.Extensions;
 using Wkg.Threading.Workloads.Queuing.Classless.Fifo;
 

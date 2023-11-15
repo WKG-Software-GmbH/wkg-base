@@ -2,15 +2,10 @@
 
 namespace Wkg.Threading.Workloads.Queuing.Classful.Classification.Internals;
 
-internal class NoChildClassification<THandle> : IChildClassification<THandle>
+internal class NoChildClassification<THandle>(IClasslessQdisc<THandle> child) : IChildClassification<THandle>
     where THandle : unmanaged
 {
-    public IClasslessQdisc<THandle> Qdisc { get; }
-
-    public NoChildClassification(IClasslessQdisc<THandle> child)
-    {
-        Qdisc = child;
-    }
+    public IClasslessQdisc<THandle> Qdisc { get; } = child;
 
     // does not support classification, always returns false
     public bool TryEnqueue(object? state, AbstractWorkloadBase workload) => false;

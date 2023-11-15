@@ -50,7 +50,7 @@ public class ConcurrentBitmap : IDisposable, IParentNode
 
     public ConcurrentBitmap(int bitSize)
     {
-        Throw.ArgumentOutOfRangeException.IfNegativeOrZero(bitSize, nameof(bitSize));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(bitSize, nameof(bitSize));
         _syncRoot = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
 
         // do we need an internal root node, or can we just create a cluster directly?
@@ -179,7 +179,7 @@ public class ConcurrentBitmap : IDisposable, IParentNode
 
     public void Grow(int additionalSize)
     {
-        Throw.ArgumentOutOfRangeException.IfNegative(additionalSize, nameof(additionalSize));
+        ArgumentOutOfRangeException.ThrowIfNegative(additionalSize, nameof(additionalSize));
 
         using ILockOwnership writeLock = _syncRoot.AcquireWriteLock();
         GrowCore(additionalSize);
@@ -210,8 +210,8 @@ public class ConcurrentBitmap : IDisposable, IParentNode
 
     public void Shrink(int removalSize)
     {
-        Throw.ArgumentOutOfRangeException.IfNegative(removalSize, nameof(removalSize));
-        Throw.ArgumentOutOfRangeException.IfGreaterThan(removalSize, Length, nameof(removalSize));
+        ArgumentOutOfRangeException.ThrowIfNegative(removalSize, nameof(removalSize));
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(removalSize, Length, nameof(removalSize));
 
         using ILockOwnership writeLock = _syncRoot.AcquireWriteLock();
         ShrinkCore(removalSize);

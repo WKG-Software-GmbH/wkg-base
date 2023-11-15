@@ -3,7 +3,7 @@
 namespace Wkg.Common.ThrowHelpers;
 
 /// <summary>
-/// Provides methods for throwing exceptions.
+/// Complements the static throw helpers introduced in .NET 8 for many exception types.
 /// </summary>
 [StackTraceHidden]
 [DebuggerStepThrough]

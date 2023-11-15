@@ -158,7 +158,7 @@ public static class WorkloadFactoryExtensions
     {
         await Workload.WhenAll(workloads);
         List<TResult> results = new(workloads.Length);
-        List<Exception> errors = new();
+        List<Exception> errors = [];
         for (int i = 0; i < workloads.Length; i++)
         {
             WorkloadResult<TResult> result = workloads[i].Result;

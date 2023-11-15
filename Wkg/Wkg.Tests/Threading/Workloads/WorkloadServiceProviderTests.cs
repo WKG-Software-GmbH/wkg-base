@@ -1,5 +1,4 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Wkg.Threading.Workloads;
 using Wkg.Threading.Workloads.Configuration;
 using Wkg.Threading.Workloads.DependencyInjection;
 using Wkg.Threading.Workloads.DependencyInjection.Implementations;
@@ -228,12 +227,8 @@ public class WorkloadServiceProviderTests
         public int GetNext() => Interlocked.Increment(ref _counter);
     }
 
-    private class MySingletonService
+    private class MySingletonService(int _counter)
     {
-        private readonly int _counter;
-
-        public MySingletonService(int counter) => _counter = counter;
-
         public int GetNext() => _counter;
     }
 }

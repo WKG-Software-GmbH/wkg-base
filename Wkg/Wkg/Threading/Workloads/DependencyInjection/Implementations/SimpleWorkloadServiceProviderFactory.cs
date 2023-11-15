@@ -6,7 +6,7 @@
 /// </summary>
 public class SimpleWorkloadServiceProviderFactory : WorkloadServiceProviderFactory, IWorkloadServiceProviderFactory
 {
-    private readonly Dictionary<Type, Func<object>> _serviceFactories = new();
+    private readonly Dictionary<Type, Func<object>> _serviceFactories = [];
 
     bool IWorkloadServiceProviderFactory.AddService<TService>(Func<TService> factory)
     {

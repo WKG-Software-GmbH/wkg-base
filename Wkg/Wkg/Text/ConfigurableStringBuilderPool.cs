@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics;
 using System.Text;
-using Wkg.Common.ThrowHelpers;
 
 namespace Wkg.Text;
 
@@ -20,8 +19,8 @@ internal sealed class ConfigurableStringBuilderPool : StringBuilderPool
 
     internal ConfigurableStringBuilderPool(int maxStringBuilderCapacity, int maxStringBuildersPerBucket)
     {
-        Throw.ArgumentOutOfRangeException.IfNegativeOrZero(maxStringBuilderCapacity, nameof(maxStringBuilderCapacity));
-        Throw.ArgumentOutOfRangeException.IfNegativeOrZero(maxStringBuildersPerBucket, nameof(maxStringBuildersPerBucket));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxStringBuilderCapacity, nameof(maxStringBuilderCapacity));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxStringBuildersPerBucket, nameof(maxStringBuildersPerBucket));
 
         // Our bucketing algorithm has a min capactity of 2^4 and a max capactity of 2^30.
         // Constrain the actual max used to those values.
@@ -48,7 +47,7 @@ internal sealed class ConfigurableStringBuilderPool : StringBuilderPool
     public override StringBuilder Rent(int minimumCapacity)
     {
         // StringBuilders can't be smaller than 1.
-        Throw.ArgumentOutOfRangeException.IfNegativeOrZero(minimumCapacity, nameof(minimumCapacity));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(minimumCapacity, nameof(minimumCapacity));
 
         StringBuilder? builder;
 

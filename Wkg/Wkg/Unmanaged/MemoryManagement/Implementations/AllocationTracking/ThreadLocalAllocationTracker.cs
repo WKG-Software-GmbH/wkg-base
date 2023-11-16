@@ -10,7 +10,6 @@ namespace Wkg.Unmanaged.MemoryManagement.Implementations.AllocationTracking;
 /// Allocations are tracked per thread and are as such only visible to the thread that allocated them.
 /// </remarks>
 /// <typeparam name="TMemoryManager">The underlying <see cref="IMemoryManager"/> to use.</typeparam>
-[StackTraceHidden]
 public readonly unsafe struct ThreadLocalAllocationTracker<TMemoryManager> : IMemoryManager, IAllocationTracker where TMemoryManager : struct, IMemoryManager
 {
     private static readonly ThreadLocal<ConcurrentDictionary<nuint, Allocation>> _allocations = new(() => new());
@@ -36,6 +35,7 @@ public readonly unsafe struct ThreadLocalAllocationTracker<TMemoryManager> : IMe
     public void Clear() => _allocations.Value!.Clear();
 
     /// <inheritdoc/>
+    [StackTraceHidden]
     public static void* Calloc(int count, int size)
     {
         void* p = TMemoryManager.Calloc(count, size);
@@ -52,6 +52,7 @@ public readonly unsafe struct ThreadLocalAllocationTracker<TMemoryManager> : IMe
     }
 
     /// <inheritdoc/>
+    [StackTraceHidden]
     public static void* Malloc(int size)
     {
         void* p = TMemoryManager.Malloc(size);
@@ -61,6 +62,7 @@ public readonly unsafe struct ThreadLocalAllocationTracker<TMemoryManager> : IMe
     }
 
     /// <inheritdoc/>
+    [StackTraceHidden]
     public static void* Realloc(void* previous, int newSize)
     {
         _allocations.Value!.TryRemove((nuint)previous, out _);
@@ -71,6 +73,7 @@ public readonly unsafe struct ThreadLocalAllocationTracker<TMemoryManager> : IMe
     }
 
     /// <inheritdoc/>
+    [StackTraceHidden]
     public T* Calloc<T>(int count) where T : unmanaged
     {
         T* p = _impl.Calloc<T>(count);
@@ -82,7 +85,7 @@ public readonly unsafe struct ThreadLocalAllocationTracker<TMemoryManager> : IMe
     /// <inheritdoc/>
     public AllocationSnapshot GetAllocationSnapshot(bool reset = false)
     {
-        Allocation[] allocations = _allocations.Value!.Values.ToArray();
+        Allocation[] allocations = [.. _allocations.Value!.Values];
         if (reset)
         {
             _allocations.Value!.Clear();
@@ -92,6 +95,7 @@ public readonly unsafe struct ThreadLocalAllocationTracker<TMemoryManager> : IMe
     }
 
     /// <inheritdoc/>
+    [StackTraceHidden]
     public T* Realloc<T>(T* previous, int newCount) where T : unmanaged
     {
         _allocations.Value!.TryRemove((nuint)previous, out _);
@@ -102,6 +106,7 @@ public readonly unsafe struct ThreadLocalAllocationTracker<TMemoryManager> : IMe
     }
 
     /// <inheritdoc/>
+    [StackTraceHidden]
     public void RegisterExternalAllocation(void* handle, nuint size)
     {
         Allocation allocation = new(new IntPtr(handle), size, new StackTrace(fNeedFileInfo: true));

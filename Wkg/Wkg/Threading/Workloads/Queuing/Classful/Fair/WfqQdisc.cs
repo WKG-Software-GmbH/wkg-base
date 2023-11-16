@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using Wkg.Collections.Concurrent;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
@@ -12,7 +13,7 @@ using Wkg.Threading.Workloads.Scheduling;
 
 namespace Wkg.Threading.Workloads.Queuing.Classful.Fair;
 
-internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmanaged
+internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmanaged
 {
     [ThreadStatic]
     private static int? __LAST_ENQUEUED_CHILD_INDEX;
@@ -22,28 +23,31 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
     private readonly ReaderWriterLockSlim _schedulerLock = new();
     private readonly IClasslessQdisc<THandle> _localQueue;
     private readonly Predicate<object?> _predicate;
-    private readonly PreferredFairness _preferredFairness;
-    private readonly VirtualTimeModel _schedulerTimeModel;
-    private readonly VirtualTimeModel _executionTimeModel;
+    private readonly VirtualFinishTimeFunction _virtualFinishTimeFunction;
+    private readonly VirtualExecutionTimeFunction _virtualExecutionTimeFunction;
+    private readonly VirtualAccumulatedFinishTimeFunction _virtualAccumulatedFinishTimeFunction;
 
     private uint _generationCounter;
     private readonly ConcurrentBitmap _hasDataMap;
     private volatile ChildQdiscState[] _childStates;
 
-    public FairQdisc(THandle handle, FairQdiscParams parameters) : base(handle)
+    public WfqQdisc(THandle handle, WfqQdiscParams parameters) : base(handle)
     {
         ArgumentNullException.ThrowIfNull(parameters.Predicate, nameof(parameters.Predicate));
         ArgumentNullException.ThrowIfNull(parameters.Inner, nameof(parameters.Inner));
+        ArgumentNullException.ThrowIfNull(parameters.VirtualFinishTimeFunction, nameof(parameters.VirtualFinishTimeFunction));
+        ArgumentNullException.ThrowIfNull(parameters.VirtualExecutionTimeFunction, nameof(parameters.VirtualExecutionTimeFunction));
+        ArgumentNullException.ThrowIfNull(parameters.VirtualAccumulatedFinishTimeFunction, nameof(parameters.VirtualAccumulatedFinishTimeFunction));
 
         _timeTable = parameters.PreferPreciseMeasurements
             ? VirtualTimeTable.CreatePrecise(parameters.ConcurrencyLevel, parameters.ExpectedNumberOfDistinctPayloads, parameters.MeasurementSampleLimit)
             : VirtualTimeTable.CreateFast(parameters.ConcurrencyLevel, parameters.ExpectedNumberOfDistinctPayloads, parameters.MeasurementSampleLimit);
         _predicate = parameters.Predicate;
-        _preferredFairness = parameters.PreferredFairness;
-        _schedulerTimeModel = parameters.SchedulerTimeModel;
-        _executionTimeModel = parameters.ExecutionTimeModel;
+        _virtualFinishTimeFunction = parameters.VirtualFinishTimeFunction;
+        _virtualExecutionTimeFunction = parameters.VirtualExecutionTimeFunction;
+        _virtualAccumulatedFinishTimeFunction = parameters.VirtualAccumulatedFinishTimeFunction;
         _localQueue = parameters.Inner.BuildUnsafe(default(THandle));
-        _childStates = [new ChildQdiscState(new NoChildClassification<THandle>(_localQueue))];
+        _childStates = [new ChildQdiscState(new NoChildClassification<THandle>(_localQueue), new WfqWeight(1d, 1d))];
         // by default we have one child, so the bit map is initialized with a single bit
         // if we have more children, the bit map will be resized automatically
         _hasDataMap = new ConcurrentBitmap(1);
@@ -163,24 +167,16 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
                         // in either case, we now have a workload to return
                         workload = candidate;
                         // update the virtual time
-                        FairState state = (FairState)workload._state!;
+                        WfqState state = (WfqState)workload._state!;
                         EventuallyConsistentVirtualTimeTableEntry latestTimingInfo = _timeTable.GetEntryFor(workload);
                         // we assume average execution time for the aggregate
                         // but we assume worst case execution time for the workload itself
                         // this can be tweaked for different scheduling policies
                         // we are the only ones able to update the virtual finish time (we already hold the lock on the child qdisc)
-                        double virtualBaseTime = _preferredFairness == PreferredFairness.ShortTerm
-                            ? _timeTable.Now()
-                            : Volatile.Read(ref child.LastVirtualFinishTimeRef);
-                        double assumedExecutionTime = _executionTimeModel switch
-                        {
-                            VirtualTimeModel.BestCase => latestTimingInfo.BestCaseAverageExecutionTime,
-                            VirtualTimeModel.WorstCase => latestTimingInfo.WorstCaseAverageExecutionTime,
-                            VirtualTimeModel.Average or _ => latestTimingInfo.AverageExecutionTime,
-                        };
-                        DebugLog.WriteDiagnostic($"{this}: dequeued workload {workload} with virtual execution time {state.VirtualExecutionTime} and expected execution time {assumedExecutionTime}.", LogWriter.Blocking);
-                        double lastVirtualFinishTime = virtualBaseTime + assumedExecutionTime;
-                        Volatile.Write(ref child.LastVirtualFinishTimeRef, lastVirtualFinishTime);
+                        double lastVirtualFinishTime = Volatile.Read(ref child.LastVirtualFinishTimeRef);
+                        double newVirtualFinishTime = _virtualAccumulatedFinishTimeFunction.Invoke(state.QdiscWeight, _timeTable, state.TimingInfo, lastVirtualFinishTime);
+                        DebugLog.WriteDiagnostic($"{this}: dequeued workload {workload} from child {child.Child.Qdisc}. Virtual finish time increased by {newVirtualFinishTime - lastVirtualFinishTime} to {newVirtualFinishTime}.", LogWriter.Blocking);
+                        Volatile.Write(ref child.LastVirtualFinishTimeRef, newVirtualFinishTime);
                         // we just changed the virtual finish time of a child, so we need to increment the generation counter
                         Interlocked.Increment(ref _generationCounter);
                         // don't forget to strip our state from the workload
@@ -292,7 +288,7 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
                 }
             }
             // we actually found a non-null candidate.
-            if (possibleCandidate._state is not FairState candidateState)
+            if (possibleCandidate._state is not WfqState candidateState)
             {
                 // this should never happen, as we only enqueue workloads with an earliest due date state
                 // before we can abort the workload, we must acquire the child qdisc lock
@@ -318,7 +314,7 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
                     }
                 }
                 // we have all the time in the world to abort the workload, so we don't need to do it in the lock
-                WorkloadSchedulingException exception = WorkloadSchedulingException.CreateVirtual($"Scheduler inconsistency: workload {possibleCandidate} has no {nameof(FairState)}.");
+                WorkloadSchedulingException exception = WorkloadSchedulingException.CreateVirtual($"Scheduler inconsistency: workload {possibleCandidate} has no {nameof(WfqState)}.");
                 Debug.Fail(exception.Message);
                 DebugLog.WriteException(exception, LogWriter.Blocking);
                 // in this case, we must abort the workload, as we can't properly handle it
@@ -329,7 +325,9 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
                 continue;
             }
             // we found a valid candidate, determine the earliest due date
-            double virtualFinishTime = Volatile.Read(ref childState.LastVirtualFinishTimeRef) + candidateState.VirtualExecutionTime;
+            double lastVirtualFinishTime = Volatile.Read(ref childState.LastVirtualFinishTimeRef);
+            double virtualExecutionTime = _virtualExecutionTimeFunction.Invoke(candidateState.QdiscWeight, _timeTable, candidateState.TimingInfo);
+            double virtualFinishTime = _virtualFinishTimeFunction.Invoke(candidateState.QdiscWeight, _timeTable, virtualExecutionTime, lastVirtualFinishTime);
             if (virtualFinishTime < earliestDueDate)
             {
                 earliestDueDate = virtualFinishTime;
@@ -411,7 +409,7 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
             ChildQdiscState childState = childStates[i];
             if (childState.Child.CanClassify(state))
             {
-                UpdateWorkloadState(workload);
+                UpdateWorkloadState(workload, childState.Weight);
                 // update the emptiness tracking
                 // the actual reset happens in the OnWorkScheduled callback, but we need to
                 // set up the index of the child that was just enqueued to for that
@@ -425,7 +423,7 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
                     // we are on the enqueueing thread, so we can just throw here
                     throw exception;
                 }
-                DebugLog.WriteDiagnostic($"{this}: enqueued workload {workload} to child {childState.Child.Qdisc} ({i}).", LogWriter.Blocking);
+                DebugLog.WriteDiagnostic($"{this}: enqueued workload {workload} to child {childState.Child.Qdisc}.", LogWriter.Blocking);
                 return true;
             }
         }
@@ -492,9 +490,9 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
             }
         }
         // success case
-        DebugLog.WriteDiagnostic($"{this}: expecting to enqueue workload {workload} to child {childState.Child.Qdisc} ({index}) via routing path.", LogWriter.Blocking);
+        DebugLog.WriteDiagnostic($"{this}: expecting to enqueue workload {workload} to child {childState.Child.Qdisc} via routing path.", LogWriter.Blocking);
 
-        UpdateWorkloadState(workload);
+        UpdateWorkloadState(workload, childState.Weight);
         __LAST_ENQUEUED_CHILD_INDEX = index;
     }
 
@@ -513,9 +511,9 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
         using ILockOwnership readLock = _childModificationLock.AcquireReadLock();
 
         const int localQueueIndex = 0;
-        FairQdisc<THandle>.ChildQdiscState[] childStates = _childStates;
+        ChildQdiscState[] childStates = _childStates;
 
-        UpdateWorkloadState(workload);
+        UpdateWorkloadState(workload, childStates[0].Weight);
         // update the emptiness tracking
         // the actual reset happens in the OnWorkScheduled callback, but we need to
         // set up the index of the child that was just enqueued to for that
@@ -549,18 +547,10 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
         base.OnWorkScheduled();
     }
 
-    private void UpdateWorkloadState(AbstractWorkloadBase workload)
+    private void UpdateWorkloadState(AbstractWorkloadBase workload, WfqWeight weight)
     {
         EventuallyConsistentVirtualTimeTableEntry timingInformation = _timeTable.GetEntryFor(workload);
-        workload._state = new FairState(workload._state)
-        {
-            VirtualExecutionTime = _schedulerTimeModel switch
-            {
-                VirtualTimeModel.BestCase => timingInformation.BestCaseAverageExecutionTime,
-                VirtualTimeModel.WorstCase => timingInformation.WorstCaseAverageExecutionTime,
-                VirtualTimeModel.Average or _ => timingInformation.AverageExecutionTime,
-            },
-        };
+        workload._state = new WfqState(workload._state, timingInformation, weight);
     }
 
     public override bool RemoveChild(IClasslessQdisc<THandle> child) =>
@@ -628,16 +618,25 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
         return true;
     }
 
+    public bool TryAddChild(IClasslessQdisc<THandle> child, WfqWeight weight, Predicate<object?> predicate) =>
+        TryAddChildCore(new ChildClassification<THandle>(child, predicate), weight);
+
+    public bool TryAddChild(IClassfulQdisc<THandle> child, WfqWeight weight) =>
+        TryAddChildCore(new ClassfulChildClassification<THandle>(child), weight);
+
+    public bool TryAddChild(IClasslessQdisc<THandle> child, WfqWeight weight) =>
+        TryAddChildCore(new NoChildClassification<THandle>(child), weight);
+
     public override bool TryAddChild(IClasslessQdisc<THandle> child, Predicate<object?> predicate) =>
-        TryAddChildCore(new ChildClassification<THandle>(child, predicate));
+        TryAddChildCore(new ChildClassification<THandle>(child, predicate), new WfqWeight(1d, 1d));
 
     public override bool TryAddChild(IClassfulQdisc<THandle> child) =>
-        TryAddChildCore(new ClassfulChildClassification<THandle>(child));
+        TryAddChildCore(new ClassfulChildClassification<THandle>(child), new WfqWeight(1d, 1d));
 
     public override bool TryAddChild(IClasslessQdisc<THandle> child) =>
-        TryAddChildCore(new NoChildClassification<THandle>(child));
+        TryAddChildCore(new NoChildClassification<THandle>(child), new WfqWeight(1d, 1d));
 
-    private bool TryAddChildCore(IChildClassification<THandle> child)
+    private bool TryAddChildCore(IChildClassification<THandle> child, WfqWeight weight)
     {
         using ILockOwnership writeLock = _childModificationLock.AcquireWriteLock();
 
@@ -667,7 +666,7 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
             // we are the only thread currently allowed to do anything on this qdisc
             Volatile.Write(ref newChildStates[i].LastVirtualFinishTimeRef, 0);
         }
-        newChildStates[^1] = new ChildQdiscState(child);
+        newChildStates[^1] = new ChildQdiscState(child, weight);
         // update the emptiness tracking
         // instead of inserting a new bit, we just grow and update the last bit
         // this is a cheaper operation as we don't need to hold a write lock for the update
@@ -734,14 +733,17 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
 
         public IChildClassification<THandle> Child { get; }
 
+        public WfqWeight Weight { get; }
+
         public object QdiscLock { get; }
 
-        public ChildQdiscState(IChildClassification<THandle> child)
+        public ChildQdiscState(IChildClassification<THandle> child, WfqWeight weight)
         {
             Child = child;
             QdiscLock = new object();
             LastVirtualFinishTimeRef = 0;
             CandidateRef = null;
+            Weight = weight;
         }
 
         public ref double LastVirtualFinishTimeRef => ref _lastVirtualFinishTime;
@@ -749,3 +751,49 @@ internal class FairQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unman
         public ref AbstractWorkloadBase? CandidateRef => ref _candidate;
     }
 }
+
+public interface IVirtualTimeFunction
+{
+    double CalculateVirtualExecutionTime(WfqWeight weight, IVirtualTimeTable timeTable, EventuallyConsistentVirtualTimeTableEntry timingInfo);
+
+    double CalculateVirtualFinishTime(WfqWeight weight, IVirtualTimeTable timeTable, double virtualExecutionTime, double lastVirtualFinishTime);
+
+    double CalculateVirtualAccumulatedFinishTime(WfqWeight weight, IVirtualTimeTable timeTable, EventuallyConsistentVirtualTimeTableEntry timingInfo, double lastVirtualFinishTime);
+}
+
+internal sealed class ParameterizedWfqVirtualTimeFunction(WfqSchedulingParams schedulingParams) : IVirtualTimeFunction
+{
+    private readonly PreferredFairness _preferredFairness = schedulingParams.PreferredFairness;
+    private readonly VirtualTimeModel _schedulerTimeModel = schedulingParams.SchedulerTimeModel;
+    private readonly VirtualTimeModel _executionTimeModel = schedulingParams.ExecutionTimeModel;
+
+    public double CalculateVirtualAccumulatedFinishTime(WfqWeight weight, IVirtualTimeTable timeTable, EventuallyConsistentVirtualTimeTableEntry timingInfo, double lastVirtualFinishTime)
+    {
+        double virtualBaseTime = _preferredFairness == PreferredFairness.ShortTerm
+            ? timeTable.Now()
+            : lastVirtualFinishTime;
+        double assumedExecutionTime = _executionTimeModel switch
+        {
+            VirtualTimeModel.BestCase => timingInfo.BestCaseAverageExecutionTime,
+            VirtualTimeModel.WorstCase => timingInfo.WorstCaseAverageExecutionTime,
+            VirtualTimeModel.Average or _ => timingInfo.AverageExecutionTime,
+        };
+        return virtualBaseTime + assumedExecutionTime * weight.ExecutionPunishmentFactor;
+    }
+
+    public double CalculateVirtualExecutionTime(WfqWeight weight, IVirtualTimeTable timeTable, EventuallyConsistentVirtualTimeTableEntry timingInfo) => _schedulerTimeModel switch
+    {
+        VirtualTimeModel.BestCase => timingInfo.BestCaseAverageExecutionTime,
+        VirtualTimeModel.WorstCase => timingInfo.WorstCaseAverageExecutionTime,
+        VirtualTimeModel.Average or _ => timingInfo.AverageExecutionTime,
+    } * weight.WorkloadSchedulingWeight;
+
+    public double CalculateVirtualFinishTime(WfqWeight weight, IVirtualTimeTable timeTable, double virtualExecutionTime, double lastVirtualFinishTime) =>
+        lastVirtualFinishTime + virtualExecutionTime;
+}
+
+internal delegate double VirtualExecutionTimeFunction(WfqWeight weight, IVirtualTimeTable timeTable, EventuallyConsistentVirtualTimeTableEntry timingInfo);
+internal delegate double VirtualFinishTimeFunction(WfqWeight weight, IVirtualTimeTable timeTable, double virtualExecutionTime, double lastVirtualFinishTime);
+internal delegate double VirtualAccumulatedFinishTimeFunction(WfqWeight weight, IVirtualTimeTable timeTable, EventuallyConsistentVirtualTimeTableEntry timingInfo, double lastVirtualFinishTime);
+
+public record WfqWeight(double ExecutionPunishmentFactor, double WorkloadSchedulingWeight);

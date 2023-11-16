@@ -1,8 +1,9 @@
-﻿using Wkg.Threading.Workloads.Configuration.Classless;
+﻿using System.Diagnostics.CodeAnalysis;
+using Wkg.Threading.Workloads.Configuration.Classless;
 
 namespace Wkg.Threading.Workloads.Queuing.Classful.Fair;
 
-internal class FairQdiscParams
+internal class WfqQdiscParams
 {
     public Predicate<object?>? Predicate { get; set; }
     public required IClasslessQdiscBuilder? Inner { get; set; }
@@ -10,9 +11,25 @@ internal class FairQdiscParams
     public required int ExpectedNumberOfDistinctPayloads { get; set; }
     public required int MeasurementSampleLimit { get; set; }
     public required bool PreferPreciseMeasurements { get; set; } = false;
-    public required PreferredFairness PreferredFairness { get; set; } = PreferredFairness.ShortTerm;
-    public required VirtualTimeModel SchedulerTimeModel { get; set; } = VirtualTimeModel.WorstCase;
-    public required VirtualTimeModel ExecutionTimeModel { get; set; } = VirtualTimeModel.Average;
+    public PreferredFairness PreferredFairness { get; set; } = PreferredFairness.ShortTerm;
+    public VirtualTimeModel SchedulerTimeModel { get; set; } = VirtualTimeModel.WorstCase;
+    public VirtualTimeModel ExecutionTimeModel { get; set; } = VirtualTimeModel.Average;
+    public VirtualFinishTimeFunction? VirtualFinishTimeFunction { get; set; }
+    public VirtualExecutionTimeFunction? VirtualExecutionTimeFunction { get; set; }
+    public VirtualAccumulatedFinishTimeFunction? VirtualAccumulatedFinishTimeFunction { get; set; }
+
+    public bool HasVirtualTimeFunction => VirtualFinishTimeFunction is not null && VirtualExecutionTimeFunction is not null && VirtualAccumulatedFinishTimeFunction is not null;
+
+    public required WfqSchedulingParams SchedulingParams
+    {
+        get => new(PreferredFairness, SchedulerTimeModel, ExecutionTimeModel);
+        set => (PreferredFairness, SchedulerTimeModel, ExecutionTimeModel) = value;
+    }
+}
+
+internal record WfqSchedulingParams(PreferredFairness PreferredFairness, VirtualTimeModel SchedulerTimeModel, VirtualTimeModel ExecutionTimeModel)
+{
+    public static WfqSchedulingParams Default { get; } = new(PreferredFairness.ShortTerm, VirtualTimeModel.WorstCase, VirtualTimeModel.Average);
 }
 
 /// <summary>

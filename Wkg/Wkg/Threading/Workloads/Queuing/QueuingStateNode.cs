@@ -1,13 +1,13 @@
 ﻿namespace Wkg.Threading.Workloads.Queuing;
 
-internal abstract class QueuingStateNode
+public abstract class QueuingStateNode
 {
     private readonly QueuingStateNode? _inner;
 
-    protected QueuingStateNode(QueuingStateNode? inner)
+    private protected QueuingStateNode(QueuingStateNode? inner)
     {
         _inner = inner;
     }
 
-    public QueuingStateNode? Strip() => _inner;
+    internal QueuingStateNode? Strip() => _inner;
 }

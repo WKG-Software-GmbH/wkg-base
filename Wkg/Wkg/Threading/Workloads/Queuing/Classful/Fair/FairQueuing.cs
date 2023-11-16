@@ -1,33 +1,33 @@
-﻿using Wkg.Threading.Workloads.Configuration;
+﻿using System.Diagnostics;
+using Wkg.Internals.Diagnostic;
+using Wkg.Threading.Workloads.Configuration;
 using Wkg.Threading.Workloads.Configuration.Classful;
 using Wkg.Threading.Workloads.Configuration.Classless;
 using Wkg.Threading.Workloads.Queuing.Classless.Fifo;
 
 namespace Wkg.Threading.Workloads.Queuing.Classful.Fair;
 
-public class Fair : ClassfulQdiscBuilder<Fair>, IClassfulQdiscBuilder<Fair>
+public class FairQueuing : ClassfulQdiscBuilder<FairQueuing>, IClassfulQdiscBuilder<FairQueuing>
 {
     private readonly IQdiscBuilderContext _context;
-    private readonly FairQdiscParams _params;
+    private readonly WfqQdiscParams _params;
 
-    private Fair(IQdiscBuilderContext context)
+    private FairQueuing(IQdiscBuilderContext context)
     {
         _context = context;
-        _params = new FairQdiscParams()
+        _params = new WfqQdiscParams()
         {
             Inner = null,
             ConcurrencyLevel = context.MaximumConcurrency,
             ExpectedNumberOfDistinctPayloads = 32,
             MeasurementSampleLimit = -1,
             PreferPreciseMeasurements = false,
-            PreferredFairness = PreferredFairness.ShortTerm,
-            SchedulerTimeModel = VirtualTimeModel.WorstCase,
-            ExecutionTimeModel = VirtualTimeModel.Average
+            SchedulingParams = WfqSchedulingParams.Default,
         };
     }
 
     /// <inheritdoc/>
-    public static Fair CreateBuilder(IQdiscBuilderContext context) => new(context);
+    public static FairQueuing CreateBuilder(IQdiscBuilderContext context) => new(context);
 
     /// <summary>
     /// Sets the assumed maximum number of distinct payloads that will be enqueued. This value is used to pre-allocate
@@ -38,8 +38,8 @@ public class Fair : ClassfulQdiscBuilder<Fair>, IClassfulQdiscBuilder<Fair>
     /// A payload is considered distinct if the underlying action points to a different implementation at runtime.
     /// </remarks>
     /// <param name="expectedNumberOfDistinctPayloads">The estimated maximum number of distinct payloads that will be enqueued.</param>
-    /// <returns>The current <see cref="Fair"/> instance.</returns>
-    public Fair AssumeMaximimNumberOfDistinctPayloads(int expectedNumberOfDistinctPayloads)
+    /// <returns>The current <see cref="FairQueuing"/> instance.</returns>
+    public FairQueuing AssumeMaximimNumberOfDistinctPayloads(int expectedNumberOfDistinctPayloads)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(expectedNumberOfDistinctPayloads, nameof(expectedNumberOfDistinctPayloads));
 
@@ -54,8 +54,8 @@ public class Fair : ClassfulQdiscBuilder<Fair>, IClassfulQdiscBuilder<Fair>
     /// Precise measurements may be preferable in scenarios where workloads are very short-lived and fairness is important.
     /// </remarks>
     /// <param name="usePreciseMeasurements">Whether to prefer precise measurements over performance.</param>
-    /// <returns>The current <see cref="Fair"/> instance.</returns>
-    public Fair UsePreciseMeasurements(bool usePreciseMeasurements = true)
+    /// <returns>The current <see cref="FairQueuing"/> instance.</returns>
+    public FairQueuing UsePreciseMeasurements(bool usePreciseMeasurements = true)
     {
         _params.PreferPreciseMeasurements = usePreciseMeasurements;
         return this;
@@ -65,8 +65,8 @@ public class Fair : ClassfulQdiscBuilder<Fair>, IClassfulQdiscBuilder<Fair>
     /// Sets the maximum number of samples to take when dynamically measuring the execution time of workloads.
     /// </summary>
     /// <param name="measurementSampleLimit">The maximum number of samples to take when dynamically measuring the execution time of workloads, or <c>-1</c> for continuous sampling.</param>
-    /// <returns>The current <see cref="Fair"/> instance.</returns>
-    public Fair SetMeasurementSampleLimit(int measurementSampleLimit)
+    /// <returns>The current <see cref="FairQueuing"/> instance.</returns>
+    public FairQueuing SetMeasurementSampleLimit(int measurementSampleLimit)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(measurementSampleLimit, -1, nameof(measurementSampleLimit));
         ArgumentOutOfRangeException.ThrowIfZero(measurementSampleLimit, nameof(measurementSampleLimit));
@@ -79,8 +79,8 @@ public class Fair : ClassfulQdiscBuilder<Fair>, IClassfulQdiscBuilder<Fair>
     /// Sets the preferred fairness model.
     /// </summary>
     /// <param name="preferredFairness">The preferred fairness model.</param>
-    /// <returns>The current <see cref="Fair"/> instance.</returns>
-    public Fair PreferFairness(PreferredFairness preferredFairness)
+    /// <returns>The current <see cref="FairQueuing"/> instance.</returns>
+    public FairQueuing PreferFairness(PreferredFairness preferredFairness)
     {
         _params.PreferredFairness = preferredFairness;
         return this;
@@ -91,8 +91,8 @@ public class Fair : ClassfulQdiscBuilder<Fair>, IClassfulQdiscBuilder<Fair>
     /// workload to execute from the set of workloads that are due to be dequeued from child queues.
     /// </summary>
     /// <param name="timeModel">The virtual time model to use for scheduling.</param>
-    /// <returns>The current <see cref="Fair"/> instance.</returns>
-    public Fair UseSchedulerTimeModel(VirtualTimeModel timeModel)
+    /// <returns>The current <see cref="FairQueuing"/> instance.</returns>
+    public FairQueuing UseSchedulerTimeModel(VirtualTimeModel timeModel)
     {
         _params.SchedulerTimeModel = timeModel;
         return this;
@@ -103,22 +103,39 @@ public class Fair : ClassfulQdiscBuilder<Fair>, IClassfulQdiscBuilder<Fair>
     /// penalty that is applied to a queue after a workload has been dequeued from it.
     /// </summary>
     /// <param name="timeModel">The virtual time model to use to estimate the execution time of workloads.</param>
-    /// <returns>The current <see cref="Fair"/> instance.</returns>
-    public Fair UseExecutionTimeModel(VirtualTimeModel timeModel)
+    /// <returns>The current <see cref="FairQueuing"/> instance.</returns>
+    public FairQueuing UseExecutionTimeModel(VirtualTimeModel timeModel)
     {
         _params.ExecutionTimeModel = timeModel;
         return this;
     }
 
-    public Fair WithLocalQueue<TLocalQueue>()
+    public FairQueuing UseVirtualTimeFunction<TFunction>() where TFunction : IVirtualTimeFunction, new()
+    {
+        if (_params.HasVirtualTimeFunction)
+        {
+            throw new InvalidOperationException("Virtual time function has already been configured.");
+        }
+        if (_params.SchedulingParams != WfqSchedulingParams.Default)
+        {
+            DebugLog.WriteWarning($"Virtual time function is being configured, but scheduling parameters have already been configured. The virtual time function will override the scheduling parameters.");
+        }
+        TFunction function = new();
+        _params.VirtualFinishTimeFunction = function.CalculateVirtualFinishTime;
+        _params.VirtualExecutionTimeFunction = function.CalculateVirtualExecutionTime;
+        _params.VirtualAccumulatedFinishTimeFunction = function.CalculateVirtualAccumulatedFinishTime;
+        return this;
+    }
+
+    public FairQueuing WithLocalQueue<TLocalQueue>()
         where TLocalQueue : ClasslessQdiscBuilder<TLocalQueue>, IClasslessQdiscBuilder<TLocalQueue> =>
             WithLocalQueueCore<TLocalQueue>(null);
 
-    public Fair WithLocalQueue<TLocalQueue>(Action<TLocalQueue> configureLocalQueue)
+    public FairQueuing WithLocalQueue<TLocalQueue>(Action<TLocalQueue> configureLocalQueue)
         where TLocalQueue : ClasslessQdiscBuilder<TLocalQueue>, IClasslessQdiscBuilder<TLocalQueue> =>
             WithLocalQueueCore(configureLocalQueue);
 
-    private Fair WithLocalQueueCore<TLocalQueue>(Action<TLocalQueue>? configureLocalQueue)
+    private FairQueuing WithLocalQueueCore<TLocalQueue>(Action<TLocalQueue>? configureLocalQueue)
         where TLocalQueue : ClasslessQdiscBuilder<TLocalQueue>, IClasslessQdiscBuilder<TLocalQueue>
     {
         if (_params.Inner is not null)
@@ -138,6 +155,13 @@ public class Fair : ClassfulQdiscBuilder<Fair>, IClassfulQdiscBuilder<Fair>
     {
         _params.Inner ??= Fifo.CreateBuilder(_context);
         _params.Predicate = predicate;
-        return new FairQdisc<THandle>(handle, _params);
+        if (!_params.HasVirtualTimeFunction)
+        {
+            ParameterizedWfqVirtualTimeFunction virtualTimeFunction = new(_params.SchedulingParams);
+            _params.VirtualFinishTimeFunction = virtualTimeFunction.CalculateVirtualFinishTime;
+            _params.VirtualExecutionTimeFunction = virtualTimeFunction.CalculateVirtualExecutionTime;
+            _params.VirtualAccumulatedFinishTimeFunction = virtualTimeFunction.CalculateVirtualAccumulatedFinishTime;
+        }
+        return new WfqQdisc<THandle>(handle, _params);
     }
 }

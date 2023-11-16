@@ -1,19 +1,19 @@
 ﻿using Wkg.Threading.Workloads.Queuing.Classful;
-using Wkg.Threading.Workloads.Queuing.Classful.Classification;
 using Wkg.Threading.Workloads.Scheduling;
 
 namespace Wkg.Threading.Workloads.Configuration.Classful.Custom;
 
-public abstract class CustomClassfulQdiscBuilder<THandle, TPredicateBuilder, TSelf> : ICustomClassfulQdiscBuilder<THandle>
+public abstract class CustomClassfulQdiscBuilder<THandle, TSelf> : ICustomClassfulQdiscBuilder<THandle>
     where THandle : unmanaged
-    where TSelf : CustomClassfulQdiscBuilder<THandle, TPredicateBuilder, TSelf>, ICustomClassfulQdiscBuilder<THandle, TPredicateBuilder, TSelf>
-    where TPredicateBuilder : IPredicateBuilder, new()
+    where TSelf : CustomClassfulQdiscBuilder<THandle, TSelf>, ICustomClassfulQdiscBuilder<THandle, TSelf>
 {
-    protected readonly THandle _handle;
+    private readonly THandle _handle;
+    protected readonly IQdiscBuilderContext _context;
 
-    protected CustomClassfulQdiscBuilder(THandle handle)
+    protected CustomClassfulQdiscBuilder(THandle handle, IQdiscBuilderContext context)
     {
         _handle = handle;
+        _context = context;
     }
 
     protected abstract IClassfulQdisc<THandle> BuildInternal(THandle handle);

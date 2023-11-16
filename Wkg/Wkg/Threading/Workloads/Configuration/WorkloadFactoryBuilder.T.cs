@@ -100,7 +100,7 @@ public abstract class WorkloadFactoryBuilderBase<THandle, TPredicateBuilder, TSe
     }
 
     private protected TWorkloadFactory UseClassfulRootCore<TWorkloadFactory, TRoot>(THandle rootHandle, Action<TRoot> rootConfiguration)
-        where TRoot : CustomClassfulQdiscBuilder<THandle, TPredicateBuilder, TRoot>, ICustomClassfulQdiscBuilder<THandle, TPredicateBuilder, TRoot>
+        where TRoot : CustomClassfulQdiscBuilder<THandle, TRoot>, ICustomClassfulQdiscBuilder<THandle, TRoot>
         where TWorkloadFactory : AbstractClassfulWorkloadFactory<THandle>, IWorkloadFactory<THandle, TWorkloadFactory>
     {
         TRoot rootClassBuilder = TRoot.CreateBuilder(rootHandle, _context);
@@ -161,7 +161,7 @@ public class WorkloadFactoryBuilder<THandle, TPredicateBuilder> : WorkloadFactor
             UseClassfulRootCore<ClassfulWorkloadFactory<THandle>, TRoot>(rootHandle, rootClassConfiguration);
 
     public ClassfulWorkloadFactory<THandle> UseClassfulRoot<TRoot>(THandle rootHandle, Action<TRoot> rootConfiguration)
-        where TRoot : CustomClassfulQdiscBuilder<THandle, TPredicateBuilder, TRoot>, ICustomClassfulQdiscBuilder<THandle, TPredicateBuilder, TRoot> =>
+        where TRoot : CustomClassfulQdiscBuilder<THandle, TRoot>, ICustomClassfulQdiscBuilder<THandle, TRoot> =>
             UseClassfulRootCore<ClassfulWorkloadFactory<THandle>, TRoot >(rootHandle, rootConfiguration);
 }
 
@@ -191,6 +191,6 @@ public class WorkloadFactoryBuilderWithDI<THandle, TPredicateBuilder> : Workload
             UseClassfulRootCore<ClassfulWorkloadFactoryWithDI<THandle>, TRoot>(rootHandle, rootClassConfiguration);
 
     public ClassfulWorkloadFactoryWithDI<THandle> UseClassfulRoot<TRoot>(THandle rootHandle, Action<TRoot> rootConfiguration)
-        where TRoot : CustomClassfulQdiscBuilder<THandle, TPredicateBuilder, TRoot>, ICustomClassfulQdiscBuilder<THandle, TPredicateBuilder, TRoot> =>
+        where TRoot : CustomClassfulQdiscBuilder<THandle, TRoot>, ICustomClassfulQdiscBuilder<THandle, TRoot> =>
             UseClassfulRootCore<ClassfulWorkloadFactoryWithDI<THandle>, TRoot>(rootHandle, rootConfiguration);
 }

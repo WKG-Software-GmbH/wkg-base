@@ -62,29 +62,27 @@ using (ClassfulWorkloadFactory<QdiscType> clubmappFactory = WorkloadFactoryBuild
 }
 
 using ClassfulWorkloadFactoryWithDI<int> factory = WorkloadFactoryBuilder.Create<int>()
-    .UseMaximumConcurrency(4)
+    .UseMaximumConcurrency(2)
     .FlowExecutionContextToContinuations()
     .RunContinuationsOnCapturedContext()
     .UseDependencyInjection<PooledWorkloadServiceProviderFactory>(services => services
         .AddService<IMyService, MyService>(() => new MyService())
         .AddService(() => new MyService()))
     .UseAnonymousWorkloadPooling(poolSize: 64)
-    .UseClassfulRoot<Fair>(1, root => root
-        .ConfigureClassificationPredicates(classifier => classifier
-            .AddPredicate<State>(state => state.QdiscType == QdiscType.RoundRobin))
-        .ConfigureQdisc(fairQdisc => fairQdisc
-            .WithLocalQueue<Fifo>()
-            .AssumeMaximimNumberOfDistinctPayloads(16)
-            .PreferFairness(PreferredFairness.ShortTerm)
-            .SetMeasurementSampleLimit(1000)
-            .UsePreciseMeasurements(false)
-            .UseSchedulerTimeModel(VirtualTimeModel.WorstCase)
-            .UseExecutionTimeModel(VirtualTimeModel.Average))
-        .AddClasslessChild<Fifo>(2, classifier => classifier
+    .UseClassfulRoot<WeightedFairQueuing<int>>(1, root => root
+        .WithClassificationPredicate(o => o is State state && state.QdiscType == QdiscType.RoundRobin)
+        .WithLocalQueue<Fifo>()
+        .AssumeMaximimNumberOfDistinctPayloads(16)
+        .PreferFairness(PreferredFairness.LongTerm)
+        .SetMeasurementSampleLimit(1000)
+        .UsePreciseMeasurements(true)
+        .UseSchedulerTimeModel(VirtualTimeModel.Average)
+        .UseExecutionTimeModel(VirtualTimeModel.Average)
+        .AddClasslessChild<Fifo>(2, workloadSchedulingWeight: 2d, executionPunishmentFactor: 2d, classifier => classifier
             .AddPredicate<State>(state => state.QdiscType == QdiscType.Fifo)
             .AddPredicate<int>(i => (i & 1) == 0))
         .AddClasslessChild<Lifo>(14)
-        .AddClasslessChild<Lifo>(7, classifier => classifier
+        .AddClasslessChild<Lifo>(7, workloadSchedulingWeight: 0.5d, executionPunishmentFactor: 0.5d, classifier => classifier
             .AddPredicate<State>(state => state.QdiscType == QdiscType.Lifo)
             .AddPredicate<int>(i => (i & 1) == 1))
         .AddClasslessChild<ConstrainedFifo>(8, qdisc => qdisc
@@ -94,11 +92,11 @@ List<int> myData = Enumerable.Range(0, 10000).ToList();
 int sum = myData.Sum();
 Log.WriteInfo($"Sum: {sum}");
 
-List<int> result = await factory.TransformAllAsync(myData, (data, cancellationFlag) => data * 10);
+//List<int> result = await factory.TransformAllAsync(myData, (data, cancellationFlag) => data * 10);
 
-Log.WriteInfo($"Result Sum 1: {result.Select(i => (long)i).Sum()}");
-await Task.Delay(2500);
-Log.WriteInfo($"Sum: {sum}");
+//Log.WriteInfo($"Result Sum 1: {result.Select(i => (long)i).Sum()}");
+//await Task.Delay(2500);
+//Log.WriteInfo($"Sum: {sum}");
 
 List<int> resultClassified = await factory.ClassifyAndTransformAllAsync(myData, (data, cancellationFlag) => data * 10);
 

@@ -14,7 +14,7 @@ public sealed class ClassfulBuilder<THandle, TPredicateBuilder, TQdisc>
 {
     private readonly QdiscBuilderContext _context;
     private readonly THandle _handle;
-    private readonly List<(IClasslessQdisc<THandle>, Predicate<object?>?)> _children = new();
+    private readonly List<(IClasslessQdisc<THandle>, Predicate<object?>?)> _children = [];
     private readonly TPredicateBuilder _predicateBuilder = new();
     private TQdisc? _qdiscBuilder;
 
@@ -68,7 +68,7 @@ public sealed class ClassfulBuilder<THandle, TPredicateBuilder, TQdisc>
     }
 
     public ClassfulBuilder<THandle, TPredicateBuilder, TQdisc> AddClassfulChild<TChild>(THandle childHandle, Action<TChild> configureChild)
-        where TChild : CustomClassfulQdiscBuilder<THandle, TPredicateBuilder, TChild>, ICustomClassfulQdiscBuilder<THandle, TPredicateBuilder, TChild>
+        where TChild : CustomClassfulQdiscBuilder<THandle, TChild>, ICustomClassfulQdiscBuilder<THandle, TChild>
     {
         TChild childBuilder = TChild.CreateBuilder(childHandle, _context);
         configureChild(childBuilder);

@@ -7,7 +7,7 @@ using Wkg.Threading.Workloads.Queuing.Classful.Classification;
 using Wkg.Threading.Workloads.Queuing.Classless;
 using Wkg.Threading.Workloads.Queuing.Classless.Fifo;
 
-namespace Wkg.Threading.Workloads.Queuing.Classful.Fair;
+namespace Wkg.Threading.Workloads.Queuing.Classful.FairQueuing;
 
 public class WeightedFairQueuing<THandle> : CustomClassfulQdiscBuilder<THandle, WeightedFairQueuing<THandle>>, ICustomClassfulQdiscBuilder<THandle, WeightedFairQueuing<THandle>>
     where THandle : unmanaged

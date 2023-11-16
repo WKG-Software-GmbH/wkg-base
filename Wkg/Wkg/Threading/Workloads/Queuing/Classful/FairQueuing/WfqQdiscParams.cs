@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Wkg.Threading.Workloads.Configuration.Classless;
 
-namespace Wkg.Threading.Workloads.Queuing.Classful.Fair;
+namespace Wkg.Threading.Workloads.Queuing.Classful.FairQueuing;
 
 internal class WfqQdiscParams
 {

@@ -9,7 +9,7 @@ using Wkg.Threading.Workloads;
 using Wkg.Threading.Workloads.Configuration;
 using Wkg.Threading.Workloads.DependencyInjection.Implementations;
 using Wkg.Threading.Workloads.Factories;
-using Wkg.Threading.Workloads.Queuing.Classful.Fair;
+using Wkg.Threading.Workloads.Queuing.Classful.FairQueuing;
 using Wkg.Threading.Workloads.Queuing.Classful.RoundRobin;
 using Wkg.Threading.Workloads.Queuing.Classless.ConstrainedFifo;
 using Wkg.Threading.Workloads.Queuing.Classless.ConstrainedLifo;

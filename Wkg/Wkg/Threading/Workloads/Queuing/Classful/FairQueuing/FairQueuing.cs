@@ -5,7 +5,7 @@ using Wkg.Threading.Workloads.Configuration.Classful;
 using Wkg.Threading.Workloads.Configuration.Classless;
 using Wkg.Threading.Workloads.Queuing.Classless.Fifo;
 
-namespace Wkg.Threading.Workloads.Queuing.Classful.Fair;
+namespace Wkg.Threading.Workloads.Queuing.Classful.FairQueuing;
 
 public class FairQueuing : ClassfulQdiscBuilder<FairQueuing>, IClassfulQdiscBuilder<FairQueuing>
 {

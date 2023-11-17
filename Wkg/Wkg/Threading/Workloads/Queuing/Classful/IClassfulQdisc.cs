@@ -1,10 +1,9 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using Wkg.Threading.Workloads.Queuing.Classful.Routing;
 using Wkg.Threading.Workloads.Queuing.Classless;
 
 namespace Wkg.Threading.Workloads.Queuing.Classful;
 
-public interface IClassfulQdisc<THandle> : IQdisc, INotifyWorkScheduled, IClasslessQdisc<THandle>
+public interface IClassfulQdisc<THandle> : IQdisc, INotifyWorkScheduled, IClassifyingQdisc<THandle>
     where THandle : unmanaged
 {
     /// <summary>
@@ -12,21 +11,21 @@ public interface IClassfulQdisc<THandle> : IQdisc, INotifyWorkScheduled, IClassl
     /// </summary>
     /// <param name="child">The child to add.</param>
     /// <returns><see langword="true"/> if the child was added, <see langword="false"/> if the child was already added.</returns>
-    bool TryAddChild(IClasslessQdisc<THandle> child);
+    bool TryAddChild(IClassifyingQdisc<THandle> child);
 
     /// <summary>
     /// Attempts to remove the child from the qdisc.
     /// </summary>
     /// <param name="child">The child to remove.</param>
     /// <returns><see langword="true"/> if the child was removed, <see langword="false"/> if the child was not found or in use.</returns>
-    bool TryRemoveChild(IClasslessQdisc<THandle> child);
+    bool TryRemoveChild(IClassifyingQdisc<THandle> child);
 
     /// <summary>
     /// Removes the child from the qdisc, blocking until the child is no longer in use if necessary.
     /// </summary>
     /// <param name="child">The child to remove.</param>
     /// <returns><see langword="true"/> if the child was removed, <see langword="false"/> if the child was not found.</returns>
-    bool RemoveChild(IClasslessQdisc<THandle> child);
+    bool RemoveChild(IClassifyingQdisc<THandle> child);
 
     /// <summary>
     /// Attempts to find the child with the given handle.
@@ -34,26 +33,10 @@ public interface IClassfulQdisc<THandle> : IQdisc, INotifyWorkScheduled, IClassl
     /// <param name="handle">The handle of the child to find.</param>
     /// <param name="child">The child with the given handle, if found.</param>
     /// <returns><see langword="true"/> if the child was found, <see langword="false"/> if the child was not found.</returns>
-    internal bool TryFindChild(THandle handle, [NotNullWhen(true)] out IClasslessQdisc<THandle>? child);
-
-    /// <summary>
-    /// Checks if the qdisc contains the child with the given handle.
-    /// </summary>
-    /// <param name="handle">The handle of the child to find.</param>
-    /// <returns><see langword="true"/> if the child was found, <see langword="false"/> if the child was not found.</returns>
-    internal bool ContainsChild(THandle handle);
-
-    internal bool CanClassify(object? state);
-
-    internal bool TryEnqueue(object? state, AbstractWorkloadBase workload);
-
-    internal bool TryEnqueueDirect(object? state, AbstractWorkloadBase workload);
-
-    internal void WillEnqueueFromRoutingPath(ref RoutingPathNode<THandle> routingPathNode, AbstractWorkloadBase workload);
-
-    internal bool TryFindRoute(THandle handle, ref RoutingPath<THandle> path);
-
-    bool TryAddChild(IClasslessQdisc<THandle> child, Predicate<object?> predicate);
-
-    bool TryAddChild(IClassfulQdisc<THandle> child);
+    /// <remarks>
+    /// Classless qdiscs are not required to expose their children, so this method may return <see langword="false"/> even if <see cref="IClassifyingQdisc{THandle}.ContainsChild(THandle)"/> returns <see langword="true"/>.<br/>
+    /// Classful qdiscs are required to expose their direct children.<br/>
+    /// Qdiscs should only check their children, not their own handle. Checking the qdisc's own handle is the responsibility of the caller. This optimization avoids unnecessary recursion.
+    /// </remarks>
+    internal bool TryFindChild(THandle handle, [NotNullWhen(true)] out IClassifyingQdisc<THandle>? child);
 }

@@ -5,9 +5,9 @@ namespace Wkg.Threading.Workloads.Configuration.Classless;
 
 public interface IClasslessQdiscBuilder
 {
-    IClasslessQdisc<THandle> Build<THandle>(THandle handle) where THandle : unmanaged;
+    IClassifyingQdisc<THandle> Build<THandle>(THandle handle, Predicate<object?>? predicate) where THandle : unmanaged;
 
-    IClasslessQdisc<THandle> BuildUnsafe<THandle>(THandle handle = default) where THandle : unmanaged;
+    IClassifyingQdisc<THandle> BuildUnsafe<THandle>(THandle handle = default, Predicate<object?>? predicate = null) where THandle : unmanaged;
 }
 
 public interface IClasslessQdiscBuilder<TSelf> : IClasslessQdiscBuilder where TSelf : ClasslessQdiscBuilder<TSelf>, IClasslessQdiscBuilder<TSelf>
@@ -17,14 +17,15 @@ public interface IClasslessQdiscBuilder<TSelf> : IClasslessQdiscBuilder where TS
 
 public abstract class ClasslessQdiscBuilder<TSelf> : IClasslessQdiscBuilder where TSelf : ClasslessQdiscBuilder<TSelf>, IClasslessQdiscBuilder<TSelf>
 {
-    protected abstract IClasslessQdisc<THandle> BuildInternal<THandle>(THandle handle) where THandle : unmanaged;
+    protected abstract IClassifyingQdisc<THandle> BuildInternal<THandle>(THandle handle, Predicate<object?>? predicate) where THandle : unmanaged;
 
-    IClasslessQdisc<THandle> IClasslessQdiscBuilder.BuildUnsafe<THandle>(THandle handle) => BuildInternal(handle);
+    IClassifyingQdisc<THandle> IClasslessQdiscBuilder.BuildUnsafe<THandle>(THandle handle, Predicate<object?>? predicate) => 
+        BuildInternal(handle, predicate);
 
-    IClasslessQdisc<THandle> IClasslessQdiscBuilder.Build<THandle>(THandle handle)
+    IClassifyingQdisc<THandle> IClasslessQdiscBuilder.Build<THandle>(THandle handle, Predicate<object?>? predicate)
     {
         WorkloadSchedulingException.ThrowIfHandleIsDefault(handle);
 
-        return BuildInternal(handle);
+        return BuildInternal(handle, predicate);
     }
 }

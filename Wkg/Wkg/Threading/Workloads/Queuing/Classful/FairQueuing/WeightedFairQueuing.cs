@@ -13,7 +13,7 @@ public class WeightedFairQueuing<THandle> : CustomClassfulQdiscBuilder<THandle, 
     where THandle : unmanaged
 {
     private protected readonly WfqQdiscParams _params;
-    private readonly List<(IClasslessQdisc<THandle>, Predicate<object?>?, WfqWeight)> _children = [];
+    private readonly List<(IClassifyingQdisc<THandle> Qdisc, WfqWeight Weight)> _children = [];
 
     private WeightedFairQueuing(THandle handle, IQdiscBuilderContext context) : base(handle, context)
     {
@@ -191,7 +191,6 @@ public class WeightedFairQueuing<THandle> : CustomClassfulQdiscBuilder<THandle, 
         {
             configureChild(childBuilder);
         }
-        IClasslessQdisc<THandle> qdisc = childBuilder.Build(childHandle);
         Predicate<object?>? predicate = null;
         if (configureClassification is not null)
         {
@@ -199,7 +198,8 @@ public class WeightedFairQueuing<THandle> : CustomClassfulQdiscBuilder<THandle, 
             configureClassification(predicateBuilder);
             predicate = predicateBuilder.Compile();
         }
-        _children.Add((qdisc, predicate, weight));
+        IClassifyingQdisc<THandle> qdisc = childBuilder.Build(childHandle, predicate);
+        _children.Add((qdisc, weight));
         return this;
     }
 
@@ -212,7 +212,7 @@ public class WeightedFairQueuing<THandle> : CustomClassfulQdiscBuilder<THandle, 
         WfqWeight weight = new(executionPunishmentFactor, workloadSchedulingWeight);
         ClassfulBuilder<THandle, SimplePredicateBuilder, TChild> childBuilder = new(childHandle, _context);
         IClassfulQdisc<THandle> qdisc = childBuilder.Build();
-        _children.Add((qdisc, null, weight));
+        _children.Add((qdisc, weight));
         return this;
     }
 
@@ -234,7 +234,7 @@ public class WeightedFairQueuing<THandle> : CustomClassfulQdiscBuilder<THandle, 
         TChild childBuilder = TChild.CreateBuilder(childHandle, _context);
         configureChild(childBuilder);
         IClassfulQdisc<THandle> qdisc = childBuilder.Build();
-        _children.Add((qdisc, null, weight));
+        _children.Add((qdisc, weight));
         return this;
     }
 
@@ -248,14 +248,13 @@ public class WeightedFairQueuing<THandle> : CustomClassfulQdiscBuilder<THandle, 
         ClassfulBuilder<THandle, SimplePredicateBuilder, TChild> childBuilder = new(childHandle, _context);
         configureChild(childBuilder);
         IClassfulQdisc<THandle> qdisc = childBuilder.Build();
-        _children.Add((qdisc, null, weight));
+        _children.Add((qdisc, weight));
         return this;
     }
 
     protected override IClassfulQdisc<THandle> BuildInternal(THandle handle)
     {
         _params.Inner ??= Fifo.CreateBuilder(_context);
-        _params.Predicate ??= NoMatch;
         if (!_params.HasVirtualTimeFunction)
         {
             ParameterizedWfqVirtualTimeFunction virtualTimeFunction = new(_params.SchedulingParams);
@@ -264,20 +263,9 @@ public class WeightedFairQueuing<THandle> : CustomClassfulQdiscBuilder<THandle, 
             _params.VirtualAccumulatedFinishTimeFunction = virtualTimeFunction.CalculateVirtualAccumulatedFinishTime;
         }
         WfqQdisc<THandle> qdisc = new(handle, _params);
-        foreach ((IClasslessQdisc<THandle> child, Predicate<object?>? childPredicate, WfqWeight weight) in _children)
+        foreach ((IClassifyingQdisc<THandle> child, WfqWeight weight) in _children)
         {
-            if (child is IClassfulQdisc<THandle> classfulChild)
-            {
-                qdisc.TryAddChild(classfulChild, weight);
-            }
-            else if (childPredicate is not null)
-            {
-                qdisc.TryAddChild(child, weight, childPredicate);
-            }
-            else
-            {
-                qdisc.TryAddChild(child, weight);
-            }
+            qdisc.TryAddChild(child, weight);
         }
         return qdisc;
     }

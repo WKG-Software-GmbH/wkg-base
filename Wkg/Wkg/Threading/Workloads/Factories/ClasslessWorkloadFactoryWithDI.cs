@@ -8,14 +8,14 @@ public class ClasslessWorkloadFactoryWithDI<THandle> : AbstractClasslessWorkload
     IClasslessWorkloadFactory<THandle>
     where THandle : unmanaged
 {
-    internal ClasslessWorkloadFactoryWithDI(IClasslessQdisc<THandle> root, AnonymousWorkloadPoolManager? pool, WorkloadContextOptions? options) 
+    internal ClasslessWorkloadFactoryWithDI(IClassifyingQdisc<THandle> root, AnonymousWorkloadPoolManager? pool, WorkloadContextOptions? options) 
         : base(root, pool, options)
     {
     }
 
-    public IClasslessQdisc<THandle> Root => RootRef;
+    public IClassifyingQdisc<THandle> Root => RootRef;
 
     static ClasslessWorkloadFactoryWithDI<THandle> IWorkloadFactory<THandle, ClasslessWorkloadFactoryWithDI<THandle>>
-        .Create(IClasslessQdisc<THandle> root, AnonymousWorkloadPoolManager? pool, WorkloadContextOptions? options) => 
+        .Create(IClassifyingQdisc<THandle> root, AnonymousWorkloadPoolManager? pool, WorkloadContextOptions? options) => 
             new(root, pool, options);
 }

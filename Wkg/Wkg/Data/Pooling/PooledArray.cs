@@ -20,17 +20,12 @@ public readonly struct PooledArray<T>
 
     public T[] Array => _array;
 
-    public T this[int index]
+    public ref T this[int index]
     {
         get
         {
             Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, _length - 1, nameof(index));
-            return _array[index];
-        }
-        set
-        {
-            Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, _length - 1, nameof(index));
-            _array[index] = value;
+            return ref _array[index];
         }
     }
 

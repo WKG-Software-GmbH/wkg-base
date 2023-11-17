@@ -10,5 +10,6 @@ public sealed class Lifo : ClasslessQdiscBuilder<Lifo>, IClasslessQdiscBuilder<L
 {
     public static Lifo CreateBuilder(IQdiscBuilderContext context) => new();
 
-    protected override IClasslessQdisc<THandle> BuildInternal<THandle>(THandle handle) => new LifoQdisc<THandle>(handle);
+    protected override IClassifyingQdisc<THandle> BuildInternal<THandle>(THandle handle, Predicate<object?>? predicate) => 
+        new LifoQdisc<THandle>(handle, predicate);
 }

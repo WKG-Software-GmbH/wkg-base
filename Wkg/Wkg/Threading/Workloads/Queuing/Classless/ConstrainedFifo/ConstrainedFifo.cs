@@ -22,13 +22,13 @@ public sealed class ConstrainedFifo : ClasslessQdiscBuilder<ConstrainedFifo>, IC
         return this;
     }
 
-    protected override IClasslessQdisc<THandle> BuildInternal<THandle>(THandle handle)
+    protected override IClassifyingQdisc<THandle> BuildInternal<THandle>(THandle handle, Predicate<object?>? predicate)
     {
         if (_capacity == -1)
         {
             throw new InvalidOperationException("No capacity was specified.");
         }
 
-        return new ConstrainedFifoQdisc<THandle>(handle, _capacity);
+        return new ConstrainedFifoQdisc<THandle>(handle, predicate, _capacity);
     }
 }

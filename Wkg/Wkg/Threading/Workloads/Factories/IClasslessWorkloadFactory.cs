@@ -4,5 +4,5 @@ namespace Wkg.Threading.Workloads.Factories;
 
 public interface IClasslessWorkloadFactory<THandle> where THandle : unmanaged
 {
-    IClasslessQdisc<THandle> Root { get; }
+    IClassifyingQdisc<THandle> Root { get; }
 }

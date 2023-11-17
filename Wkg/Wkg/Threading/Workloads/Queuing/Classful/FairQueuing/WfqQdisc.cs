@@ -4,9 +4,8 @@ using Wkg.Collections.Concurrent;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
 using Wkg.Threading.Extensions;
-using Wkg.Threading.Workloads.Queuing.Classful.Classification.Internals;
-using Wkg.Threading.Workloads.Queuing.Classful.Routing;
 using Wkg.Threading.Workloads.Queuing.Classless;
+using Wkg.Threading.Workloads.Queuing.Routing;
 using Wkg.Threading.Workloads.Queuing.VirtualTime;
 using Wkg.Threading.Workloads.Scheduling;
 
@@ -20,8 +19,7 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
     private readonly IVirtualTimeTable _timeTable;
     private readonly ReaderWriterLockSlim _childModificationLock = new();
     private readonly ReaderWriterLockSlim _schedulerLock = new();
-    private readonly IClasslessQdisc<THandle> _localQueue;
-    private readonly Predicate<object?> _predicate;
+    private readonly IClassifyingQdisc<THandle> _localQueue;
     private readonly VirtualFinishTimeFunction _virtualFinishTimeFunction;
     private readonly VirtualExecutionTimeFunction _virtualExecutionTimeFunction;
     private readonly VirtualAccumulatedFinishTimeFunction _virtualAccumulatedFinishTimeFunction;
@@ -29,8 +27,9 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
     private uint _generationCounter;
     private readonly ConcurrentBitmap _hasDataMap;
     private volatile ChildQdiscState[] _childStates;
+    private int _maxRoutingPathDepthEncountered = 4;
 
-    public WfqQdisc(THandle handle, WfqQdiscParams parameters) : base(handle)
+    public WfqQdisc(THandle handle, WfqQdiscParams parameters) : base(handle, parameters.Predicate)
     {
         ArgumentNullException.ThrowIfNull(parameters.Predicate, nameof(parameters.Predicate));
         ArgumentNullException.ThrowIfNull(parameters.Inner, nameof(parameters.Inner));
@@ -41,12 +40,11 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         _timeTable = parameters.PreferPreciseMeasurements
             ? VirtualTimeTable.CreatePrecise(parameters.ConcurrencyLevel, parameters.ExpectedNumberOfDistinctPayloads, parameters.MeasurementSampleLimit)
             : VirtualTimeTable.CreateFast(parameters.ConcurrencyLevel, parameters.ExpectedNumberOfDistinctPayloads, parameters.MeasurementSampleLimit);
-        _predicate = parameters.Predicate;
         _virtualFinishTimeFunction = parameters.VirtualFinishTimeFunction;
         _virtualExecutionTimeFunction = parameters.VirtualExecutionTimeFunction;
         _virtualAccumulatedFinishTimeFunction = parameters.VirtualAccumulatedFinishTimeFunction;
-        _localQueue = parameters.Inner.BuildUnsafe(default(THandle));
-        _childStates = [new ChildQdiscState(new NoChildClassification<THandle>(_localQueue), new WfqWeight(1d, 1d))];
+        _localQueue = parameters.Inner.BuildUnsafe(default(THandle), MatchNothingPredicate);
+        _childStates = [new ChildQdiscState(_localQueue, new WfqWeight(1d, 1d))];
         // by default we have one child, so the bit map is initialized with a single bit
         // if we have more children, the bit map will be resized automatically
         _hasDataMap = new ConcurrentBitmap(1);
@@ -73,7 +71,7 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
             ChildQdiscState[] childStates = _childStates;
             for (int i = 0; i < childStates.Length; i++)
             {
-                count += childStates[i].Child.Qdisc.Count;
+                count += childStates[i].Child.Count;
             }
             // don't forget the local caches
             // just pop-count all the bits that are not set
@@ -81,14 +79,7 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         }
     }
 
-    public override bool IsEmpty
-    {
-        get
-        {
-            using ILockOwnership readLock = _childModificationLock.AcquireReadLock();
-            return IsKnownEmptyVolatileUnsafe;
-        }
-    }
+    public override bool IsEmpty => IsKnownEmptyVolatileUnsafe;
 
     private bool IsKnownEmptyVolatileUnsafe => _hasDataMap.IsEmpty;
 
@@ -174,7 +165,7 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
                         // we are the only ones able to update the virtual finish time (we already hold the lock on the child qdisc)
                         double lastVirtualFinishTime = Volatile.Read(ref child.LastVirtualFinishTimeRef);
                         double newVirtualFinishTime = _virtualAccumulatedFinishTimeFunction.Invoke(state.QdiscWeight, _timeTable, state.TimingInfo, lastVirtualFinishTime);
-                        DebugLog.WriteDiagnostic($"{this}: dequeued workload {workload} from child {child.Child.Qdisc}. Virtual finish time increased by {newVirtualFinishTime - lastVirtualFinishTime} to {newVirtualFinishTime}.", LogWriter.Blocking);
+                        DebugLog.WriteDiagnostic($"{this}: dequeued workload {workload} from child {child.Child}. Virtual finish time increased by {newVirtualFinishTime - lastVirtualFinishTime} to {newVirtualFinishTime}.", LogWriter.Blocking);
                         Volatile.Write(ref child.LastVirtualFinishTimeRef, newVirtualFinishTime);
                         // we just changed the virtual finish time of a child, so we need to increment the generation counter
                         Interlocked.Increment(ref _generationCounter);
@@ -233,7 +224,7 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
             // the candidate is not guaranteed to be non-null, as enqueue events only reset the bit in the emptiness map but don't update the candidate buffer
             if (possibleCandidate is null)
             {
-                DebugLog.WriteDiagnostic($"{this}: candidate buffer for child {childState.Child.Qdisc} is empty, but bit map indicates that it is not empty. Attempting to repopulate the candidate buffer.", LogWriter.Blocking);
+                DebugLog.WriteDiagnostic($"{this}: candidate buffer for child {childState.Child} is empty, but bit map indicates that it is not empty. Attempting to repopulate the candidate buffer.", LogWriter.Blocking);
                 // there are two reasons why the candidate buffer can be empty:
                 // 1. a workload was just enqueued to the child and we are the first worker to notice that the cache wasn't loaded yet
                 // 2. the emptiness state changed since the last time we checked
@@ -251,7 +242,7 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
                         // we can just continue as normal
                         Debug.Assert(_hasDataMap.IsBitSet(i));
                         Monitor.Exit(childState.QdiscLock);
-                        DebugLog.WriteDiagnostic($"{this}: candidate buffer for child {childState.Child.Qdisc} was repopulated before we got to the TryEnter call. Continuing as normal.", LogWriter.Blocking);
+                        DebugLog.WriteDiagnostic($"{this}: candidate buffer for child {childState.Child} was repopulated before we got to the TryEnter call. Continuing as normal.", LogWriter.Blocking);
                     }
                     // try to populate if: the data bit is set and the candidate buffer is still empty
                     else if (_hasDataMap.IsBitSet(i) && TryRepopulateCandidateUnsafe(childState, workerId, i, out possibleCandidate))
@@ -260,7 +251,7 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
                         // continue as normal
                         originalGenerationCounter = Interlocked.Increment(ref _generationCounter);
                         Monitor.Exit(childState.QdiscLock);
-                        DebugLog.WriteDiagnostic($"{this}: successfully repopulated candidate buffer for child {childState.Child.Qdisc}. Generation counter is now {originalGenerationCounter}.", LogWriter.Blocking);
+                        DebugLog.WriteDiagnostic($"{this}: successfully repopulated candidate buffer for child {childState.Child}. Generation counter is now {originalGenerationCounter}.", LogWriter.Blocking);
                     }
                     else
                     {
@@ -268,7 +259,7 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
                         // or we ourselves determined that the child is empty
                         // in any case, we can skip this child
                         Monitor.Exit(childState.QdiscLock);
-                        DebugLog.WriteDiagnostic($"{this}: child {childState.Child.Qdisc} is empty. Skipping.", LogWriter.Blocking);
+                        DebugLog.WriteDiagnostic($"{this}: child {childState.Child} is empty. Skipping.", LogWriter.Blocking);
                         continue;
                     }
                 }
@@ -282,7 +273,7 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
                     // continue the earliest due date evaluation while we are still stuck in the lock and are waiting for the CLR to unblock us.
                     // this doesn't guarantee that the workload will actually run before whatever second best candidate we find, but it significantly increases the chances
                     // and it is faster for us to just continue anyway, as we don't need to wait for the lock to be released.
-                    DebugLog.WriteDiagnostic($"{this}: failed to acquire child qdisc lock for child {childState.Child.Qdisc}. Skipping for now.", LogWriter.Blocking);
+                    DebugLog.WriteDiagnostic($"{this}: failed to acquire child qdisc lock for child {childState.Child}. Skipping for now.", LogWriter.Blocking);
                     continue;
                 }
             }
@@ -352,36 +343,40 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         // _childModificationLock
         // child.QdiscLock
         Debug.Assert(child.CandidateRef == null);
-        DebugLog.WriteDiagnostic($"{this}: attempting to repopulate candidate buffer for child {child.Child.Qdisc}.", LogWriter.Blocking);
+        DebugLog.WriteDiagnostic($"{this}: attempting to repopulate candidate buffer for child {child.Child}.", LogWriter.Blocking);
         byte token;
         int i = 0;
         do
         {
             if (i != 0)
             {
-                DebugLog.WriteDebug($"{this}: emptiness bit map changed while attempting to declare child {child.Child.Qdisc} as empty. Attempts so far {i}. Resampling...", LogWriter.Blocking);
+                DebugLog.WriteDebug($"{this}: emptiness bit map changed while attempting to declare child {child.Child} as empty. Attempts so far {i}. Resampling...", LogWriter.Blocking);
             }
             token = _hasDataMap.GetToken(childIndex);
-            if (child.Child.Qdisc.TryDequeueInternal(workerId, false, out workload))
+            if (child.Child.TryDequeueInternal(workerId, false, out workload))
             {
                 // we successfully dequeued a workload from the child
                 Volatile.Write(ref child.CandidateRef, workload);
-                DebugLog.WriteDiagnostic($"{this}: successfully repopulated candidate buffer for child {child.Child.Qdisc}.", LogWriter.Blocking);
+                DebugLog.WriteDiagnostic($"{this}: successfully repopulated candidate buffer for child {child.Child}.", LogWriter.Blocking);
                 return true;
             }
             // the child is empty
             // mark it as empty
-            DebugLog.WriteDiagnostic($"{this}: child {child.Child.Qdisc} seems to be empty. Updating emptiness bit map.", LogWriter.Blocking);
+            DebugLog.WriteDiagnostic($"{this}: child {child.Child} seems to be empty. Updating emptiness bit map.", LogWriter.Blocking);
             i++;
         } while (!_hasDataMap.TryUpdateBit(childIndex, token, isSet: false));
-        DebugLog.WriteDebug($"{this}: failed to repopulate candidate buffer for child {child.Child.Qdisc}. Marked child as empty.", LogWriter.Blocking);
+        DebugLog.WriteDebug($"{this}: failed to repopulate candidate buffer for child {child.Child}. Marked child as empty.", LogWriter.Blocking);
         return false;
     }
 
     protected override bool CanClassify(object? state)
     {
-        // recursive classification of child qdiscs only.
-        // matching our own predicate is the job of the parent qdisc.
+        if (Predicate.Invoke(state))
+        {
+            // fast path. we can classify the workload ourselves
+            return true;
+        }
+
         using ILockOwnership readLock = _childModificationLock.AcquireReadLock();
 
         // snap a local copy of the children
@@ -396,37 +391,99 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         return false;
     }
 
-    protected override bool TryEnqueue(object? state, AbstractWorkloadBase workload)
+    protected override bool TryEnqueueByHandle(THandle handle, AbstractWorkloadBase workload)
     {
-        // recursive classification of child qdiscs only.
-        // matching our own predicate is the job of the parent qdisc.
         using ILockOwnership readLock = _childModificationLock.AcquireReadLock();
+        // multiple threads are allowed to enqueue, just counting workloads (Count property) must be exclusive
+        using ILockOwnership enqueueLock = _schedulerLock.AcquireReadLock();
 
         ChildQdiscState[] childStates = _childStates;
+        RoutingPath<THandle> path = new(Volatile.Read(ref _maxRoutingPathDepthEncountered));
         for (int i = 0; i < childStates.Length; i++)
         {
             ChildQdiscState childState = childStates[i];
-            if (childState.Child.CanClassify(state))
+            if (childState.Child.Handle.Equals(handle))
             {
                 UpdateWorkloadState(workload, childState.Weight);
                 // update the emptiness tracking
                 // the actual reset happens in the OnWorkScheduled callback, but we need to
                 // set up the index of the child that was just enqueued to for that
                 __LAST_ENQUEUED_CHILD_INDEX = i;
-                if (!childState.Child.TryEnqueue(state, workload))
+                childState.Child.Enqueue(workload);
+                DebugLog.WriteDiagnostic($"{this}: enqueued workload {workload} to child {childState.Child}.", LogWriter.Blocking);
+                goto SUCCESS;
+            }
+            // we must first check if the child can enqueue the workload.
+            // then we must prepare everything for the enqueueing operation.
+            // only then can we actually enqueue the workload.
+            // in order to achieve this we construct a routing path and then directly enqueue the workload to the child.
+            // using a routing path allows us to avoid having to do the same work twice.
+            if (childState.Child.TryFindRoute(handle, ref path))
+            {
+                // ensure that the path is complete and valid
+                WorkloadSchedulingException.ThrowIfRoutingPathLeafIsInvalid(path.Leaf, handle);
+
+                // this child can enqueue the workload
+                UpdateWorkloadState(workload, childState.Weight);
+                // update the emptiness tracking
+                // the actual reset happens in the OnWorkScheduled callback, but we need to
+                // set up the index of the child that was just enqueued to for that
+                __LAST_ENQUEUED_CHILD_INDEX = i;
+
+                // we need to call WillEnqueueFromRoutingPath on all nodes in the path
+                // failure to do so may result in incorrect emptiness tracking of the child qdiscs
+                foreach (ref readonly RoutingPathNode<THandle> node in path)
                 {
-                    // this should never happen, as we already checked if the child can classify the workload
-                    WorkloadSchedulingException exception = WorkloadSchedulingException.CreateVirtual($"Scheduler inconsistency: child qdisc {childStates[i].Child.Qdisc} reported to be able to classify workload {workload}, but failed to do so.");
-                    Debug.Fail(exception.Message);
-                    DebugLog.WriteException(exception, LogWriter.Blocking);
-                    // we are on the enqueueing thread, so we can just throw here
-                    throw exception;
+                    node.Qdisc.WillEnqueueFromRoutingPath(in node, workload);
                 }
-                DebugLog.WriteDiagnostic($"{this}: enqueued workload {workload} to child {childState.Child.Qdisc}.", LogWriter.Blocking);
-                return true;
+                // enqueue the workload to the leaf
+                path.Leaf.Enqueue(workload);
+                Atomic.WriteMaxFast(ref _maxRoutingPathDepthEncountered, path.Count);
+                DebugLog.WriteDiagnostic($"{this}: enqueued workload {workload} to child {childState.Child}.", LogWriter.Blocking);
+                goto SUCCESS;
             }
         }
+        path.Dispose();
         return false;
+    SUCCESS:
+        path.Dispose();
+        return true;
+    }
+
+    protected override bool TryEnqueue(object? state, AbstractWorkloadBase workload)
+    {
+        // recursive classification of child qdiscs only.
+        // matching our own predicate is the job of the parent qdisc.
+        using (ILockOwnership readLock = _childModificationLock.AcquireReadLock())
+        {
+            using ILockOwnership enqueueLock = _schedulerLock.AcquireReadLock();
+            ChildQdiscState[] childStates = _childStates;
+            for (int i = 0; i < childStates.Length; i++)
+            {
+                ChildQdiscState childState = childStates[i];
+                if (childState.Child.CanClassify(state))
+                {
+                    UpdateWorkloadState(workload, childState.Weight);
+                    // update the emptiness tracking
+                    // the actual reset happens in the OnWorkScheduled callback, but we need to
+                    // set up the index of the child that was just enqueued to for that
+                    __LAST_ENQUEUED_CHILD_INDEX = i;
+                    if (!childState.Child.TryEnqueue(state, workload))
+                    {
+                        // this should never happen, as we already checked if the child can classify the workload
+                        WorkloadSchedulingException exception = WorkloadSchedulingException.CreateVirtual($"Scheduler inconsistency: child qdisc {childStates[i].Child} reported to be able to classify workload {workload}, but failed to do so.");
+                        Debug.Fail(exception.Message);
+                        DebugLog.WriteException(exception, LogWriter.Blocking);
+                        // we are on the enqueueing thread, so we can just throw here
+                        throw exception;
+                    }
+                    DebugLog.WriteDiagnostic($"{this}: enqueued workload {workload} to child {childState.Child}.", LogWriter.Blocking);
+                    return true;
+                }
+            }
+        }
+
+        return TryEnqueueDirect(state, workload);
     }
 
     protected override bool TryFindRoute(THandle handle, ref RoutingPath<THandle> path)
@@ -436,14 +493,14 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         ChildQdiscState[] childStates = _childStates;
         for (int i = 0; i < childStates.Length; i++)
         {
-            ChildQdiscState childState = childStates[i];
-            if (childState.Child.Qdisc.Handle.Equals(handle))
+            IClassifyingQdisc<THandle> child = childStates[i].Child;
+            if (child.Handle.Equals(handle))
             {
                 path.Add(new RoutingPathNode<THandle>(this, handle, i));
-                path.Complete(childState.Child.Qdisc);
+                path.Complete(child);
                 return true;
             }
-            if (childState.Child is IClassfulQdisc<THandle> classfulChild && classfulChild.TryFindRoute(handle, ref path))
+            if (child.TryFindRoute(handle, ref path))
             {
                 path.Add(new RoutingPathNode<THandle>(this, handle, i));
                 return true;
@@ -452,7 +509,7 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         return false;
     }
 
-    protected override void WillEnqueueFromRoutingPath(ref RoutingPathNode<THandle> routingPathNode, AbstractWorkloadBase workload)
+    protected override void WillEnqueueFromRoutingPath(ref readonly RoutingPathNode<THandle> routingPathNode, AbstractWorkloadBase workload)
     {
         using ILockOwnership readLock = _childModificationLock.AcquireReadLock();
         ChildQdiscState[] childStates = _childStates;
@@ -460,7 +517,7 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         int index = routingPathNode.Offset;
         ChildQdiscState? childState = null;
 
-        if (index < childStates.Length && childStates[index].Child.Qdisc.Handle.Equals(routingPathNode.Handle))
+        if (index < childStates.Length && childStates[index].Child.Handle.Equals(routingPathNode.Handle))
         {
             // fast path. the cached offset is still valid
             childState = childStates[index];
@@ -470,7 +527,7 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
             // slow path. the cached offset is no longer valid
             for (int i = 0; i < childStates.Length; i++)
             {
-                if (childStates[i].Child.Qdisc.Handle.Equals(routingPathNode.Handle))
+                if (childStates[i].Child.Handle.Equals(routingPathNode.Handle))
                 {
                     index = i;
                     childState = childStates[i];
@@ -489,7 +546,7 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
             }
         }
         // success case
-        DebugLog.WriteDiagnostic($"{this}: expecting to enqueue workload {workload} to child {childState.Child.Qdisc} via routing path.", LogWriter.Blocking);
+        DebugLog.WriteDiagnostic($"{this}: expecting to enqueue workload {workload} to child {childState.Child} via routing path.", LogWriter.Blocking);
 
         UpdateWorkloadState(workload, childState.Weight);
         __LAST_ENQUEUED_CHILD_INDEX = index;
@@ -497,7 +554,7 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
 
     protected override bool TryEnqueueDirect(object? state, AbstractWorkloadBase workload)
     {
-        if (_predicate(state))
+        if (Predicate.Invoke(state))
         {
             EnqueueDirect(workload);
             return true;
@@ -508,6 +565,7 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
     protected override void EnqueueDirect(AbstractWorkloadBase workload)
     {
         using ILockOwnership readLock = _childModificationLock.AcquireReadLock();
+        using ILockOwnership enqueueLock = _schedulerLock.AcquireReadLock();
 
         const int localQueueIndex = 0;
         ChildQdiscState[] childStates = _childStates;
@@ -552,13 +610,13 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         workload._state = new WfqState(workload._state, timingInformation, weight);
     }
 
-    public override bool RemoveChild(IClasslessQdisc<THandle> child) =>
+    public override bool RemoveChild(IClassifyingQdisc<THandle> child) =>
         RemoveChildCore(child, Timeout.Infinite);
 
-    public override bool TryRemoveChild(IClasslessQdisc<THandle> child) =>
+    public override bool TryRemoveChild(IClassifyingQdisc<THandle> child) =>
         RemoveChildCore(child, 0);
 
-    private bool RemoveChildCore(IClasslessQdisc<THandle> child, int timeout)
+    private bool RemoveChildCore(IClassifyingQdisc<THandle> child, int timeout)
     {
         if (!ContainsChild(child.Handle))
         {
@@ -600,7 +658,7 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         int index = -1;
         for (int i = 0; i < oldChildStates.Length && i < newChildStates.Length; i++)
         {
-            if (!oldChildStates[i].Child.Qdisc.Handle.Equals(child.Handle))
+            if (!oldChildStates[i].Child.Handle.Equals(child.Handle))
             {
                 newChildStates[i] = oldChildStates[i];
             }
@@ -617,43 +675,26 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         return true;
     }
 
-    public bool TryAddChild(IClasslessQdisc<THandle> child, WfqWeight weight, Predicate<object?> predicate) =>
-        TryAddChildCore(new ChildClassification<THandle>(child, predicate), weight);
+    public bool TryAddChild(IClassifyingQdisc<THandle> child, WfqWeight weight) =>
+        TryAddChildCore(child, weight);
 
-    public bool TryAddChild(IClassfulQdisc<THandle> child, WfqWeight weight) =>
-        TryAddChildCore(new ClassfulChildClassification<THandle>(child), weight);
+    public override bool TryAddChild(IClassifyingQdisc<THandle> child) =>
+        TryAddChildCore(child, new WfqWeight(1d, 1d));
 
-    public bool TryAddChild(IClasslessQdisc<THandle> child, WfqWeight weight) =>
-        TryAddChildCore(new NoChildClassification<THandle>(child), weight);
-
-    public override bool TryAddChild(IClasslessQdisc<THandle> child, Predicate<object?> predicate) =>
-        TryAddChildCore(new ChildClassification<THandle>(child, predicate), new WfqWeight(1d, 1d));
-
-    public override bool TryAddChild(IClassfulQdisc<THandle> child) =>
-        TryAddChildCore(new ClassfulChildClassification<THandle>(child), new WfqWeight(1d, 1d));
-
-    public override bool TryAddChild(IClasslessQdisc<THandle> child) =>
-        TryAddChildCore(new NoChildClassification<THandle>(child), new WfqWeight(1d, 1d));
-
-    private bool TryAddChildCore(IChildClassification<THandle> child, WfqWeight weight)
+    private bool TryAddChildCore(IClassifyingQdisc<THandle> child, WfqWeight weight)
     {
         using ILockOwnership writeLock = _childModificationLock.AcquireWriteLock();
 
         ChildQdiscState[] oldChildStates = _childStates;
-        if (oldChildStates.Length == 64)
-        {
-            DebugLog.WriteWarning($"{this}: failed to add child {child.Qdisc} because the maximum number of children has already been reached.", LogWriter.Blocking);
-            return false;
-        }
 
-        if (TryFindChildUnsafe(child.Qdisc.Handle, out _))
+        if (TryFindChildUnsafe(child.Handle, out _))
         {
-            DebugLog.WriteWarning($"{this}: failed to add child {child.Qdisc} because it is already a child of this qdisc.", LogWriter.Blocking);
+            DebugLog.WriteWarning($"{this}: failed to add child {child} because it is already a child of this qdisc.", LogWriter.Blocking);
             return false;
         }
 
         // link the child qdisc to the parent qdisc first
-        child.Qdisc.InternalInitialize(this);
+        child.InternalInitialize(this);
 
         ChildQdiscState[] newChildStates = new ChildQdiscState[oldChildStates.Length + 1];
         // copy the old child states and reset all virtual finish times
@@ -682,18 +723,18 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
     protected override bool ContainsChild(THandle handle) =>
         TryFindChild(handle, out _);
 
-    protected override bool TryFindChild(THandle handle, [NotNullWhen(true)] out IClasslessQdisc<THandle>? child)
+    protected override bool TryFindChild(THandle handle, [NotNullWhen(true)] out IClassifyingQdisc<THandle>? child)
     {
         using ILockOwnership readLock = _childModificationLock.AcquireReadLock();
         return TryFindChildUnsafe(handle, out child);
     }
 
-    private bool TryFindChildUnsafe(THandle handle, [NotNullWhen(true)] out IClasslessQdisc<THandle>? child)
+    private bool TryFindChildUnsafe(THandle handle, [NotNullWhen(true)] out IClassifyingQdisc<THandle>? child)
     {
         ChildQdiscState[] childStates = _childStates;
         for (int i = 0; i < childStates.Length; i++)
         {
-            child = childStates[i].Child.Qdisc;
+            child = childStates[i].Child;
             if (child.Handle.Equals(handle))
             {
                 return true;
@@ -716,27 +757,27 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         _schedulerLock.Dispose();
         _childModificationLock.Dispose();
         _hasDataMap.Dispose();
-        ChildQdiscState[] childStates = Interlocked.Exchange(ref _childStates, Array.Empty<ChildQdiscState>());
+        ChildQdiscState[] childStates = Interlocked.Exchange(ref _childStates, []);
         foreach (ChildQdiscState childState in childStates)
         {
-            childState.Child.Qdisc.Complete();
-            childState.Child.Qdisc.Dispose();
+            childState.Child.Complete();
+            childState.Child.Dispose();
         }
     }
 
-    [DebuggerDisplay("Qdisc: {Child.Qdisc}, LVFT: {_lastVirtualFinishTime}, Candidate: {_candidate}")]
+    [DebuggerDisplay("Qdisc: {Child}, Count: {Child.Count} LVFT: {_lastVirtualFinishTime}, Candidate: {_candidate}")]
     private class ChildQdiscState
     {
         private double _lastVirtualFinishTime;
         private AbstractWorkloadBase? _candidate;
 
-        public IChildClassification<THandle> Child { get; }
+        public IClassifyingQdisc<THandle> Child { get; }
 
         public WfqWeight Weight { get; }
 
         public object QdiscLock { get; }
 
-        public ChildQdiscState(IChildClassification<THandle> child, WfqWeight weight)
+        public ChildQdiscState(IClassifyingQdisc<THandle> child, WfqWeight weight)
         {
             Child = child;
             QdiscLock = new object();

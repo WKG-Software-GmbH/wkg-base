@@ -60,13 +60,20 @@ public abstract class WorkloadFactoryBuilderBase<THandle, TPredicateBuilder, TSe
         return this.To<TSelf>();
     }
 
-    private protected TWorkloadFactory UseClasslessRootCore<TWorkloadFactory, TRoot>(THandle rootHandle, Action<TRoot> rootConfiguration)
+    private protected TWorkloadFactory UseClasslessRootCore<TWorkloadFactory, TRoot>(THandle rootHandle, Action<TRoot> rootConfiguration, Action<TPredicateBuilder>? classifier = null)
         where TRoot : ClasslessQdiscBuilder<TRoot>, IClasslessQdiscBuilder<TRoot>
         where TWorkloadFactory : AbstractClasslessWorkloadFactory<THandle>, IWorkloadFactory<THandle, TWorkloadFactory>
     {
-        TRoot childBuilder = TRoot.CreateBuilder(_context);
-        rootConfiguration(childBuilder);
-        IClasslessQdisc<THandle> qdisc = childBuilder.Build(rootHandle);
+        TRoot rootBuilder = TRoot.CreateBuilder(_context);
+        rootConfiguration(rootBuilder);
+        Predicate<object?>? predicate = null;
+        if (classifier is not null)
+        {
+            TPredicateBuilder predicateBuilder = new();
+            classifier.Invoke(predicateBuilder);
+            predicate = predicateBuilder.Compile();
+        }
+        IClassifyingQdisc<THandle> qdisc = rootBuilder.Build(rootHandle, predicate);
         WorkloadScheduler scheduler = _context.ServiceProviderFactory is null
             ? new WorkloadScheduler(qdisc, _context.MaximumConcurrency)
             : new WorkloadSchedulerWithDI(qdisc, _context.MaximumConcurrency, _context.ServiceProviderFactory);
@@ -81,7 +88,7 @@ public abstract class WorkloadFactoryBuilderBase<THandle, TPredicateBuilder, TSe
 
     private protected TWorkloadFactory UseClassfulRootCore<TWorkloadFactory, TRoot>(THandle rootHandle, Action<ClassfulBuilder<THandle, TPredicateBuilder, TRoot>> rootClassConfiguration)
         where TRoot : ClassfulQdiscBuilder<TRoot>, IClassfulQdiscBuilder<TRoot>
-        where TWorkloadFactory : AbstractClassfulWorkloadFactory<THandle>, IWorkloadFactory<THandle, TWorkloadFactory>
+        where TWorkloadFactory : AbstractClasslessWorkloadFactory<THandle>, IWorkloadFactory<THandle, TWorkloadFactory>
     {
         ClassfulBuilder<THandle, TPredicateBuilder, TRoot> rootClassBuilder = new(rootHandle, _context);
         rootClassConfiguration(rootClassBuilder);
@@ -101,7 +108,7 @@ public abstract class WorkloadFactoryBuilderBase<THandle, TPredicateBuilder, TSe
 
     private protected TWorkloadFactory UseClassfulRootCore<TWorkloadFactory, TRoot>(THandle rootHandle, Action<TRoot> rootConfiguration)
         where TRoot : CustomClassfulQdiscBuilder<THandle, TRoot>, ICustomClassfulQdiscBuilder<THandle, TRoot>
-        where TWorkloadFactory : AbstractClassfulWorkloadFactory<THandle>, IWorkloadFactory<THandle, TWorkloadFactory>
+        where TWorkloadFactory : AbstractClasslessWorkloadFactory<THandle>, IWorkloadFactory<THandle, TWorkloadFactory>
     {
         TRoot rootClassBuilder = TRoot.CreateBuilder(rootHandle, _context);
         rootConfiguration(rootClassBuilder);

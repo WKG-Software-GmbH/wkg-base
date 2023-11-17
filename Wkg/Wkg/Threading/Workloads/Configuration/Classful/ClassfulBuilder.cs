@@ -14,7 +14,7 @@ public sealed class ClassfulBuilder<THandle, TPredicateBuilder, TQdisc>
 {
     private readonly QdiscBuilderContext _context;
     private readonly THandle _handle;
-    private readonly List<(IClasslessQdisc<THandle>, Predicate<object?>?)> _children = [];
+    private readonly List<IClassifyingQdisc<THandle>> _children = [];
     private readonly TPredicateBuilder _predicateBuilder = new();
     private TQdisc? _qdiscBuilder;
 
@@ -46,7 +46,6 @@ public sealed class ClassfulBuilder<THandle, TPredicateBuilder, TQdisc>
         {
             configureChild(childBuilder);
         }
-        IClasslessQdisc<THandle> qdisc = childBuilder.Build(childHandle);
         Predicate<object?>? predicate = null;
         if (configureClassification is not null)
         {
@@ -54,7 +53,8 @@ public sealed class ClassfulBuilder<THandle, TPredicateBuilder, TQdisc>
             configureClassification(predicateBuilder);
             predicate = predicateBuilder.Compile();
         }
-        _children.Add((qdisc, predicate));
+        IClassifyingQdisc<THandle> child = childBuilder.Build(childHandle, predicate);
+        _children.Add(child);
         return this;
     }
 
@@ -62,8 +62,8 @@ public sealed class ClassfulBuilder<THandle, TPredicateBuilder, TQdisc>
         where TChild : ClassfulQdiscBuilder<TChild>, IClassfulQdiscBuilder<TChild>
     {
         ClassfulBuilder<THandle, TPredicateBuilder, TChild> childBuilder = new(childHandle, _context);
-        IClassfulQdisc<THandle> qdisc = childBuilder.Build();
-        _children.Add((qdisc, null));
+        IClassfulQdisc<THandle> child = childBuilder.Build();
+        _children.Add(child);
         return this;
     }
 
@@ -72,8 +72,8 @@ public sealed class ClassfulBuilder<THandle, TPredicateBuilder, TQdisc>
     {
         TChild childBuilder = TChild.CreateBuilder(childHandle, _context);
         configureChild(childBuilder);
-        IClassfulQdisc<THandle> qdisc = childBuilder.Build();
-        _children.Add((qdisc, null));
+        IClassfulQdisc<THandle> child = childBuilder.Build();
+        _children.Add(child);
         return this;
     }
 
@@ -82,8 +82,8 @@ public sealed class ClassfulBuilder<THandle, TPredicateBuilder, TQdisc>
     {
         ClassfulBuilder<THandle, TPredicateBuilder, TChild> childBuilder = new(childHandle, _context);
         configureChild(childBuilder);
-        IClassfulQdisc<THandle> qdisc = childBuilder.Build();
-        _children.Add((qdisc, null));
+        IClassfulQdisc<THandle> child = childBuilder.Build();
+        _children.Add(child);
         return this;
     }
 
@@ -109,25 +109,12 @@ public sealed class ClassfulBuilder<THandle, TPredicateBuilder, TQdisc>
     {
         _qdiscBuilder ??= TQdisc.CreateBuilder(_context);
 
-        Predicate<object?> predicate = _predicateBuilder.Compile() ?? NoMatch;
+        Predicate<object?>? predicate = _predicateBuilder.Compile();
         IClassfulQdisc<THandle> qdisc = _qdiscBuilder.Build(_handle, predicate);
-        foreach ((IClasslessQdisc<THandle> child, Predicate<object?>? childPredicate) in _children)
+        foreach (IClassifyingQdisc<THandle> child in _children)
         {
-            if (child is IClassfulQdisc<THandle> classfulChild)
-            {
-                qdisc.TryAddChild(classfulChild);
-            }
-            else if (childPredicate is not null)
-            {
-                qdisc.TryAddChild(child, childPredicate);
-            }
-            else
-            {
-                qdisc.TryAddChild(child);
-            }
+            qdisc.TryAddChild(child);
         }
         return qdisc;
     }
-
-    private static bool NoMatch(object? _) => false;
 }

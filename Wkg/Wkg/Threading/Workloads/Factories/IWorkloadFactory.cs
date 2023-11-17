@@ -7,5 +7,5 @@ public interface IWorkloadFactory<THandle, TFactory>
     where THandle : unmanaged
     where TFactory : AbstractClasslessWorkloadFactory<THandle>, IWorkloadFactory<THandle, TFactory>
 {
-    internal static abstract TFactory Create(IClasslessQdisc<THandle> root, AnonymousWorkloadPoolManager? pool, WorkloadContextOptions? options);
+    internal static abstract TFactory Create(IClassifyingQdisc<THandle> root, AnonymousWorkloadPoolManager? pool, WorkloadContextOptions? options);
 }

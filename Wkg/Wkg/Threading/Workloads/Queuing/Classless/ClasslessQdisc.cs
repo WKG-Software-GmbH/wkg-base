@@ -3,6 +3,7 @@ using System.Runtime.ExceptionServices;
 using Wkg.Common.Extensions;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
+using Wkg.Threading.Workloads.Queuing.Routing;
 using Wkg.Threading.Workloads.Scheduling;
 
 namespace Wkg.Threading.Workloads.Queuing.Classless;
@@ -11,17 +12,23 @@ namespace Wkg.Threading.Workloads.Queuing.Classless;
 /// Base class for qdiscs.
 /// </summary>
 /// <typeparam name="THandle">The type of the handle.</typeparam>
-public abstract class ClasslessQdisc<THandle> : IClasslessQdisc<THandle> where THandle : unmanaged
+public abstract class ClasslessQdisc<THandle> : IClassifyingQdisc<THandle> where THandle : unmanaged
 {
     private readonly THandle _handle;
     private INotifyWorkScheduled _parentScheduler;
     private protected bool _disposedValue;
 
-    protected ClasslessQdisc(THandle handle)
+    protected ClasslessQdisc(THandle handle, Predicate<object?>? predicate)
     {
         _handle = handle;
         _parentScheduler = NotifyWorkScheduledSentinel.Uninitialized;
+        Predicate = predicate ?? MatchNothingPredicate;
     }
+
+    /// <summary>
+    /// The predicate that determines whether a workload can be enqueued into this qdisc.
+    /// </summary>
+    protected Predicate<object?> Predicate { get; }
 
     /// <summary>
     /// The parent scheduler of this qdisc.
@@ -37,11 +44,11 @@ public abstract class ClasslessQdisc<THandle> : IClasslessQdisc<THandle> where T
     /// <inheritdoc/>
     public abstract int Count { get; }
 
-    bool IClasslessQdisc.IsCompleted => ReferenceEquals(ParentScheduler, NotifyWorkScheduledSentinel.Completed);
+    bool IClassifyingQdisc.IsCompleted => ReferenceEquals(ParentScheduler, NotifyWorkScheduledSentinel.Completed);
 
-    void IClasslessQdisc.AssertNotCompleted()
+    void IClassifyingQdisc.AssertNotCompleted()
     {
-        if (this.To<IClasslessQdisc>().IsCompleted)
+        if (this.To<IClassifyingQdisc>().IsCompleted)
         {
             ThrowCompleted();
         }
@@ -83,7 +90,7 @@ public abstract class ClasslessQdisc<THandle> : IClasslessQdisc<THandle> where T
     /// <inheritdoc cref="IQdisc.TryRemoveInternal(AwaitableWorkload)"/>"
     protected abstract bool TryRemoveInternal(AwaitableWorkload workload);
 
-    /// <inheritdoc cref="IClasslessQdisc.Enqueue(AbstractWorkloadBase)"/>"
+    /// <inheritdoc cref="IClassifyingQdisc.Enqueue(AbstractWorkloadBase)"/>"
     protected abstract void EnqueueDirect(AbstractWorkloadBase workload);
 
     /// <summary>
@@ -124,13 +131,58 @@ public abstract class ClasslessQdisc<THandle> : IClasslessQdisc<THandle> where T
         }
     }
 
-    void IClasslessQdisc.Enqueue(AbstractWorkloadBase workload) => EnqueueDirect(workload);
+    void IClassifyingQdisc.Enqueue(AbstractWorkloadBase workload) => EnqueueDirect(workload);
 
-    INotifyWorkScheduled IClasslessQdisc.ParentScheduler => ParentScheduler;
+    INotifyWorkScheduled IClassifyingQdisc.ParentScheduler => ParentScheduler;
 
     void IQdisc.OnWorkerTerminated(int workerId) => OnWorkerTerminated(workerId);
 
     bool IQdisc.TryPeekUnsafe(int workerId, [NotNullWhen(true)] out AbstractWorkloadBase? workload) => TryPeekUnsafe(workerId, out workload);
+
+    #region IClassifyingQdisc / IClassifyingQdisc<THandle> implementation
+
+    /// <inheritdoc cref="IClassifyingQdisc{THandle}.TryEnqueueByHandle(THandle, AbstractWorkloadBase)"/>"
+    protected abstract bool TryEnqueueByHandle(THandle handle, AbstractWorkloadBase workload);
+
+    /// <inheritdoc cref="IClassifyingQdisc{THandle}.WillEnqueueFromRoutingPath(ref readonly RoutingPathNode{THandle}, AbstractWorkloadBase)"/>"
+    protected virtual void WillEnqueueFromRoutingPath(ref readonly RoutingPathNode<THandle> routingPathNode, AbstractWorkloadBase workload) => Pass();
+
+    /// <inheritdoc cref="IClassifyingQdisc{THandle}.TryFindRoute(THandle, ref RoutingPath{THandle})"/>"
+    protected abstract bool TryFindRoute(THandle handle, ref RoutingPath<THandle> path);
+
+    /// <inheritdoc cref="IClassifyingQdisc{THandle}.ContainsChild(THandle)"/>"
+    protected abstract bool ContainsChild(THandle handle);
+
+    /// <inheritdoc cref="IClassifyingQdisc.CanClassify(object?)"/>"
+    protected abstract bool CanClassify(object? state);
+
+    /// <inheritdoc cref="IClassifyingQdisc.TryEnqueue(object?, AbstractWorkloadBase)"/>"
+    protected abstract bool TryEnqueue(object? state, AbstractWorkloadBase workload);
+
+    /// <inheritdoc cref="IClassifyingQdisc.TryEnqueueDirect(object?, AbstractWorkloadBase)"/>"
+    protected abstract bool TryEnqueueDirect(object? state, AbstractWorkloadBase workload);
+
+    bool IClassifyingQdisc<THandle>.TryEnqueueByHandle(THandle handle, AbstractWorkloadBase workload) => TryEnqueueByHandle(handle, workload);
+    void IClassifyingQdisc<THandle>.WillEnqueueFromRoutingPath(ref readonly RoutingPathNode<THandle> routingPathNode, AbstractWorkloadBase workload) => WillEnqueueFromRoutingPath(in routingPathNode, workload);
+    bool IClassifyingQdisc<THandle>.TryFindRoute(THandle handle, ref RoutingPath<THandle> path) => TryFindRoute(handle, ref path);
+    bool IClassifyingQdisc<THandle>.ContainsChild(THandle handle) => ContainsChild(handle);
+    bool IClassifyingQdisc.CanClassify(object? state) => CanClassify(state);
+    bool IClassifyingQdisc.TryEnqueue(object? state, AbstractWorkloadBase workload) => TryEnqueue(state, workload);
+    bool IClassifyingQdisc.TryEnqueueDirect(object? state, AbstractWorkloadBase workload) => TryEnqueueDirect(state, workload);
+
+    #endregion IClassifyingQdisc / IClassifyingQdisc<THandle> implementation
+
+    /// <summary>
+    /// A predicate that matches everything.
+    /// </summary>
+    /// <returns><see langword="true"/></returns>
+    protected static bool MatchEverythingPredicate(object? _) => true;
+
+    /// <summary>
+    /// A predicate that matches nothing.
+    /// </summary>
+    /// <returns><see langword="false"/></returns>
+    protected static bool MatchNothingPredicate(object? _) => false;
 
     /// <inheritdoc/>
     public override string ToString() => $"{GetType().Name} ({Handle})";

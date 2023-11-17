@@ -9,13 +9,13 @@ namespace Wkg.Threading.Workloads.Factories;
 
 public abstract class WorkloadFactory<THandle> : IDisposable where THandle : unmanaged
 {
-    private IClasslessQdisc<THandle> _root;
+    private IClassifyingQdisc<THandle> _root;
 
     private protected AnonymousWorkloadPoolManager? Pool { get; }
 
     public WorkloadContextOptions DefaultOptions { get; }
 
-    private protected WorkloadFactory(IClasslessQdisc<THandle> root, AnonymousWorkloadPoolManager? pool, WorkloadContextOptions? options)
+    private protected WorkloadFactory(IClassifyingQdisc<THandle> root, AnonymousWorkloadPoolManager? pool, WorkloadContextOptions? options)
     {
         _root = root;
         Pool = pool;
@@ -25,7 +25,7 @@ public abstract class WorkloadFactory<THandle> : IDisposable where THandle : unm
     [MemberNotNullWhen(true, nameof(Pool))]
     private protected bool SupportsPooling => Pool is not null;
 
-    private protected ref IClasslessQdisc<THandle> RootRef
+    private protected ref IClassifyingQdisc<THandle> RootRef
     {
         get
         {

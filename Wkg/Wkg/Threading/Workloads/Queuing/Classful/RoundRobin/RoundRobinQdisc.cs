@@ -1,14 +1,13 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Wkg.Common.Extensions;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
 using Wkg.Threading.Extensions;
 using Wkg.Threading.Workloads.Configuration.Classless;
-using Wkg.Threading.Workloads.Queuing.Classful.Classification.Internals;
-using Wkg.Threading.Workloads.Queuing.Classful.Intrinsics;
-using Wkg.Threading.Workloads.Queuing.Classful.Routing;
 using Wkg.Threading.Workloads.Queuing.Classless;
+using Wkg.Threading.Workloads.Queuing.Routing;
 
 namespace Wkg.Threading.Workloads.Queuing.Classful.RoundRobin;
 
@@ -20,33 +19,28 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
     where THandle : unmanaged
 {
     private readonly IQdisc?[] _localLasts;
-    private readonly IClasslessQdisc<THandle> _localQueue;
-    private readonly Predicate<object?> _predicate;
+    private readonly IClassifyingQdisc<THandle> _localQueue;
 
-    private IChildClassification<THandle>[] _children;
+    private IClassifyingQdisc<THandle>[] _children;
     private readonly ReaderWriterLockSlim _childrenLock;
     private readonly EmptyCounter _emptyCounter;
     private int _rrIndex;
     private int _criticalDequeueSection;
 
-    public RoundRobinQdisc(THandle handle, Predicate<object?> predicate, IClasslessQdiscBuilder localQueueBuilder, int maxConcurrency) : base(handle)
+    public RoundRobinQdisc(THandle handle, Predicate<object?>? predicate, IClasslessQdiscBuilder localQueueBuilder, int maxConcurrency) : base(handle, predicate)
     {
-        _localQueue = localQueueBuilder.BuildUnsafe(default(THandle));
+        _localQueue = localQueueBuilder.BuildUnsafe(default(THandle), MatchNothingPredicate);
         _localLasts = new IQdisc[maxConcurrency];
-        _children = [new NoChildClassification<THandle>(_localQueue)];
-        _predicate = predicate;
+        _children = [_localQueue];
         _childrenLock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
         _emptyCounter = new EmptyCounter();
     }
 
-    /// <inheritdoc/>
     protected override void OnInternalInitialize(INotifyWorkScheduled parentScheduler) =>
         BindChildQdisc(_localQueue);
 
-    /// <inheritdoc/>
     public override bool IsEmpty => Count == 0;
 
-    /// <inheritdoc/>
     public override int Count
     {
         get
@@ -79,11 +73,11 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
     private int CountChildrenUnsafe()
     {
         // get a local snapshot of the children array, other threads may still add new children which we don't care about here
-        IChildClassification<THandle>[] children = Volatile.Read(ref _children);
+        IClassifyingQdisc<THandle>[] children = Volatile.Read(ref _children);
         int count = 0;
         for (int i = 0; i < children.Length; i++)
         {
-            count += children[i].Qdisc.Count;
+            count += children[i].Count;
         }
         return count;
     }
@@ -92,7 +86,7 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
     {
         get
         {
-            IChildClassification<THandle>[] children1, children2;
+            IClassifyingQdisc<THandle>[] children1, children2;
             uint emptyCounter;
             while (true)
             {
@@ -109,13 +103,11 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
         }
     }
 
-    /// <inheritdoc/>
     // not supported.
     // would only need to consider the local queue, since this
     // method is only called on the direct parent of a workload.
     protected override bool TryRemoveInternal(AwaitableWorkload workload) => false;
 
-    /// <inheritdoc/>
     protected override bool TryDequeueInternal(int workerId, bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload)
     {
         if (IsKnownEmptyVolatile)
@@ -142,7 +134,7 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
             // of the reference. If the reference changes, we need to start over, since we don't know which child qdiscs we already
             // iterated over.
             // however, reference changes are rare, so we can afford the risk of having to start over.
-            IChildClassification<THandle>[] children = Volatile.Read(ref _children);
+            IClassifyingQdisc<THandle>[] children = Volatile.Read(ref _children);
 
             // loop until we find a workload or until we meet requirements for worker termination
             // if the children array changes while we're looping, we need to start over
@@ -172,12 +164,12 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
                 // have left it. otherwise, slower but valid dequeue operations may be missed.
                 CriticalSection criticalSection = CriticalSection.Enter(ref _criticalDequeueSection);
                 // get our assigned child qdisc
-                IQdisc qdisc = children[index].Qdisc;
+                IQdisc qdisc = children[index];
                 if (qdisc.TryDequeueInternal(workerId, backTrack, out workload))
                 {
                     DebugLog.WriteDiagnostic($"{this} Dequeued workload from child qdisc {qdisc}.", LogWriter.Blocking);
                     // we found a workload, update the last child qdisc and reset the empty counter
-                    _localLasts[workerId] = children[index].Qdisc;
+                    _localLasts[workerId] = qdisc;
                     // reset the empty counter and start a new counter generation *before* we leave the critical dequeue section
                     _emptyCounter.Reset();
                     // leave the critical dequeue section
@@ -246,7 +238,7 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
             // of the reference. If the reference changes, we need to start over, since we don't know which child qdiscs we already
             // iterated over.
             // however, reference changes are rare, so we can afford the risk of having to start over.
-            IChildClassification<THandle>[] children = Volatile.Read(ref _children);
+            IClassifyingQdisc<THandle>[] children = Volatile.Read(ref _children);
 
             // this one is easier than TryDequeueInternal, since we operate entirely read-only
             // in theory, we could participate in the empty counter tracking, but that's not necessary
@@ -254,8 +246,7 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
             int i;
             for (i = 0; i < children.Length && ReferenceEquals(children, Volatile.Read(ref _children)); i++, index = (index + 1) % children.Length)
             {
-                IQdisc qdisc = children[index].Qdisc;
-                if (qdisc.TryPeekUnsafe(workerId, out workload))
+                if (children[index].TryPeekUnsafe(workerId, out workload))
                 {
                     return true;
                 }
@@ -272,13 +263,17 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
 
     protected override bool CanClassify(object? state)
     {
-        // recursive classification of child qdiscs only.
-        // matching our own predicate is the job of the parent qdisc.
+        if (Predicate.Invoke(state))
+        {
+            // fast path, we can enqueue directly to the local queue
+            return true;
+        }
+
         // prevent children from being removed while we're iterating over them
         // new children can still be added, but that's not a problem
         using ILockOwnership readLock = _childrenLock.AcquireReadLock();
 
-        IChildClassification<THandle>[] children = Volatile.Read(ref _children);
+        IClassifyingQdisc<THandle>[] children = Volatile.Read(ref _children);
         for (int i = 0; i < children.Length; i++)
         {
             if (children[i].CanClassify(state))
@@ -289,57 +284,81 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
         return false;
     }
 
-    /// <inheritdoc/>
-    protected override bool TryEnqueue(object? state, AbstractWorkloadBase workload)
+    protected override bool TryEnqueueByHandle(THandle handle, AbstractWorkloadBase workload)
     {
-        // recursive classification of child qdiscs only.
-        // matching our own predicate is the job of the parent qdisc.
-        // prevent children from being removed while we're iterating over them
-        // new children can still be added, but that's not a problem
-        using ILockOwnership readLock = _childrenLock.AcquireReadLock();
-       
-        DebugLog.WriteDiagnostic($"Trying to enqueue workload {workload} to round robin qdisc {this}.", LogWriter.Blocking);
+        DebugLog.WriteDiagnostic($"{this} Trying to enqueue workload {workload} to child qdisc with handle {handle}.", LogWriter.Blocking);
 
-        IChildClassification<THandle>[] children = Volatile.Read(ref _children);
+        // only lock the children array while we need to access it
+        using ILockOwnership readLock = _childrenLock.AcquireReadLock();
+        IClassifyingQdisc<THandle>[] children = Volatile.Read(ref _children);
         for (int i = 0; i < children.Length; i++)
         {
-            if (children[i].TryEnqueue(state, workload))
+            IClassifyingQdisc<THandle> child = children[i];
+            if (child.Handle.Equals(handle))
             {
-                DebugLog.WriteDiagnostic($"Enqueued workload {workload} to child qdisc {children[i].Qdisc}.", LogWriter.Blocking);
+                child.Enqueue(workload);
+                DebugLog.WriteDiagnostic($"Enqueued workload {workload} to child qdisc {child}.", LogWriter.Blocking);
+                return true;
+            }
+            if (child.TryEnqueueByHandle(handle, workload))
+            {
+                DebugLog.WriteDiagnostic($"Enqueued workload {workload} to child qdisc {child}.", LogWriter.Blocking);
                 return true;
             }
         }
+        DebugLog.WriteDiagnostic($"Could not enqueue workload {workload} to any child qdisc. No child qdisc with handle {handle} found.", LogWriter.Blocking);
+        return false;
+    }
+
+    protected override bool TryEnqueue(object? state, AbstractWorkloadBase workload)
+    {
+        DebugLog.WriteDiagnostic($"Trying to enqueue workload {workload} to round robin qdisc {this}.", LogWriter.Blocking);
+
+        // only lock the children array while we need to access it
+        using (ILockOwnership readLock = _childrenLock.AcquireReadLock())
+        {
+            IClassifyingQdisc<THandle>[] children = Volatile.Read(ref _children);
+            for (int i = 0; i < children.Length; i++)
+            {
+                if (children[i].TryEnqueue(state, workload))
+                {
+                    DebugLog.WriteDiagnostic($"Enqueued workload {workload} to child qdisc {children[i]}.", LogWriter.Blocking);
+                    return true;
+                }
+            }
+        }
+
         DebugLog.WriteDiagnostic($"Could not enqueue workload {workload} to any child qdisc.", LogWriter.Blocking);
 
-        return false;
+        return TryEnqueueDirect(state, workload);
     }
 
     protected override bool TryFindRoute(THandle handle, ref RoutingPath<THandle> path)
     {
         using ILockOwnership readLock = _childrenLock.AcquireReadLock();
 
-        IChildClassification<THandle>[] children = Volatile.Read(ref _children);
+        IClassifyingQdisc<THandle>[] children = Volatile.Read(ref _children);
         for (int i = 0; i < children.Length; i++)
         {
-            IChildClassification<THandle> child = children[i];
-            if (child.Qdisc.Handle.Equals(handle))
+            IClassifyingQdisc<THandle> child = children[i];
+            if (child.Handle.Equals(handle))
             {
-                path.Complete(child.Qdisc);
+                path.Add(new RoutingPathNode<THandle>(this, handle, i));
+                path.Complete(child);
                 return true;
             }
-            if (child is IClassfulQdisc<THandle> classfulChild && classfulChild.TryFindRoute(handle, ref path))
+            if (child.TryFindRoute(handle, ref path))
             {
-                path.Add(new RoutingPathNode<THandle>(classfulChild, handle, i));
+                path.Add(new RoutingPathNode<THandle>(this, handle, i));
                 return true;
             }
         }
         return false;
     }
 
-    /// <inheritdoc/>
     protected override bool TryEnqueueDirect(object? state, AbstractWorkloadBase workload)
     {
-        if (_predicate(state))
+        if (Predicate.Invoke(state))
         {
             DebugLog.WriteDiagnostic($"Enqueuing workload {workload} directly to round robin qdisc {this}.", LogWriter.Blocking);
             EnqueueDirect(workload);
@@ -349,7 +368,6 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
         return false;
     }
 
-    /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected override void EnqueueDirect(AbstractWorkloadBase workload) =>
         // the local queue is a qdisc itself, so we can enqueue directly to it
@@ -358,37 +376,16 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
         // be removed from the children array.
         _localQueue.Enqueue(workload);
 
-    /// <inheritdoc/>
-    public override bool TryAddChild(IClasslessQdisc<THandle> child)
+    public override bool TryAddChild(IClassifyingQdisc<THandle> child)
     {
-        IChildClassification<THandle> classifiedChild = new NoChildClassification<THandle>(child);
-        return TryAddChildCore(classifiedChild);
-    }
-
-    /// <inheritdoc/>
-    public override bool TryAddChild(IClasslessQdisc<THandle> child, Predicate<object?> predicate)
-    {
-        IChildClassification<THandle> classifiedChild = new ChildClassification<THandle>(child, predicate);
-        return TryAddChildCore(classifiedChild);
-    }
-
-    /// <inheritdoc/>
-    public override bool TryAddChild(IClassfulQdisc<THandle> child)
-    {
-        IChildClassification<THandle> classifiedChild = new ClassfulChildClassification<THandle>(child);
-        return TryAddChildCore(classifiedChild);
-    }
-
-    private bool TryAddChildCore(IChildClassification<THandle> child)
-    {
-        DebugLog.WriteDiagnostic($"Trying to add child qdisc {child.Qdisc} to round robin qdisc {this}.", LogWriter.Blocking);
+        DebugLog.WriteDiagnostic($"Trying to add child qdisc {child} to round robin qdisc {this}.", LogWriter.Blocking);
         // link the child qdisc to the parent qdisc first
-        child.Qdisc.InternalInitialize(this);
+        child.InternalInitialize(this);
 
         // no lock needed, a new array is created and the reference is CASed in
         // contention is unlikely, since this method is only called when a new child qdisc is created
         // and added to the parent qdisc, which is not a frequent operation
-        IChildClassification<THandle>[] children, newChildren;
+        IClassifyingQdisc<THandle>[] children, newChildren;
         do
         {
             // get local readonly snapshot of the children array
@@ -398,34 +395,32 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
             // (this shouldn't happen, but it's possible. people do weird things sometimes)
             for (int i = 0; i < children.Length; i++)
             {
-                if (children[i].Qdisc.Handle.Equals(child.Qdisc.Handle))
+                if (children[i].Handle.Equals(child.Handle))
                 {
                     // child already present
-                    DebugLog.WriteDiagnostic($"Child qdisc {child.Qdisc} already present in round robin qdisc {this}.", LogWriter.Blocking);
+                    DebugLog.WriteDiagnostic($"Child qdisc {child} already present in round robin qdisc {this}.", LogWriter.Blocking);
                     return false;
                 }
             }
             // child not present, add it
-            newChildren = new IChildClassification<THandle>[children.Length + 1];
-            Array.Copy(children, newChildren, children.Length);
-            newChildren[^1] = child;
+            newChildren = [.. children, child];
             // try to CAS the new array in, if it fails, try again
         } while (Interlocked.CompareExchange(ref _children, newChildren, children) != children);
         // CAS succeeded, we're done
-        DebugLog.WriteDiagnostic($"Added child qdisc {child.Qdisc} to round robin qdisc {this}.", LogWriter.Blocking);
+        DebugLog.WriteDiagnostic($"Added child qdisc {child} to round robin qdisc {this}.", LogWriter.Blocking);
         return true;
     }
 
     /// <inheritdoc/>
-    public override bool TryRemoveChild(IClasslessQdisc<THandle> child) =>
+    public override bool TryRemoveChild(IClassifyingQdisc<THandle> child) =>
         RemoveChildInternal(child, -1);
 
     /// <inheritdoc/>
-    public override bool RemoveChild(IClasslessQdisc<THandle> child) =>
+    public override bool RemoveChild(IClassifyingQdisc<THandle> child) =>
         // block up to 60 seconds to allow the child to become empty
         RemoveChildInternal(child, 60 * 1000);
 
-    private bool RemoveChildInternal(IClasslessQdisc<THandle> child, int millisecondsTimeout)
+    private bool RemoveChildInternal(IClassifyingQdisc<THandle> child, int millisecondsTimeout)
     {
         DebugLog.WriteDiagnostic($"Trying to remove child qdisc {child} from round robin qdisc {this}.", LogWriter.Blocking);
         // before locking, check if the child is even present. if it's not, we can return early
@@ -437,14 +432,14 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
         // that's unfortunate, we need to acquire the write lock
         using ILockOwnership writeLock = _childrenLock.AcquireWriteLock();
         
-        IChildClassification<THandle>[] children = Volatile.Read(ref _children);
+        IClassifyingQdisc<THandle>[] children = Volatile.Read(ref _children);
         // check if the child is present
         // we need to repeat this check in case another thread removed the same child in the meantime
         // (this shouldn't happen, but it's possible. people do weird things sometimes)
         int childIndex = -1;
         for (int i = 0; i < children.Length; i++)
         {
-            if (children[i].Qdisc.Handle.Equals(child.Handle))
+            if (children[i].Handle.Equals(child.Handle))
             {
                 childIndex = i;
                 break;
@@ -471,12 +466,14 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
             // prevent new workloads from being scheduled to the child after we lift the lock
             child.Complete();
         }
+        // create a new array without the child
+        Span<IClassifyingQdisc<THandle>> childSpan = children.AsSpan();
+        IClassifyingQdisc<THandle>[] newChildren = [.. childSpan[..childIndex], .. childSpan[(childIndex + 1)..]];
 
-        IChildClassification<THandle>[] newChildren = new IChildClassification<THandle>[children.Length - 1];
-        children.AsSpan(0, childIndex).CopyTo(newChildren);
-        children.AsSpan(childIndex + 1).CopyTo(newChildren.AsSpan(childIndex));
+        Debug.Assert(newChildren.Length == children.Length - 1);
 
-        _children = newChildren;
+        // we may have the lock, but we still want to write volatile to publish the new array to other threads
+        Volatile.Write(ref _children, newChildren);
         DebugLog.WriteDiagnostic($"Removed child qdisc {child} from round robin qdisc {this}.", LogWriter.Blocking);
         return true;
     }
@@ -486,14 +483,14 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
         TryFindChild(handle, out _);
 
     /// <inheritdoc/>
-    protected override bool TryFindChild(THandle handle, [NotNullWhen(true)] out IClasslessQdisc<THandle>? child)
+    protected override bool TryFindChild(THandle handle, [NotNullWhen(true)] out IClassifyingQdisc<THandle>? child)
     {
         using ILockOwnership readLock = _childrenLock.AcquireReadLock();
 
-        IChildClassification<THandle>[] children = Volatile.Read(ref _children);
+        IClassifyingQdisc<THandle>[] children = Volatile.Read(ref _children);
         for (int i = 0; i < children.Length; i++)
         {
-            child = children[i].Qdisc;
+            child = children[i];
             if (child.Handle.Equals(handle))
             {
                 return true;
@@ -514,10 +511,10 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
 
         // forward to children, no lock needed. if children are removed then they don't need to be notified
         // and if new children are added, they shouldn't know about the worker anyway
-        IChildClassification<THandle>[] children = Volatile.Read(ref _children);
+        IClassifyingQdisc<THandle>[] children = Volatile.Read(ref _children);
         for (int i = 0; i < children.Length; i++)
         {
-            children[i].Qdisc.OnWorkerTerminated(workerId);
+            children[i].OnWorkerTerminated(workerId);
         }
 
         base.OnWorkerTerminated(workerId);
@@ -526,11 +523,11 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
     protected override void DisposeManaged()
     {
         _childrenLock.Dispose();
-        IChildClassification<THandle>[] children = Interlocked.Exchange(ref _children, Array.Empty<IChildClassification<THandle>>());
-        foreach (IChildClassification<THandle> child in children)
+        IClassifyingQdisc<THandle>[] children = Interlocked.Exchange(ref _children, []);
+        foreach (IClassifyingQdisc<THandle> child in children)
         {
-            child.Qdisc.Complete();
-            child.Qdisc.Dispose();
+            child.Complete();
+            child.Dispose();
         }
         _localLasts.AsSpan().Clear();
 

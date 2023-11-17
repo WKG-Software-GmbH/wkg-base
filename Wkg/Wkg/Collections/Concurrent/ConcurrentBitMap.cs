@@ -172,7 +172,7 @@ public class ConcurrentBitmap : IDisposable, IParentNode
         _root.RemoveBitAt(index);
         if (shrink)
         {
-            ShrinkCore(1);
+            ShrinkCoreUnsafe(1);
         }
         _root.RefreshState(index);
     }
@@ -214,14 +214,12 @@ public class ConcurrentBitmap : IDisposable, IParentNode
         ArgumentOutOfRangeException.ThrowIfGreaterThan(removalSize, Length, nameof(removalSize));
 
         using ILockOwnership writeLock = _syncRoot.AcquireWriteLock();
-        ShrinkCore(removalSize);
+        ShrinkCoreUnsafe(removalSize);
     }
 
-    private void ShrinkCore(int removalSize)
-    {
+    private void ShrinkCoreUnsafe(int removalSize) =>
         // requires global write lock
         _root.Shrink(removalSize);
-    }
 
     public override string ToString()
     {

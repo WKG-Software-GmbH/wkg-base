@@ -10,6 +10,6 @@ public sealed class Fifo : ClasslessQdiscBuilder<Fifo>, IClasslessQdiscBuilder<F
 {
     public static Fifo CreateBuilder(IQdiscBuilderContext context) => new();
 
-    protected override IClasslessQdisc<THandle> BuildInternal<THandle>(THandle handle) => 
-        new FifoQdisc<THandle>(handle);
+    protected override IClassifyingQdisc<THandle> BuildInternal<THandle>(THandle handle, Predicate<object?>? predicate) => 
+        new FifoQdisc<THandle>(handle, predicate);
 }

@@ -2,18 +2,19 @@
 using System.Diagnostics.CodeAnalysis;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
+using Wkg.Threading.Workloads.Queuing.Routing;
 
 namespace Wkg.Threading.Workloads.Queuing.Classless.ConstrainedFifo;
 
 using static ConcurrentBoolean;
 
-internal class ConstrainedFifoQdisc<THandle> : ClasslessQdisc<THandle>, IClasslessQdisc<THandle> where THandle : unmanaged
+internal class ConstrainedFifoQdisc<THandle> : ClasslessQdisc<THandle>, IClassifyingQdisc<THandle> where THandle : unmanaged
 {
     private protected readonly AbstractWorkloadBase?[] _workloads;
 
     private protected ulong _state;
 
-    public ConstrainedFifoQdisc(THandle handle, int maxCount) : base(handle)
+    public ConstrainedFifoQdisc(THandle handle, Predicate<object?>? predicate, int maxCount) : base(handle, predicate)
     {
         Debug.Assert(maxCount > 0);
         Debug.Assert(maxCount <= ushort.MaxValue);
@@ -135,5 +136,25 @@ internal class ConstrainedFifoQdisc<THandle> : ClasslessQdisc<THandle>, IClassle
         } while (Volatile.Read(ref _state) != currentState);
         Debug.Assert(workload is not null);
         return true;
+    }
+
+    protected override bool TryEnqueueByHandle(THandle handle, AbstractWorkloadBase workload) => false;
+
+    protected override bool TryFindRoute(THandle handle, ref RoutingPath<THandle> path) => false;
+
+    protected override bool ContainsChild(THandle handle) => false;
+
+    protected override bool CanClassify(object? state) => Predicate.Invoke(state);
+
+    protected override bool TryEnqueue(object? state, AbstractWorkloadBase workload) => TryEnqueueDirect(state, workload);
+
+    protected override bool TryEnqueueDirect(object? state, AbstractWorkloadBase workload)
+    {
+        if (Predicate.Invoke(state))
+        {
+            EnqueueDirect(workload);
+            return true;
+        }
+        return false;
     }
 }

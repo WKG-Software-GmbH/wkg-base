@@ -1,4 +1,4 @@
-﻿namespace Wkg.Threading.Workloads.Queuing.Classful.Intrinsics;
+﻿namespace Wkg.Threading.Workloads.Queuing.Classful.RoundRobin;
 
 internal readonly ref struct CriticalSection
 {

@@ -1,10 +1,11 @@
-﻿using Wkg.Threading.Workloads.Queuing.Classful;
+﻿using System.Runtime.CompilerServices;
+using Wkg.Threading.Workloads.Queuing.Classful;
 using Wkg.Threading.Workloads.Queuing.Classless;
 using Wkg.Threading.Workloads.WorkloadTypes;
 
 namespace Wkg.Threading.Workloads.Factories;
 
-public class ClassfulWorkloadFactory<THandle> : AbstractClassfulWorkloadFactory<THandle>, 
+public class ClassfulWorkloadFactory<THandle> : AbstractClasslessWorkloadFactory<THandle>, 
     IWorkloadFactory<THandle, ClassfulWorkloadFactory<THandle>>, 
     IClassfulWorkloadFactory<THandle> 
     where THandle : unmanaged
@@ -14,9 +15,9 @@ public class ClassfulWorkloadFactory<THandle> : AbstractClassfulWorkloadFactory<
     {
     }
 
-    public IClassfulQdisc<THandle> Root => ClassfulRoot;
+    public IClassfulQdisc<THandle> Root => Unsafe.As<IClassifyingQdisc<THandle>, IClassfulQdisc<THandle>>(ref RootRef);
 
     static ClassfulWorkloadFactory<THandle> IWorkloadFactory<THandle, ClassfulWorkloadFactory<THandle>>
-        .Create(IClasslessQdisc<THandle> root, AnonymousWorkloadPoolManager? pool, WorkloadContextOptions? options) => 
+        .Create(IClassifyingQdisc<THandle> root, AnonymousWorkloadPoolManager? pool, WorkloadContextOptions? options) => 
             new((IClassfulQdisc<THandle>)root, pool, options);
 }

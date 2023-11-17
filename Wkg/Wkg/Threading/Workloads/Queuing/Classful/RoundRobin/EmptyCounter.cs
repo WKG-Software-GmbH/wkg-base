@@ -2,7 +2,7 @@
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
 
-namespace Wkg.Threading.Workloads.Queuing.Classful.Intrinsics;
+namespace Wkg.Threading.Workloads.Queuing.Classful.RoundRobin;
 
 internal class EmptyCounter
 {

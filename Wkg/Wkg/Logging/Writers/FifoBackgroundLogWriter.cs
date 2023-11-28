@@ -22,7 +22,7 @@ public class FifoBackgroundLogWriter : ILogWriter
         .UseClasslessRoot<Fifo>(SingleQdiscHandle.Root);
 
     /// <inheritdoc/>
-    public void Write(ref LogEntry logEntry, ILogSink sink)
+    public virtual void Write(ref LogEntry logEntry, ILogSink sink)
     {
         LogEntryBox box = new(sink, ref logEntry);
         _loggingQueue.Schedule(box.WriteToSink);

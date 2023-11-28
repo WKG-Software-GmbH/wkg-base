@@ -15,6 +15,8 @@ using Wkg.Threading.Workloads.Queuing.Classless.ConstrainedFifo;
 using Wkg.Threading.Workloads.Queuing.Classless.ConstrainedLifo;
 using Wkg.Threading.Workloads.Queuing.Classless.Fifo;
 using Wkg.Threading.Workloads.Queuing.Classless.Lifo;
+using Wkg.Threading.Workloads.Queuing.Classless.PriorityFifoFast;
+using static Wkg.Common.SyntacticSugar;
 
 Log.UseLogger(Logger.Create(LoggerConfiguration.Create()
     //.AddSink<ColoredThreadBasedConsoleSink>()
@@ -78,6 +80,19 @@ using ClassfulWorkloadFactoryWithDI<int> factory = WorkloadFactoryBuilder.Create
         .UsePreciseMeasurements(true)
         .UseSchedulerTimeModel(VirtualTimeModel.Average)
         .UseExecutionTimeModel(VirtualTimeModel.Average)
+        .AddClasslessChild<PriorityFifoFast>(1000, 1d, 1d, classifier => 
+            classifier.AddPredicate<long>(l => true),
+            child => child
+                .WithBandCount(4)
+                .WithBandHandles(1000, 1001, 1002, 1003)
+                .WithDefaultBand(3)
+                .WithBandSelector(state => state switch
+                {
+                    long i when i < 0 => 0,
+                    long i when i < 100 => 1,
+                    long i when i < 1000 => 2,
+                    _ => -1
+                }))
         .AddClasslessChild<Fifo>(2, workloadSchedulingWeight: 2d, executionPunishmentFactor: 2d, classifier => classifier
             .AddPredicate<State>(state => state.QdiscType == QdiscType.Fifo)
             .AddPredicate<int>(i => (i & 1) == 0))

@@ -56,6 +56,7 @@ internal sealed class FifoQdisc<THandle>(THandle handle, Predicate<object?>? pre
         }
         return false;
     }
+
     protected override bool TryFindRoute(THandle handle, ref RoutingPath<THandle> path) => false;
 
     protected override bool TryPeekUnsafe(int workerId, [NotNullWhen(true)] out AbstractWorkloadBase? workload) => _queue.TryPeek(out workload);

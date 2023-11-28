@@ -12,6 +12,8 @@ public interface IClassifyingQdisc : IQdisc
     /// Enqueues the workload to be executed onto this qdisc.
     /// </summary>
     /// <param name="workload">The workload to be enqueued.</param>
+    // TODO: binding can fail if the workload is already completed!
+    // we currently don't check for this, which could cause state corruption with emptiness tracking and other things
     internal void Enqueue(AbstractWorkloadBase workload);
 
     /// <summary>

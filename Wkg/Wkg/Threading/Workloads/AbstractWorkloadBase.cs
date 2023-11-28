@@ -56,6 +56,10 @@ public abstract class AbstractWorkloadBase
 
     internal abstract nint GetPayloadFunctionPointer();
 
+    /// <summary>
+    /// Aborts the workload, possibly with the specified exception, and invokes any continuations that were scheduled for it.
+    /// </summary>
+    /// <param name="exception">The exception that caused the workload to be aborted.</param>
     internal abstract void InternalAbort(Exception? exception = null);
 
     /// <summary>

@@ -1,4 +1,6 @@
-﻿using System.Diagnostics;
+﻿using BenchmarkDotNet.Running;
+using ConsoleApp1;
+using System.Diagnostics;
 using Wkg.Logging;
 using Wkg.Logging.Configuration;
 using Wkg.Logging.Generators;
@@ -107,13 +109,13 @@ List<int> myData = Enumerable.Range(0, 10000).ToList();
 int sum = myData.Sum();
 Log.WriteInfo($"Sum: {sum}");
 
-List<int> result = await factory.TransformAllAsync(myData, (data, cancellationFlag) => data * 10);
+int[] result = await factory.TransformAllAsync(myData, (data, cancellationFlag) => data * 10);
 
 Log.WriteInfo($"Result Sum 1: {result.Select(i => (long)i).Sum()}");
 await Task.Delay(2500);
 Log.WriteInfo($"Sum: {sum}");
 
-List<int> resultClassified = await factory.ClassifyAndTransformAllAsync(myData, (data, cancellationFlag) => data * 10);
+int[] resultClassified = await factory.ClassifyAndTransformAllAsync(myData, (data, cancellationFlag) => data * 10);
 
 Log.WriteInfo($"Result Sum 2: {resultClassified.Select(i => (long)i).Sum()}");
 await Task.Delay(2500);

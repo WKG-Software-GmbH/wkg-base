@@ -24,7 +24,7 @@ internal class AnonymousWorkloadPoolManager(int _capacity)
                     if (pool is null)
                     {
                         DebugLog.WriteDiagnostic("Creating new anonymous workload pool.", LogWriter.Blocking);
-                        pool = new WeakPool<AnonymousWorkloadImpl>(_capacity);
+                        pool = new WeakPool<AnonymousWorkloadImpl>(_capacity, suppressContentionWarnings: true);
                         Volatile.Write(ref _pool, pool);
                     }
                 }
@@ -46,7 +46,7 @@ internal class AnonymousWorkloadPoolManager(int _capacity)
                     if (pool is null)
                     {
                         DebugLog.WriteDiagnostic("Creating new anonymous workload pool with DI.", LogWriter.Blocking);
-                        pool = new WeakPool<AnonymousWorkloadImplWithDI>(_capacity);
+                        pool = new WeakPool<AnonymousWorkloadImplWithDI>(_capacity, suppressContentionWarnings: true);
                         Volatile.Write(ref _poolWithDI, pool);
                     }
                 }

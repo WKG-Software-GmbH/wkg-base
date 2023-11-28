@@ -218,7 +218,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
                 SpinWait spinner = default;
                 for (int i = 0; !_workerIds.TryTake(out workerId); i++)
                 {
-                    DebugLog.WriteWarning($"Worker slot is not yet available, spinning ({i} times so far).", LogWriter.Blocking);
+                    DebugLog.WriteInternalWarning($"Worker slot is not yet available, spinning ({i} times so far).", LogWriter.Blocking);
                     spinner.SpinOnce();
                 }
                 original++;

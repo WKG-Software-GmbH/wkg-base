@@ -14,15 +14,3 @@ public class BackgroundLogWriter : ILogWriter
         ThreadPool.QueueUserWorkItem(LogEntryBox.WriteToSink, box);
     }
 }
-
-file class LogEntryBox(ILogSink sink, ref readonly LogEntry entry)
-{
-    private readonly ILogSink _sink = sink;
-    private LogEntry _entry = entry;
-
-    public static void WriteToSink(object? state)
-    {
-        LogEntryBox box = (LogEntryBox)state!;
-        box._sink.Log(ref box._entry);
-    }
-}

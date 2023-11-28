@@ -72,35 +72,35 @@ public static class WorkloadFactoryExtensions
         where THandle : unmanaged =>
         Workload.WhenAll(states.Select(state => factory.ScheduleAsync(handle, state, consumer, cancellationToken)));
 
-    public static Task<List<TResult>> TransformAllAsync<THandle, TState, TResult>(this AbstractClasslessWorkloadFactory<THandle> factory, IEnumerable<TState> states, Func<TState, CancellationFlag, TResult> transformation)
+    public static Task<TResult[]> TransformAllAsync<THandle, TState, TResult>(this AbstractClasslessWorkloadFactory<THandle> factory, IEnumerable<TState> states, Func<TState, CancellationFlag, TResult> transformation)
         where THandle : unmanaged => 
         TransformAllAsync(factory, states, transformation, CancellationToken.None);
 
-    public static Task<List<TResult>> TransformAllAsync<THandle, TState, TResult>(this AbstractClasslessWorkloadFactory<THandle> factory, IEnumerable<TState> states, Func<TState, CancellationFlag, TResult> transformation, CancellationToken cancellationToken)
+    public static Task<TResult[]> TransformAllAsync<THandle, TState, TResult>(this AbstractClasslessWorkloadFactory<THandle> factory, IEnumerable<TState> states, Func<TState, CancellationFlag, TResult> transformation, CancellationToken cancellationToken)
         where THandle : unmanaged =>
         TransformAllAsyncCore(states.Select(state => factory.ScheduleAsync(state, transformation, cancellationToken)).ToArray());
 
-    public static Task<List<TResult>> TransformAllAsync<THandle, TState, TResult>(this AbstractClasslessWorkloadFactoryWithDI<THandle> factory, IEnumerable<TState> states, Func<TState, IWorkloadServiceProvider, CancellationFlag, TResult> transformation)
+    public static Task<TResult[]> TransformAllAsync<THandle, TState, TResult>(this AbstractClasslessWorkloadFactoryWithDI<THandle> factory, IEnumerable<TState> states, Func<TState, IWorkloadServiceProvider, CancellationFlag, TResult> transformation)
         where THandle : unmanaged =>
         TransformAllAsync(factory, states, transformation, CancellationToken.None);
 
-    public static Task<List<TResult>> TransformAllAsync<THandle, TState, TResult>(this AbstractClasslessWorkloadFactoryWithDI<THandle> factory, IEnumerable<TState> states, Func<TState, IWorkloadServiceProvider, CancellationFlag, TResult> transformation, CancellationToken cancellationToken)
+    public static Task<TResult[]> TransformAllAsync<THandle, TState, TResult>(this AbstractClasslessWorkloadFactoryWithDI<THandle> factory, IEnumerable<TState> states, Func<TState, IWorkloadServiceProvider, CancellationFlag, TResult> transformation, CancellationToken cancellationToken)
         where THandle : unmanaged =>
         TransformAllAsyncCore(states.Select(state => factory.ScheduleAsync(state, transformation, cancellationToken)).ToArray());
 
-    public static Task<List<TResult>> TransformAllAsync<THandle, TState, TResult>(this AbstractClasslessWorkloadFactory<THandle> factory, THandle handle, IEnumerable<TState> states, Func<TState, CancellationFlag, TResult> transformation)
+    public static Task<TResult[]> TransformAllAsync<THandle, TState, TResult>(this AbstractClasslessWorkloadFactory<THandle> factory, THandle handle, IEnumerable<TState> states, Func<TState, CancellationFlag, TResult> transformation)
         where THandle : unmanaged =>
         TransformAllAsync(factory, handle, states, transformation, CancellationToken.None);
 
-    public static Task<List<TResult>> TransformAllAsync<THandle, TState, TResult>(this AbstractClasslessWorkloadFactory<THandle> factory, THandle handle, IEnumerable<TState> states, Func<TState, CancellationFlag, TResult> transformation, CancellationToken cancellationToken)
+    public static Task<TResult[]> TransformAllAsync<THandle, TState, TResult>(this AbstractClasslessWorkloadFactory<THandle> factory, THandle handle, IEnumerable<TState> states, Func<TState, CancellationFlag, TResult> transformation, CancellationToken cancellationToken)
         where THandle : unmanaged =>
         TransformAllAsyncCore(states.Select(state => factory.ScheduleAsync(handle, state, transformation, cancellationToken)).ToArray());
 
-    public static Task<List<TResult>> TransformAllAsync<THandle, TState, TResult>(this AbstractClasslessWorkloadFactoryWithDI<THandle> factory, THandle handle, IEnumerable<TState> states, Func<TState, IWorkloadServiceProvider, CancellationFlag, TResult> transformation)
+    public static Task<TResult[]> TransformAllAsync<THandle, TState, TResult>(this AbstractClasslessWorkloadFactoryWithDI<THandle> factory, THandle handle, IEnumerable<TState> states, Func<TState, IWorkloadServiceProvider, CancellationFlag, TResult> transformation)
         where THandle : unmanaged =>
         TransformAllAsync(factory, handle, states, transformation, CancellationToken.None);
 
-    public static Task<List<TResult>> TransformAllAsync<THandle, TState, TResult>(this AbstractClasslessWorkloadFactoryWithDI<THandle> factory, THandle handle, IEnumerable<TState> states, Func<TState, IWorkloadServiceProvider, CancellationFlag, TResult> transformation, CancellationToken cancellationToken)
+    public static Task<TResult[]> TransformAllAsync<THandle, TState, TResult>(this AbstractClasslessWorkloadFactoryWithDI<THandle> factory, THandle handle, IEnumerable<TState> states, Func<TState, IWorkloadServiceProvider, CancellationFlag, TResult> transformation, CancellationToken cancellationToken)
         where THandle : unmanaged =>
         TransformAllAsyncCore(states.Select(state => factory.ScheduleAsync(handle, state, transformation, cancellationToken)).ToArray());
 
@@ -138,33 +138,33 @@ public static class WorkloadFactoryExtensions
         where THandle : unmanaged =>
         Workload.WhenAll(states.Select(state => factory.ClassifyAsync(state, consumer, cancellationToken)));
 
-    public static Task<List<TResult>> ClassifyAndTransformAllAsync<THandle, TState, TResult>(this AbstractClasslessWorkloadFactory<THandle> factory, IEnumerable<TState> states, Func<TState, CancellationFlag, TResult> transformation)
+    public static Task<TResult[]> ClassifyAndTransformAllAsync<THandle, TState, TResult>(this AbstractClasslessWorkloadFactory<THandle> factory, IEnumerable<TState> states, Func<TState, CancellationFlag, TResult> transformation)
         where THandle : unmanaged =>
         TransformAllAsyncCore(states.Select(state => factory.ClassifyAsync(state, transformation)).ToArray());
 
-    public static Task<List<TResult>> ClassifyAndTransformAllAsync<THandle, TState, TResult>(this AbstractClasslessWorkloadFactory<THandle> factory, IEnumerable<TState> states, Func<TState, CancellationFlag, TResult> transformation, CancellationToken cancellationToken)
+    public static Task<TResult[]> ClassifyAndTransformAllAsync<THandle, TState, TResult>(this AbstractClasslessWorkloadFactory<THandle> factory, IEnumerable<TState> states, Func<TState, CancellationFlag, TResult> transformation, CancellationToken cancellationToken)
         where THandle : unmanaged =>
         TransformAllAsyncCore(states.Select(state => factory.ClassifyAsync(state, transformation, cancellationToken)).ToArray());
 
-    public static Task<List<TResult>> ClassifyAndTransformAllAsync<THandle, TState, TResult>(this AbstractClasslessWorkloadFactoryWithDI<THandle> factory, IEnumerable<TState> states, Func<TState, IWorkloadServiceProvider, CancellationFlag, TResult> transformation)
+    public static Task<TResult[]> ClassifyAndTransformAllAsync<THandle, TState, TResult>(this AbstractClasslessWorkloadFactoryWithDI<THandle> factory, IEnumerable<TState> states, Func<TState, IWorkloadServiceProvider, CancellationFlag, TResult> transformation)
         where THandle : unmanaged =>
         TransformAllAsyncCore(states.Select(state => factory.ClassifyAsync(state, transformation)).ToArray());
 
-    public static Task<List<TResult>> ClassifyAndTransformAllAsync<THandle, TState, TResult>(this AbstractClasslessWorkloadFactoryWithDI<THandle> factory, IEnumerable<TState> states, Func<TState, IWorkloadServiceProvider, CancellationFlag, TResult> transformation, CancellationToken cancellationToken)
+    public static Task<TResult[]> ClassifyAndTransformAllAsync<THandle, TState, TResult>(this AbstractClasslessWorkloadFactoryWithDI<THandle> factory, IEnumerable<TState> states, Func<TState, IWorkloadServiceProvider, CancellationFlag, TResult> transformation, CancellationToken cancellationToken)
         where THandle : unmanaged =>
         TransformAllAsyncCore(states.Select(state => factory.ClassifyAsync(state, transformation, cancellationToken)).ToArray());
 
-    private static async Task<List<TResult>> TransformAllAsyncCore<TResult>(Workload<TResult>[] workloads)
+    private static async Task<TResult[]> TransformAllAsyncCore<TResult>(Workload<TResult>[] workloads)
     {
         await Workload.WhenAll(workloads);
-        List<TResult> results = new(workloads.Length);
+        TResult[] results = new TResult[workloads.Length];
         List<Exception> errors = [];
         for (int i = 0; i < workloads.Length; i++)
         {
             WorkloadResult<TResult> result = workloads[i].Result;
             if (result.TryGetResult(out TResult? value))
             {
-                results.Add(value);
+                results[i] = value;
             }
             else
             {

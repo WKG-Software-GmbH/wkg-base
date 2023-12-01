@@ -1,13 +1,14 @@
 ﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using Wkg.Collections.Concurrent;
+using Wkg.Common.Extensions;
 using Wkg.Common.ThrowHelpers;
 using Wkg.Threading.Workloads.Queuing.Classless.Fifo;
 using Wkg.Threading.Workloads.Queuing.Routing;
 
 namespace Wkg.Threading.Workloads.Queuing.Classless.PriorityFifoFast;
 
-internal class PriorityFifoFastQdisc<THandle> : ClasslessQdisc<THandle>
+internal class PriorityFifoFastQdisc<THandle> : ClasslessQdisc<THandle>, INotifyWorkScheduled
     where THandle : unmanaged
 {
     private readonly ConcurrentBitmap _dataMap;
@@ -29,7 +30,9 @@ internal class PriorityFifoFastQdisc<THandle> : ClasslessQdisc<THandle>
         for (int i = 0; i < bands; i++)
         {
             THandle bandHandle = _bandHandlesConfigured ? bandHandles[i] : default;
-            _bands[i] = new FifoQdisc<THandle>(bandHandle, null);
+            FifoQdisc<THandle> band = new(bandHandle, null);
+            band.To<IQdisc>().InternalInitialize(this);
+            _bands[i] = band;
         }
         _defaultBand = defaultBand;
         _bandSelector = bandSelector;
@@ -183,4 +186,8 @@ internal class PriorityFifoFastQdisc<THandle> : ClasslessQdisc<THandle>
         Interlocked.Increment(ref _fuzzyCount);
         _dataMap.UpdateBit(routingPathNode.Offset, true);
     }
+
+    void INotifyWorkScheduled.OnWorkScheduled() => ParentScheduler.OnWorkScheduled();
+
+    void INotifyWorkScheduled.DisposeRoot() => ParentScheduler.DisposeRoot();
 }

@@ -5,6 +5,10 @@ namespace Wkg.Threading.Workloads.Queuing;
 
 public interface IQdisc : IDisposable
 {
+    /// <summary>
+    /// Initializes the qdisc with the specified parent scheduler.
+    /// </summary>
+    /// <param name="parentScheduler">The parent scheduler.</param>
     internal void InternalInitialize(INotifyWorkScheduled parentScheduler);
 
     /// <summary>

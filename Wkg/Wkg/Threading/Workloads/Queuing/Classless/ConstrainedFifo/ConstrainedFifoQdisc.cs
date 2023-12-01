@@ -92,7 +92,7 @@ internal class ConstrainedFifoQdisc<THandle> : ClasslessQdisc<THandle>, IClassif
         // if we overrode a workload, we need to abort it
         if (overriddenWorkload is not null)
         {
-            DebugLog.WriteWarning($"A workload was scheduled, but the stack was full. The oldest workload was overridden.", LogWriter.Blocking);
+            DebugLog.WriteWarning($"A workload was scheduled, but the queue was full. The oldest workload was overridden.", LogWriter.Blocking);
             overriddenWorkload.InternalAbort();
         }
     }

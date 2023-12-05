@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using Wkg.Internals.Diagnostic;
+﻿using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
 using Wkg.Threading.Workloads.Continuations;
 
@@ -7,7 +6,7 @@ namespace Wkg.Threading.Workloads;
 
 using CommonFlags = WorkloadStatus.CommonFlags;
 
-public abstract class Workload<TResult> : AwaitableWorkload
+public abstract class Workload<TResult> : AwaitableWorkload, IWorkload<TResult>
 {
     private TResult? _result;
 
@@ -67,7 +66,7 @@ public abstract class Workload<TResult> : AwaitableWorkload
         else
         {
             DebugLog.WriteDiagnostic($"{this}: Installing continuation for workload.", LogWriter.Blocking);
-            ContinueWithCore(new WorkloadContinueWithContination(continuation));
+            ContinueWithCore(new WorkloadContinueWithContination<Workload<TResult>, TResult>(continuation));
         }
     }
 
@@ -77,7 +76,7 @@ public abstract class Workload<TResult> : AwaitableWorkload
     /// <remarks>
     /// <see langword="WARNING"/>: Do not modify or remove this method. It is used by compiler generated code.
     /// </remarks>
-    public WorkloadAwaiter<TResult> GetAwaiter() => new(this);
+    public WorkloadAwaiter<Workload<TResult>, TResult> GetAwaiter() => new(this);
 
     private protected override void SetCanceledResultUnsafe()
     {
@@ -93,12 +92,5 @@ public abstract class Workload<TResult> : AwaitableWorkload
 
     internal WorkloadResult<TResult> GetResultUnsafe() => new(Status, Volatile.Read(ref _exception), _result);
 
-    private class WorkloadContinueWithContination(Action<WorkloadResult<TResult>> _continuation) : TypedWorkloadContinuation<Workload<TResult>>
-    {
-        protected override void InvokeInternal(Workload<TResult> workload)
-        {
-            Debug.Assert(workload.IsCompleted, "Workload must be completed at this point.");
-            _continuation(workload.GetResultUnsafe());
-        }
-    }
+    WorkloadResult<TResult> IWorkload<TResult>.GetResultUnsafe() => GetResultUnsafe();
 }

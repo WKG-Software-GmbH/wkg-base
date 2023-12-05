@@ -1,8 +1,11 @@
-﻿using Wkg.Threading.Workloads.Queuing;
+﻿namespace Wkg.Threading.Workloads;
 
-namespace Wkg.Threading.Workloads;
-
-internal interface IWorkload
+public interface IWorkload
 {
-    bool TryInternalBindQdisc(IQdisc qdisc);
+    internal WorkloadResult GetResultUnsafe();
+}
+
+public interface IWorkload<TResult>
+{
+    internal WorkloadResult<TResult> GetResultUnsafe();
 }

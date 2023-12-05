@@ -8,11 +8,12 @@ namespace Wkg.Threading.Workloads;
 /// <summary>
 /// Provides an awaiter for awaiting the completion of a <see cref="Workload"/>.
 /// </summary>
-public readonly struct WorkloadAwaiter : ICriticalNotifyCompletion, INotifyCompletion
+public readonly struct WorkloadAwaiter<TWorkload> : ICriticalNotifyCompletion, INotifyCompletion
+    where TWorkload : AwaitableWorkload, IWorkload
 {
-    private readonly Workload _workload;
+    private readonly TWorkload _workload;
 
-    internal WorkloadAwaiter(Workload workload) => _workload = workload;
+    internal WorkloadAwaiter(TWorkload workload) => _workload = workload;
 
     /// <summary>
     /// Indicates whether the workload has completed.
@@ -45,10 +46,13 @@ public readonly struct WorkloadAwaiter : ICriticalNotifyCompletion, INotifyCompl
     public WorkloadResult GetResult()
     {
         DebugLog.WriteDiagnostic($"GetResult invoked for workload: {_workload}", LogWriter.Blocking);
-        ValidateEnd(_workload);
+        WorkloadAwaiterCore.ValidateEnd(_workload);
         return _workload.GetResultUnsafe();
     }
+}
 
+internal static class WorkloadAwaiterCore
+{
     internal static void ValidateEnd(AwaitableWorkload workload)
     {
         if (!workload.IsCompleted)

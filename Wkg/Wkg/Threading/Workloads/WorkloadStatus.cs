@@ -32,6 +32,7 @@ public readonly struct WorkloadStatus
     private const uint CANCELLATION_REQUESTED_VALUE = 0x40u;
     // internal flags
     private const uint INTERNAL_POOLED_VALUE = 0x10000u;
+    private const uint INTERNAL_ASYNC_SUCCESS_VALUE = 0x20000u;
 
     // we use a simple unsafe reinterpret_cast to convert between the uint and the enum
     // which makes conversions a zero-cost operation
@@ -84,6 +85,11 @@ public readonly struct WorkloadStatus
     /// The workload has been pooled and is not tracked by a scheduler.
     /// </summary>
     internal static WorkloadStatus Pooled => INTERNAL_POOLED_VALUE;
+
+    /// <summary>
+    /// The workload has completed execution successfully in an asynchronous context.
+    /// </summary>
+    internal static WorkloadStatus AsyncSuccess => INTERNAL_ASYNC_SUCCESS_VALUE;
 
     /// <summary>
     /// Reinterprets the specified <paramref name="status"/> as a <see cref="uint"/>.

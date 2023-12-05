@@ -1,4 +1,6 @@
-﻿using Wkg.Internals.Diagnostic;
+﻿using System.Diagnostics;
+using System.Threading;
+using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
 using Wkg.Threading.Workloads.Continuations;
 
@@ -6,33 +8,33 @@ namespace Wkg.Threading.Workloads;
 
 using CommonFlags = WorkloadStatus.CommonFlags;
 
-public abstract partial class Workload : AwaitableWorkload, IWorkload
+public abstract class TaskWorkload : AsyncWorkload, IWorkload
 {
-    private protected Workload(WorkloadStatus status, WorkloadContextOptions options, CancellationToken cancellationToken)
-        : base(status, options, cancellationToken) => Pass();
+    internal TaskWorkload(WorkloadStatus status, WorkloadContextOptions continuationOptions, CancellationToken cancellationToken) 
+        : base(status, continuationOptions, cancellationToken) => Pass();
 
-    private protected abstract void ExecuteCore();
+    private protected abstract Task ExecuteCoreAsync();
 
-    private protected override bool TryExecuteUnsafeCore(out WorkloadStatus preTerminationStatus)
+    private protected override async Task<WorkloadStatus> TryExecuteUnsafeCoreAsync()
     {
         // execute the workload
-        ExecuteCore();
+        await ExecuteCoreAsync();
         // if cancellation was requested, but the workload didn't honor it,
         // then we'll just ignore it and treat it as a successful completion
-        preTerminationStatus = Atomic.TestAnyFlagsExchange(ref _status, WorkloadStatus.RanToCompletion, CommonFlags.WillCompleteSuccessfully);
+        WorkloadStatus preTerminationStatus = Atomic.TestAnyFlagsExchange(ref _status, WorkloadStatus.RanToCompletion, CommonFlags.WillCompleteSuccessfully);
         if (preTerminationStatus.IsOneOf(CommonFlags.WillCompleteSuccessfully))
         {
             Volatile.Write(ref _exception, null);
             DebugLog.WriteDiagnostic($"{this}: Successfully completed execution.", LogWriter.Blocking);
-            return true;
+            return WorkloadStatus.AsyncSuccess;
         }
         else if (preTerminationStatus == WorkloadStatus.Canceled)
         {
             SetCanceledResultUnsafe();
             DebugLog.WriteDiagnostic($"{this}: Execution was canceled.", LogWriter.Blocking);
-            return true;
+            return WorkloadStatus.AsyncSuccess;
         }
-        return false;
+        return preTerminationStatus;
     }
 
     public WorkloadResult Result
@@ -61,7 +63,7 @@ public abstract partial class Workload : AwaitableWorkload, IWorkload
         }
         else
         {
-            ContinueWithCore(new WorkloadContinueWithContination<Workload>(continuation));
+            ContinueWithCore(new WorkloadContinueWithContination<TaskWorkload>(continuation));
         }
     }
 
@@ -71,12 +73,12 @@ public abstract partial class Workload : AwaitableWorkload, IWorkload
     /// <remarks>
     /// <see langword="WARNING"/>: Do not modify or remove this method. It is used by compiler generated code.
     /// </remarks>
-    public WorkloadAwaiter<Workload> GetAwaiter() => new(this);
+    public WorkloadAwaiter<TaskWorkload> GetAwaiter() => new(this);
 
-    private protected override void SetCanceledResultUnsafe() => 
+    private protected override void SetCanceledResultUnsafe() =>
         Volatile.Write(ref _exception, null);
 
-    private protected override void SetFaultedResultUnsafe(Exception ex) => 
+    private protected override void SetFaultedResultUnsafe(Exception ex) =>
         Volatile.Write(ref _exception, ex);
 
     internal WorkloadResult GetResultUnsafe() => new(Status, Volatile.Read(ref _exception));

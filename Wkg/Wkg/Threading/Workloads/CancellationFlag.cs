@@ -7,6 +7,7 @@ namespace Wkg.Threading.Workloads;
 /// <summary>
 /// Represents a cancellation request for a workload.
 /// </summary>
+// TODO: somehow allow CancellationFlags to create CancellationToken instances (for TaskWorkloads)
 public readonly struct CancellationFlag
 {
     private static readonly AwaitableWorkload _neverCancelledWorkload = new WorkloadImpl(null!, WorkloadStatus.Invalid, null!, CancellationToken.None);

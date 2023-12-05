@@ -65,7 +65,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
         }
     }
 
-    internal protected virtual void WorkerLoop(object? state)
+    internal protected virtual async void WorkerLoop(object? state)
     {
         int workerId = (int)state!;
         DebugLog.WriteInfo($"Started worker {workerId}", LogWriter.Blocking);
@@ -76,7 +76,12 @@ internal class WorkloadScheduler : INotifyWorkScheduled
         while (!_disposed && TryDequeueOrExitSafely(ref workerId, previousExecutionFailed, out workload) && !_disposed)
         {
             previousWorkerId = workerId;
-            previousExecutionFailed = !workload.TryRunSynchronously();
+            bool successfulExecution = workload switch
+            {
+                AsyncWorkload asyncWorkload => await asyncWorkload.TryRunAsynchronously().ConfigureAwait(continueOnCapturedContext: false),
+                _ => workload.TryRunSynchronously(),
+            };
+            previousExecutionFailed = !successfulExecution;
             Debug.Assert(workload.Status.IsOneOf(CommonFlags.Completed));
             workload.InternalRunContinuations(workerId);
         }

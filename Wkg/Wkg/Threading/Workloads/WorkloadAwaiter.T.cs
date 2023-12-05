@@ -7,12 +7,14 @@ namespace Wkg.Threading.Workloads;
 /// <summary>
 /// Provides an awaiter for awaiting the completion of a <see cref="Workload{TResult}"/>.
 /// </summary>
+/// <typeparam name="TWorkload">The type of the workload.</typeparam>
 /// <typeparam name="TResult">The type of the result produced by the workload.</typeparam>
-public readonly struct WorkloadAwaiter<TResult> : ICriticalNotifyCompletion, INotifyCompletion
+public readonly struct WorkloadAwaiter<TWorkload, TResult> : ICriticalNotifyCompletion, INotifyCompletion
+    where TWorkload : AwaitableWorkload, IWorkload<TResult>
 {
-    private readonly Workload<TResult> _workload;
+    private readonly TWorkload _workload;
 
-    internal WorkloadAwaiter(Workload<TResult> workload) => _workload = workload;
+    internal WorkloadAwaiter(TWorkload workload) => _workload = workload;
 
     /// <summary>
     /// Indicates whether the workload has completed.
@@ -45,7 +47,7 @@ public readonly struct WorkloadAwaiter<TResult> : ICriticalNotifyCompletion, INo
     public readonly WorkloadResult<TResult> GetResult()
     {
         DebugLog.WriteDiagnostic($"GetResult invoked for workload: {_workload}", LogWriter.Blocking);
-        WorkloadAwaiter.ValidateEnd(_workload);
+        WorkloadAwaiterCore.ValidateEnd(_workload);
         return _workload.GetResultUnsafe();
     }
 }

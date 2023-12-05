@@ -13,7 +13,7 @@ internal class WorkloadSchedulerWithDI(IQdisc rootQdisc, int maximumConcurrencyL
 {
     private readonly IWorkloadServiceProviderFactory _serviceProviderFactory = serviceProviderFactory;
 
-    internal protected override void WorkerLoop(object? state)
+    internal protected override async void WorkerLoop(object? state)
     {
         int workerId = (int)state!;
         DebugLog.WriteInfo($"Started worker {workerId}", LogWriter.Blocking);
@@ -27,7 +27,12 @@ internal class WorkloadSchedulerWithDI(IQdisc rootQdisc, int maximumConcurrencyL
         {
             previousWorkerId = workerId;
             workload.RegisterServiceProvider(serviceProvider);
-            previousExecutionFailed = !workload.TryRunSynchronously();
+            bool successfulExecution = workload switch
+            {
+                AsyncWorkload asyncWorkload => await asyncWorkload.TryRunAsynchronously().ConfigureAwait(continueOnCapturedContext: false),
+                _ => workload.TryRunSynchronously(),
+            };
+            previousExecutionFailed = !successfulExecution;
             Debug.Assert(workload.Status.IsOneOf(CommonFlags.Completed));
             workload.InternalRunContinuations(workerId);
         }

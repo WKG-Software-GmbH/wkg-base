@@ -165,6 +165,33 @@ WorkloadResult result4 = await wl4;
 
 Log.WriteInfo($"Result: {result4}");
 
+TaskWorkload taskwl = factory.ScheduleTaskAsync(async flag =>
+{
+    Log.WriteInfo($"Hello from the root scheduler from a Task!");
+    await Task.Delay(1000);
+    Log.WriteInfo($"Hello from the root scheduler from a Task! (after delay)");
+    throw new Exception("This is an exception.");
+});
+
+WorkloadResult taskResult = await taskwl;
+
+Log.WriteInfo($"Result: {taskResult}");
+
+AwaitableWorkload[] taskWorkloads = new AwaitableWorkload[10];
+
+for (int i = 0; i < taskWorkloads.Length; i++)
+{
+    Wrapper w = new(i);
+    taskWorkloads[i] = factory.ScheduleTaskAsync(async flag =>
+    {
+        Log.WriteInfo($"Hello from Task {w.Value}");
+        await Task.Delay(1000);
+        Log.WriteInfo($"Bye from Task {w.Value}");
+    });
+}
+
+await Workload.WhenAll(taskWorkloads);
+
 const int WORKLOAD_COUNT = 10;
 AwaitableWorkload[] workloads1 = new AwaitableWorkload[WORKLOAD_COUNT];
 
@@ -297,6 +324,8 @@ enum QdiscType : int
     Lifo,
     RoundRobin
 }
+
+record Wrapper(int Value);
 
 record State(QdiscType QdiscType);
 record SomeOtherState();

@@ -430,11 +430,6 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
     {
         if (!disposedValue)
         {
-            if (disposing)
-            {
-                // TODO: dispose managed state (managed objects)
-            }
-
             _segments.Dispose();
             disposedValue = true;
         }

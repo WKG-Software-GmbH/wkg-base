@@ -38,7 +38,7 @@ internal class ConstrainedFifoQdisc<THandle> : ClasslessQdisc<THandle>, IClassif
         }
     }
 
-    public override int Count
+    public override int BestEffortCount
     {
         get
         {

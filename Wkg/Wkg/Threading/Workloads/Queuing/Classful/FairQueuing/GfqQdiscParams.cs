@@ -3,7 +3,7 @@ using Wkg.Threading.Workloads.Configuration.Classless;
 
 namespace Wkg.Threading.Workloads.Queuing.Classful.FairQueuing;
 
-internal class WfqQdiscParams
+internal class GfqQdiscParams
 {
     public Predicate<object?>? Predicate { get; set; }
     public required IClasslessQdiscBuilder? Inner { get; set; }

@@ -27,15 +27,12 @@ public interface IQdisc : IDisposable
     bool IsEmpty { get; }
 
     /// <summary>
-    /// Gets the total number of workloads in this qdisc and all child qdiscs.
+    /// Provides an estimate of the total number of workloads in this qdisc and all child qdiscs.
     /// </summary>
     /// <remarks>
-    /// This property guarantees that the value returned is greater than or equal to the actual number of workloads in this qdisc and all child qdiscs (phantom reads are possible, but not false negatives).<br></br>
-    /// This means that scheduling attempts are blocked during evaluation, but dequeue operations may still be performed.
+    /// This property is used to determine the best-effort count of the qdisc. As such, it is not guaranteed to be accurate. However, it is guaranteed to only return <c>0</c> if the qdisc is truly empty.
     /// </remarks>
-    // TODO: these guarantees are impossible to implement with routing path enqueues!
-    // we should just make this property be a best-effort estimate and document that accordingly
-    int Count { get; }
+    int BestEffortCount { get; }
 
     /// <summary>
     /// Attempts to dequeue a workload from this qdisc.

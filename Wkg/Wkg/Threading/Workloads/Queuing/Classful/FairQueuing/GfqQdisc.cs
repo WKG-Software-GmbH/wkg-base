@@ -11,7 +11,7 @@ using Wkg.Threading.Workloads.Scheduling;
 
 namespace Wkg.Threading.Workloads.Queuing.Classful.FairQueuing;
 
-internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmanaged
+internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmanaged
 {
     [ThreadStatic]
     private static int? __LAST_ENQUEUED_CHILD_INDEX;
@@ -27,9 +27,9 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
     private uint _generationCounter;
     private readonly ConcurrentBitmap _hasDataMap;
     private volatile ChildQdiscState[] _childStates;
-    private int _maxRoutingPathDepthEncountered = 4;
+    private int _maxRoutingPathDepthEncountered = 2;
 
-    public WfqQdisc(THandle handle, WfqQdiscParams parameters) : base(handle, parameters.Predicate)
+    public GfqQdisc(THandle handle, GfqQdiscParams parameters) : base(handle, parameters.Predicate)
     {
         ArgumentNullException.ThrowIfNull(parameters.Predicate, nameof(parameters.Predicate));
         ArgumentNullException.ThrowIfNull(parameters.Inner, nameof(parameters.Inner));
@@ -44,7 +44,7 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         _virtualExecutionTimeFunction = parameters.VirtualExecutionTimeFunction;
         _virtualAccumulatedFinishTimeFunction = parameters.VirtualAccumulatedFinishTimeFunction;
         _localQueue = parameters.Inner.BuildUnsafe(default(THandle), MatchNothingPredicate);
-        _childStates = [new ChildQdiscState(_localQueue, new WfqWeight(1d, 1d))];
+        _childStates = [new ChildQdiscState(_localQueue, new GfqWeight(1d, 1d))];
         // by default we have one child, so the bit map is initialized with a single bit
         // if we have more children, the bit map will be resized automatically
         _hasDataMap = new ConcurrentBitmap(1);
@@ -55,7 +55,7 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
     protected override void OnInternalInitialize(INotifyWorkScheduled parentScheduler) =>
         BindChildQdisc(_localQueue);
 
-    public override int Count
+    public override int BestEffortCount
     {
         get
         {
@@ -71,7 +71,7 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
             ChildQdiscState[] childStates = _childStates;
             for (int i = 0; i < childStates.Length; i++)
             {
-                count += childStates[i].Child.Count;
+                count += childStates[i].Child.BestEffortCount;
             }
             // don't forget the local caches
             // just pop-count all the bits that are not set
@@ -157,7 +157,7 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
                         // in either case, we now have a workload to return
                         workload = candidate;
                         // update the virtual time
-                        WfqState state = (WfqState)workload._state!;
+                        GfqState state = (GfqState)workload._state!;
                         EventuallyConsistentVirtualTimeTableEntry latestTimingInfo = _timeTable.GetEntryFor(workload);
                         // we assume average execution time for the aggregate
                         // but we assume worst case execution time for the workload itself
@@ -278,7 +278,7 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
                 }
             }
             // we actually found a non-null candidate.
-            if (possibleCandidate._state is not WfqState candidateState)
+            if (possibleCandidate._state is not GfqState candidateState)
             {
                 // this should never happen, as we only enqueue workloads with an earliest due date state
                 // before we can abort the workload, we must acquire the child qdisc lock
@@ -304,7 +304,7 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
                     }
                 }
                 // we have all the time in the world to abort the workload, so we don't need to do it in the lock
-                WorkloadSchedulingException exception = WorkloadSchedulingException.CreateVirtual($"Scheduler inconsistency: workload {possibleCandidate} has no {nameof(WfqState)}.");
+                WorkloadSchedulingException exception = WorkloadSchedulingException.CreateVirtual($"Scheduler inconsistency: workload {possibleCandidate} has no {nameof(GfqState)}.");
                 Debug.Fail(exception.Message);
                 DebugLog.WriteException(exception, LogWriter.Blocking);
                 // in this case, we must abort the workload, as we can't properly handle it
@@ -452,8 +452,6 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
 
     protected override bool TryEnqueue(object? state, AbstractWorkloadBase workload)
     {
-        // recursive classification of child qdiscs only.
-        // matching our own predicate is the job of the parent qdisc.
         using (ILockOwnership readLock = _childModificationLock.AcquireReadLock())
         {
             using ILockOwnership enqueueLock = _schedulerLock.AcquireReadLock();
@@ -471,7 +469,7 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
                     if (!childState.Child.TryEnqueue(state, workload))
                     {
                         // this should never happen, as we already checked if the child can classify the workload
-                        WorkloadSchedulingException exception = WorkloadSchedulingException.CreateVirtual($"Scheduler inconsistency: child qdisc {childStates[i].Child} reported to be able to classify workload {workload}, but failed to do so.");
+                        WorkloadSchedulingException exception = WorkloadSchedulingException.CreateVirtual($"Scheduler inconsistency: child qdisc {childState.Child} reported to be able to classify workload {workload}, but failed to do so.");
                         Debug.Fail(exception.Message);
                         DebugLog.WriteException(exception, LogWriter.Blocking);
                         // we are on the enqueueing thread, so we can just throw here
@@ -581,6 +579,13 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
 
     protected override void OnWorkScheduled()
     {
+        if (_childModificationLock.IsWriteLockHeld)
+        {
+            // we are inside a callback from some child modification method
+            // we don't need to do anything here, as the child modification method will take care of the emptiness tracking
+            // we must also break the notification chain here, as no "real" enqueueing operation happened
+            return;
+        }
         // we are inside a callback of an enqueuing thread
         // load the index of the child that was just enqueued to
         int? lastEnqueuedChildIndex = __LAST_ENQUEUED_CHILD_INDEX;
@@ -604,10 +609,10 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         base.OnWorkScheduled();
     }
 
-    private void UpdateWorkloadState(AbstractWorkloadBase workload, WfqWeight weight)
+    private void UpdateWorkloadState(AbstractWorkloadBase workload, GfqWeight weight)
     {
         EventuallyConsistentVirtualTimeTableEntry timingInformation = _timeTable.GetEntryFor(workload);
-        workload._state = new WfqState(workload._state, timingInformation, weight);
+        workload._state = new GfqState(workload._state, timingInformation, weight);
     }
 
     public override bool RemoveChild(IClassifyingQdisc<THandle> child) =>
@@ -646,10 +651,18 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         // this may break the intended scheduling order, but it is better than losing workloads
         // also that is acceptable, as it should happen very rarely and only if the user is doing something wrong
         // we simply impersonate worker 0 here, as we have exclusive access to the child qdisc anyway
+        bool childHasWorkloads = false;
         while (child.TryDequeueInternal(0, false, out AbstractWorkloadBase? workload))
         {
             // enqueue the workloads in the local queue
             _localQueue.Enqueue(workload);
+            childHasWorkloads = true;
+        }
+        if (childHasWorkloads)
+        {
+            // we just moved workloads from the child to the local queue
+            const int localQueueIndex = 0;
+            _hasDataMap.UpdateBit(localQueueIndex, isSet: true);
         }
 
         // remove the child and resize the buffers
@@ -675,13 +688,13 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         return true;
     }
 
-    public bool TryAddChild(IClassifyingQdisc<THandle> child, WfqWeight weight) =>
+    public bool TryAddChild(IClassifyingQdisc<THandle> child, GfqWeight weight) =>
         TryAddChildCore(child, weight);
 
     public override bool TryAddChild(IClassifyingQdisc<THandle> child) =>
-        TryAddChildCore(child, new WfqWeight(1d, 1d));
+        TryAddChildCore(child, new GfqWeight(1d, 1d));
 
-    private bool TryAddChildCore(IClassifyingQdisc<THandle> child, WfqWeight weight)
+    private bool TryAddChildCore(IClassifyingQdisc<THandle> child, GfqWeight weight)
     {
         using ILockOwnership writeLock = _childModificationLock.AcquireWriteLock();
 
@@ -750,6 +763,19 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
 
     protected override bool TryRemoveInternal(AwaitableWorkload workload) => false;
 
+    protected override void OnWorkerTerminated(int workerId)
+    {
+        // forward to children, no lock needed. if children are removed then they don't need to be notified
+        // and if new children are added, they shouldn't know about the worker anyway
+        ChildQdiscState[] childStates = _childStates;
+        for (int i = 0; i < childStates.Length; i++)
+        {
+            childStates[i].Child.OnWorkerTerminated(workerId);
+        }
+
+        base.OnWorkerTerminated(workerId);
+    }
+
     protected override void DisposeManaged()
     {
         // by contract, we should be the only thread accessing the qdisc at this point
@@ -773,11 +799,11 @@ internal class WfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
 
         public IClassifyingQdisc<THandle> Child { get; }
 
-        public WfqWeight Weight { get; }
+        public GfqWeight Weight { get; }
 
         public object QdiscLock { get; }
 
-        public ChildQdiscState(IClassifyingQdisc<THandle> child, WfqWeight weight)
+        public ChildQdiscState(IClassifyingQdisc<THandle> child, GfqWeight weight)
         {
             Child = child;
             QdiscLock = new object();

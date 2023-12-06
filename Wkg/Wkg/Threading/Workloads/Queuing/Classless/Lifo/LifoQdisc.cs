@@ -16,7 +16,7 @@ internal sealed class LifoQdisc<THandle>(THandle handle, Predicate<object?>? pre
 
     public override bool IsEmpty => _stack.IsEmpty;
 
-    public override int Count => _stack.Count;
+    public override int BestEffortCount => _stack.Count;
 
     protected override bool CanClassify(object? state) => Predicate.Invoke(state);
 

@@ -430,7 +430,7 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
     {
         private const string _message = "Internal error: Qdisc completion sentinel should never be accessed. This is a bug. Please report this issue.";
         bool IQdisc.IsEmpty => ThrowHelper<bool>();
-        int IQdisc.Count => ThrowHelper<int>();
+        int IQdisc.BestEffortCount => ThrowHelper<int>();
         bool IQdisc.TryDequeueInternal(int workerId, bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload) => (workload = null) is null && ThrowHelper<bool>();
         bool IQdisc.TryRemoveInternal(AwaitableWorkload workload) => ThrowHelper<bool>();
         void IQdisc.InternalInitialize(INotifyWorkScheduled parentScheduler) => ThrowHelper<bool>();

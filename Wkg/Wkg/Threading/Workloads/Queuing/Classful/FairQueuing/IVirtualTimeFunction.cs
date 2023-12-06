@@ -4,13 +4,13 @@ namespace Wkg.Threading.Workloads.Queuing.Classful.FairQueuing;
 
 public interface IVirtualTimeFunction
 {
-    double CalculateVirtualExecutionTime(WfqWeight weight, IVirtualTimeTable timeTable, EventuallyConsistentVirtualTimeTableEntry timingInfo);
+    double CalculateVirtualExecutionTime(GfqWeight weight, IVirtualTimeTable timeTable, EventuallyConsistentVirtualTimeTableEntry timingInfo);
 
-    double CalculateVirtualFinishTime(WfqWeight weight, IVirtualTimeTable timeTable, double virtualExecutionTime, double lastVirtualFinishTime);
+    double CalculateVirtualFinishTime(GfqWeight weight, IVirtualTimeTable timeTable, double virtualExecutionTime, double lastVirtualFinishTime);
 
-    double CalculateVirtualAccumulatedFinishTime(WfqWeight weight, IVirtualTimeTable timeTable, EventuallyConsistentVirtualTimeTableEntry timingInfo, double lastVirtualFinishTime);
+    double CalculateVirtualAccumulatedFinishTime(GfqWeight weight, IVirtualTimeTable timeTable, EventuallyConsistentVirtualTimeTableEntry timingInfo, double lastVirtualFinishTime);
 }
 
-internal delegate double VirtualExecutionTimeFunction(WfqWeight weight, IVirtualTimeTable timeTable, EventuallyConsistentVirtualTimeTableEntry timingInfo);
-internal delegate double VirtualFinishTimeFunction(WfqWeight weight, IVirtualTimeTable timeTable, double virtualExecutionTime, double lastVirtualFinishTime);
-internal delegate double VirtualAccumulatedFinishTimeFunction(WfqWeight weight, IVirtualTimeTable timeTable, EventuallyConsistentVirtualTimeTableEntry timingInfo, double lastVirtualFinishTime);
+internal delegate double VirtualExecutionTimeFunction(GfqWeight weight, IVirtualTimeTable timeTable, EventuallyConsistentVirtualTimeTableEntry timingInfo);
+internal delegate double VirtualFinishTimeFunction(GfqWeight weight, IVirtualTimeTable timeTable, double virtualExecutionTime, double lastVirtualFinishTime);
+internal delegate double VirtualAccumulatedFinishTimeFunction(GfqWeight weight, IVirtualTimeTable timeTable, EventuallyConsistentVirtualTimeTableEntry timingInfo, double lastVirtualFinishTime);

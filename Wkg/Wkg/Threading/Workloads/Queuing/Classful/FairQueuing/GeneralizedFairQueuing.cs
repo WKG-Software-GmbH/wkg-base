@@ -9,15 +9,15 @@ using Wkg.Threading.Workloads.Queuing.Classless.Fifo;
 
 namespace Wkg.Threading.Workloads.Queuing.Classful.FairQueuing;
 
-public class WeightedFairQueuing<THandle> : CustomClassfulQdiscBuilder<THandle, WeightedFairQueuing<THandle>>, ICustomClassfulQdiscBuilder<THandle, WeightedFairQueuing<THandle>>
+public class GeneralizedFairQueuing<THandle> : CustomClassfulQdiscBuilder<THandle, GeneralizedFairQueuing<THandle>>, ICustomClassfulQdiscBuilder<THandle, GeneralizedFairQueuing<THandle>>
     where THandle : unmanaged
 {
-    private protected readonly WfqQdiscParams _params;
-    private readonly List<(IClassifyingQdisc<THandle> Qdisc, WfqWeight Weight)> _children = [];
+    private protected readonly GfqQdiscParams _params;
+    private readonly List<(IClassifyingQdisc<THandle> Qdisc, GfqWeight Weight)> _children = [];
 
-    private WeightedFairQueuing(THandle handle, IQdiscBuilderContext context) : base(handle, context)
+    private GeneralizedFairQueuing(THandle handle, IQdiscBuilderContext context) : base(handle, context)
     {
-        _params = new WfqQdiscParams()
+        _params = new GfqQdiscParams()
         {
             Inner = null,
             ConcurrencyLevel = context.MaximumConcurrency,
@@ -28,10 +28,10 @@ public class WeightedFairQueuing<THandle> : CustomClassfulQdiscBuilder<THandle, 
         };
     }
 
-    public static WeightedFairQueuing<THandle> CreateBuilder(THandle handle, IQdiscBuilderContext context) =>
+    public static GeneralizedFairQueuing<THandle> CreateBuilder(THandle handle, IQdiscBuilderContext context) =>
         new(handle, context);
 
-    public WeightedFairQueuing<THandle> WithClassificationPredicate(Predicate<object?> predicate)
+    public GeneralizedFairQueuing<THandle> WithClassificationPredicate(Predicate<object?> predicate)
     {
         _params.Predicate = predicate;
         return this;
@@ -47,7 +47,7 @@ public class WeightedFairQueuing<THandle> : CustomClassfulQdiscBuilder<THandle, 
     /// </remarks>
     /// <param name="expectedNumberOfDistinctPayloads">The estimated maximum number of distinct payloads that will be enqueued.</param>
     /// <returns>The current <see cref="FairQueuing"/> instance.</returns>
-    public WeightedFairQueuing<THandle> AssumeMaximimNumberOfDistinctPayloads(int expectedNumberOfDistinctPayloads)
+    public GeneralizedFairQueuing<THandle> AssumeMaximimNumberOfDistinctPayloads(int expectedNumberOfDistinctPayloads)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(expectedNumberOfDistinctPayloads, nameof(expectedNumberOfDistinctPayloads));
 
@@ -63,7 +63,7 @@ public class WeightedFairQueuing<THandle> : CustomClassfulQdiscBuilder<THandle, 
     /// </remarks>
     /// <param name="usePreciseMeasurements">Whether to prefer precise measurements over performance.</param>
     /// <returns>The current <see cref="FairQueuing"/> instance.</returns>
-    public WeightedFairQueuing<THandle> UsePreciseMeasurements(bool usePreciseMeasurements = true)
+    public GeneralizedFairQueuing<THandle> UsePreciseMeasurements(bool usePreciseMeasurements = true)
     {
         _params.PreferPreciseMeasurements = usePreciseMeasurements;
         return this;
@@ -74,7 +74,7 @@ public class WeightedFairQueuing<THandle> : CustomClassfulQdiscBuilder<THandle, 
     /// </summary>
     /// <param name="measurementSampleLimit">The maximum number of samples to take when dynamically measuring the execution time of workloads, or <c>-1</c> for continuous sampling.</param>
     /// <returns>The current <see cref="FairQueuing"/> instance.</returns>
-    public WeightedFairQueuing<THandle> SetMeasurementSampleLimit(int measurementSampleLimit)
+    public GeneralizedFairQueuing<THandle> SetMeasurementSampleLimit(int measurementSampleLimit)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(measurementSampleLimit, -1, nameof(measurementSampleLimit));
         ArgumentOutOfRangeException.ThrowIfZero(measurementSampleLimit, nameof(measurementSampleLimit));
@@ -88,7 +88,7 @@ public class WeightedFairQueuing<THandle> : CustomClassfulQdiscBuilder<THandle, 
     /// </summary>
     /// <param name="preferredFairness">The preferred fairness model.</param>
     /// <returns>The current <see cref="FairQueuing"/> instance.</returns>
-    public WeightedFairQueuing<THandle> PreferFairness(PreferredFairness preferredFairness)
+    public GeneralizedFairQueuing<THandle> PreferFairness(PreferredFairness preferredFairness)
     {
         _params.PreferredFairness = preferredFairness;
         return this;
@@ -100,7 +100,7 @@ public class WeightedFairQueuing<THandle> : CustomClassfulQdiscBuilder<THandle, 
     /// </summary>
     /// <param name="timeModel">The virtual time model to use for scheduling.</param>
     /// <returns>The current <see cref="FairQueuing"/> instance.</returns>
-    public WeightedFairQueuing<THandle> UseSchedulerTimeModel(VirtualTimeModel timeModel)
+    public GeneralizedFairQueuing<THandle> UseSchedulerTimeModel(VirtualTimeModel timeModel)
     {
         _params.SchedulerTimeModel = timeModel;
         return this;
@@ -112,13 +112,13 @@ public class WeightedFairQueuing<THandle> : CustomClassfulQdiscBuilder<THandle, 
     /// </summary>
     /// <param name="timeModel">The virtual time model to use to estimate the execution time of workloads.</param>
     /// <returns>The current <see cref="FairQueuing"/> instance.</returns>
-    public WeightedFairQueuing<THandle> UseExecutionTimeModel(VirtualTimeModel timeModel)
+    public GeneralizedFairQueuing<THandle> UseExecutionTimeModel(VirtualTimeModel timeModel)
     {
         _params.ExecutionTimeModel = timeModel;
         return this;
     }
 
-    public WeightedFairQueuing<THandle> UseVirtualTimeFunction<TFunction>() where TFunction : IVirtualTimeFunction, new()
+    public GeneralizedFairQueuing<THandle> UseVirtualTimeFunction<TFunction>() where TFunction : IVirtualTimeFunction, new()
     {
         if (_params.HasVirtualTimeFunction)
         {
@@ -135,15 +135,15 @@ public class WeightedFairQueuing<THandle> : CustomClassfulQdiscBuilder<THandle, 
         return this;
     }
 
-    public WeightedFairQueuing<THandle> WithLocalQueue<TLocalQueue>()
+    public GeneralizedFairQueuing<THandle> WithLocalQueue<TLocalQueue>()
         where TLocalQueue : ClasslessQdiscBuilder<TLocalQueue>, IClasslessQdiscBuilder<TLocalQueue> =>
             WithLocalQueueCore<TLocalQueue>(null);
 
-    public WeightedFairQueuing<THandle> WithLocalQueue<TLocalQueue>(Action<TLocalQueue> configureLocalQueue)
+    public GeneralizedFairQueuing<THandle> WithLocalQueue<TLocalQueue>(Action<TLocalQueue> configureLocalQueue)
         where TLocalQueue : ClasslessQdiscBuilder<TLocalQueue>, IClasslessQdiscBuilder<TLocalQueue> =>
             WithLocalQueueCore(configureLocalQueue);
 
-    private WeightedFairQueuing<THandle> WithLocalQueueCore<TLocalQueue>(Action<TLocalQueue>? configureLocalQueue)
+    private GeneralizedFairQueuing<THandle> WithLocalQueueCore<TLocalQueue>(Action<TLocalQueue>? configureLocalQueue)
         where TLocalQueue : ClasslessQdiscBuilder<TLocalQueue>, IClasslessQdiscBuilder<TLocalQueue>
     {
         if (_params.Inner is not null)
@@ -158,34 +158,34 @@ public class WeightedFairQueuing<THandle> : CustomClassfulQdiscBuilder<THandle, 
         return this;
     }
 
-    public WeightedFairQueuing<THandle> AddClasslessChild<TChild>(THandle childHandle, double workloadSchedulingWeight = 1d, double executionPunishmentFactor = 1d)
+    public GeneralizedFairQueuing<THandle> AddClasslessChild<TChild>(THandle childHandle, double workloadSchedulingWeight = 1d, double executionPunishmentFactor = 1d)
         where TChild : ClasslessQdiscBuilder<TChild>, IClasslessQdiscBuilder<TChild> => AddClasslessChildCore<TChild>(childHandle, workloadSchedulingWeight, executionPunishmentFactor, null, null);
 
-    public WeightedFairQueuing<THandle> AddClasslessChild<TChild>(THandle childHandle, Action<TChild> configureChild)
+    public GeneralizedFairQueuing<THandle> AddClasslessChild<TChild>(THandle childHandle, Action<TChild> configureChild)
         where TChild : ClasslessQdiscBuilder<TChild>, IClasslessQdiscBuilder<TChild> => AddClasslessChildCore(childHandle, 1d, 1d, null, configureChild);
 
-    public WeightedFairQueuing<THandle> AddClasslessChild<TChild>(THandle childHandle, Action<SimplePredicateBuilder> configureClassification)
+    public GeneralizedFairQueuing<THandle> AddClasslessChild<TChild>(THandle childHandle, Action<SimplePredicateBuilder> configureClassification)
         where TChild : ClasslessQdiscBuilder<TChild>, IClasslessQdiscBuilder<TChild> => AddClasslessChildCore<TChild>(childHandle, 1d, 1d, configureClassification, null);
 
-    public WeightedFairQueuing<THandle> AddClasslessChild<TChild>(THandle childHandle, Action<SimplePredicateBuilder> configureClassification, Action<TChild> configureChild)
+    public GeneralizedFairQueuing<THandle> AddClasslessChild<TChild>(THandle childHandle, Action<SimplePredicateBuilder> configureClassification, Action<TChild> configureChild)
         where TChild : ClasslessQdiscBuilder<TChild>, IClasslessQdiscBuilder<TChild> => AddClasslessChildCore(childHandle, 1d, 1d, configureClassification, configureChild);
 
-    public WeightedFairQueuing<THandle> AddClasslessChild<TChild>(THandle childHandle, double workloadSchedulingWeight, double executionPunishmentFactor, Action<TChild> configureChild)
+    public GeneralizedFairQueuing<THandle> AddClasslessChild<TChild>(THandle childHandle, double workloadSchedulingWeight, double executionPunishmentFactor, Action<TChild> configureChild)
         where TChild : ClasslessQdiscBuilder<TChild>, IClasslessQdiscBuilder<TChild> => AddClasslessChildCore(childHandle, workloadSchedulingWeight, executionPunishmentFactor, null, configureChild);
 
-    public WeightedFairQueuing<THandle> AddClasslessChild<TChild>(THandle childHandle, double workloadSchedulingWeight, double executionPunishmentFactor, Action<SimplePredicateBuilder> configureClassification)
+    public GeneralizedFairQueuing<THandle> AddClasslessChild<TChild>(THandle childHandle, double workloadSchedulingWeight, double executionPunishmentFactor, Action<SimplePredicateBuilder> configureClassification)
         where TChild : ClasslessQdiscBuilder<TChild>, IClasslessQdiscBuilder<TChild> => AddClasslessChildCore<TChild>(childHandle, workloadSchedulingWeight, executionPunishmentFactor, configureClassification, null);
 
-    public WeightedFairQueuing<THandle> AddClasslessChild<TChild>(THandle childHandle, double workloadSchedulingWeight, double executionPunishmentFactor, Action<SimplePredicateBuilder> configureClassification, Action<TChild> configureChild)
+    public GeneralizedFairQueuing<THandle> AddClasslessChild<TChild>(THandle childHandle, double workloadSchedulingWeight, double executionPunishmentFactor, Action<SimplePredicateBuilder> configureClassification, Action<TChild> configureChild)
         where TChild : ClasslessQdiscBuilder<TChild>, IClasslessQdiscBuilder<TChild> => AddClasslessChildCore(childHandle, workloadSchedulingWeight, executionPunishmentFactor, configureClassification, configureChild);
 
-    private WeightedFairQueuing<THandle> AddClasslessChildCore<TChild>(THandle childHandle, double workloadSchedulingWeight, double executionPunishmentFactor, Action<SimplePredicateBuilder>? configureClassification, Action<TChild>? configureChild)
+    private GeneralizedFairQueuing<THandle> AddClasslessChildCore<TChild>(THandle childHandle, double workloadSchedulingWeight, double executionPunishmentFactor, Action<SimplePredicateBuilder>? configureClassification, Action<TChild>? configureChild)
         where TChild : ClasslessQdiscBuilder<TChild>, IClasslessQdiscBuilder<TChild>
     {
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(workloadSchedulingWeight, 0d, nameof(workloadSchedulingWeight));
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(executionPunishmentFactor, 0d, nameof(executionPunishmentFactor));
 
-        WfqWeight weight = new(executionPunishmentFactor, workloadSchedulingWeight);
+        GfqWeight weight = new(executionPunishmentFactor, workloadSchedulingWeight);
         TChild childBuilder = TChild.CreateBuilder(_context);
         if (configureChild is not null)
         {
@@ -203,34 +203,34 @@ public class WeightedFairQueuing<THandle> : CustomClassfulQdiscBuilder<THandle, 
         return this;
     }
 
-    public WeightedFairQueuing<THandle> AddClassfulChild<TChild>(THandle childHandle, double workloadSchedulingWeight = 1d, double executionPunishmentFactor = 1d)
+    public GeneralizedFairQueuing<THandle> AddClassfulChild<TChild>(THandle childHandle, double workloadSchedulingWeight = 1d, double executionPunishmentFactor = 1d)
         where TChild : ClassfulQdiscBuilder<TChild>, IClassfulQdiscBuilder<TChild>
     {
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(workloadSchedulingWeight, 0d, nameof(workloadSchedulingWeight));
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(executionPunishmentFactor, 0d, nameof(executionPunishmentFactor));
 
-        WfqWeight weight = new(executionPunishmentFactor, workloadSchedulingWeight);
+        GfqWeight weight = new(executionPunishmentFactor, workloadSchedulingWeight);
         ClassfulBuilder<THandle, SimplePredicateBuilder, TChild> childBuilder = new(childHandle, _context);
         IClassfulQdisc<THandle> qdisc = childBuilder.Build();
         _children.Add((qdisc, weight));
         return this;
     }
 
-    public WeightedFairQueuing<THandle> AddClassfulChild<TChild>(THandle childHandle, Action<TChild> configureChild)
+    public GeneralizedFairQueuing<THandle> AddClassfulChild<TChild>(THandle childHandle, Action<TChild> configureChild)
         where TChild : CustomClassfulQdiscBuilder<THandle, TChild>, ICustomClassfulQdiscBuilder<THandle, TChild> =>
         AddClassfulChild(childHandle, 1d, 1d, configureChild);
 
-    public WeightedFairQueuing<THandle> AddClassfulChild<TChild>(THandle childHandle, Action<ClassfulBuilder<THandle, SimplePredicateBuilder, TChild>> configureChild)
+    public GeneralizedFairQueuing<THandle> AddClassfulChild<TChild>(THandle childHandle, Action<ClassfulBuilder<THandle, SimplePredicateBuilder, TChild>> configureChild)
         where TChild : ClassfulQdiscBuilder<TChild>, IClassfulQdiscBuilder<TChild> =>
         AddClassfulChild(childHandle, 1d, 1d, configureChild);
 
-    public WeightedFairQueuing<THandle> AddClassfulChild<TChild>(THandle childHandle, double workloadSchedulingWeight, double executionPunishmentFactor, Action<TChild> configureChild)
+    public GeneralizedFairQueuing<THandle> AddClassfulChild<TChild>(THandle childHandle, double workloadSchedulingWeight, double executionPunishmentFactor, Action<TChild> configureChild)
         where TChild : CustomClassfulQdiscBuilder<THandle, TChild>, ICustomClassfulQdiscBuilder<THandle, TChild>
     {
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(workloadSchedulingWeight, 0d, nameof(workloadSchedulingWeight));
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(executionPunishmentFactor, 0d, nameof(executionPunishmentFactor));
 
-        WfqWeight weight = new(executionPunishmentFactor, workloadSchedulingWeight);
+        GfqWeight weight = new(executionPunishmentFactor, workloadSchedulingWeight);
         TChild childBuilder = TChild.CreateBuilder(childHandle, _context);
         configureChild(childBuilder);
         IClassfulQdisc<THandle> qdisc = childBuilder.Build();
@@ -238,13 +238,13 @@ public class WeightedFairQueuing<THandle> : CustomClassfulQdiscBuilder<THandle, 
         return this;
     }
 
-    public WeightedFairQueuing<THandle> AddClassfulChild<TChild>(THandle childHandle, double workloadSchedulingWeight, double executionPunishmentFactor, Action<ClassfulBuilder<THandle, SimplePredicateBuilder, TChild>> configureChild)
+    public GeneralizedFairQueuing<THandle> AddClassfulChild<TChild>(THandle childHandle, double workloadSchedulingWeight, double executionPunishmentFactor, Action<ClassfulBuilder<THandle, SimplePredicateBuilder, TChild>> configureChild)
         where TChild : ClassfulQdiscBuilder<TChild>, IClassfulQdiscBuilder<TChild>
     {
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(workloadSchedulingWeight, 0d, nameof(workloadSchedulingWeight));
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(executionPunishmentFactor, 0d, nameof(executionPunishmentFactor));
 
-        WfqWeight weight = new(executionPunishmentFactor, workloadSchedulingWeight);
+        GfqWeight weight = new(executionPunishmentFactor, workloadSchedulingWeight);
         ClassfulBuilder<THandle, SimplePredicateBuilder, TChild> childBuilder = new(childHandle, _context);
         configureChild(childBuilder);
         IClassfulQdisc<THandle> qdisc = childBuilder.Build();
@@ -257,13 +257,13 @@ public class WeightedFairQueuing<THandle> : CustomClassfulQdiscBuilder<THandle, 
         _params.Inner ??= Fifo.CreateBuilder(_context);
         if (!_params.HasVirtualTimeFunction)
         {
-            ParameterizedWfqVirtualTimeFunction virtualTimeFunction = new(_params.SchedulingParams);
+            ParameterizedGfqVirtualTimeFunction virtualTimeFunction = new(_params.SchedulingParams);
             _params.VirtualFinishTimeFunction = virtualTimeFunction.CalculateVirtualFinishTime;
             _params.VirtualExecutionTimeFunction = virtualTimeFunction.CalculateVirtualExecutionTime;
             _params.VirtualAccumulatedFinishTimeFunction = virtualTimeFunction.CalculateVirtualAccumulatedFinishTime;
         }
-        WfqQdisc<THandle> qdisc = new(handle, _params);
-        foreach ((IClassifyingQdisc<THandle> child, WfqWeight weight) in _children)
+        GfqQdisc<THandle> qdisc = new(handle, _params);
+        foreach ((IClassifyingQdisc<THandle> child, GfqWeight weight) in _children)
         {
             qdisc.TryAddChild(child, weight);
         }

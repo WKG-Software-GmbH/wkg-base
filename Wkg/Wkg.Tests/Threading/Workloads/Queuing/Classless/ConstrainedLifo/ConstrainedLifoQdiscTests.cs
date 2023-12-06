@@ -48,55 +48,55 @@ public class ConstrainedLifoQdiscTests
     public void TestEnqueueDequeue1()
     {
         IClassifyingQdisc<int> qdisc = CreateDefaultQdisc(8);
-        Assert.AreEqual(0, qdisc.Count);
+        Assert.AreEqual(0, qdisc.BestEffortCount);
         Assert.IsTrue(qdisc.IsEmpty);
 
         AbstractWorkloadBase workload1 = NewDummyWorkload();
         ulong id1 = workload1.Id;
         qdisc.Enqueue(workload1);
-        Assert.AreEqual(1, qdisc.Count);
+        Assert.AreEqual(1, qdisc.BestEffortCount);
         Assert.IsFalse(qdisc.IsEmpty);
 
         AbstractWorkloadBase workload2 = NewDummyWorkload();
         ulong id2 = workload2.Id;
         qdisc.Enqueue(workload2);
-        Assert.AreEqual(2, qdisc.Count);
+        Assert.AreEqual(2, qdisc.BestEffortCount);
         Assert.IsFalse(qdisc.IsEmpty);
 
         AbstractWorkloadBase workload3 = NewDummyWorkload();
         ulong id3 = workload3.Id;
         qdisc.Enqueue(workload3);
-        Assert.AreEqual(3, qdisc.Count);
+        Assert.AreEqual(3, qdisc.BestEffortCount);
 
         Assert.IsTrue(qdisc.TryDequeueInternal(0, false, out AbstractWorkloadBase? result3));
         Assert.AreEqual(id3, result3!.Id);
-        Assert.AreEqual(2, qdisc.Count);
+        Assert.AreEqual(2, qdisc.BestEffortCount);
         Assert.IsFalse(qdisc.IsEmpty);
 
         Assert.IsTrue(qdisc.TryDequeueInternal(0, false, out AbstractWorkloadBase? result2));
         Assert.AreEqual(id2, result2!.Id);
-        Assert.AreEqual(1, qdisc.Count);
+        Assert.AreEqual(1, qdisc.BestEffortCount);
         Assert.IsFalse(qdisc.IsEmpty);
 
         Assert.IsTrue(qdisc.TryDequeueInternal(0, false, out AbstractWorkloadBase? result1));
         Assert.AreEqual(id1, result1!.Id);
-        Assert.AreEqual(0, qdisc.Count);
+        Assert.AreEqual(0, qdisc.BestEffortCount);
         Assert.IsTrue(qdisc.IsEmpty);
 
         Assert.IsFalse(qdisc.TryDequeueInternal(0, false, out AbstractWorkloadBase? result0));
         Assert.IsNull(result0);
-        Assert.AreEqual(0, qdisc.Count);
+        Assert.AreEqual(0, qdisc.BestEffortCount);
         Assert.IsTrue(qdisc.IsEmpty);
 
         AbstractWorkloadBase workload4 = NewDummyWorkload();
         ulong id4 = workload4.Id;
         qdisc.Enqueue(workload4);
-        Assert.AreEqual(1, qdisc.Count);
+        Assert.AreEqual(1, qdisc.BestEffortCount);
         Assert.IsFalse(qdisc.IsEmpty);
 
         Assert.IsTrue(qdisc.TryDequeueInternal(0, false, out AbstractWorkloadBase? result4));
         Assert.AreEqual(id4, result4!.Id);
-        Assert.AreEqual(0, qdisc.Count);
+        Assert.AreEqual(0, qdisc.BestEffortCount);
         Assert.IsTrue(qdisc.IsEmpty);
     }
 
@@ -104,74 +104,74 @@ public class ConstrainedLifoQdiscTests
     public void TestEnqueueDequeue2()
     {
         IClassifyingQdisc<int> qdisc = CreateDefaultQdisc(4);
-        Assert.AreEqual(0, qdisc.Count);
+        Assert.AreEqual(0, qdisc.BestEffortCount);
         Assert.IsTrue(qdisc.IsEmpty);
 
         AbstractWorkloadBase workload1 = NewDummyWorkload();
         qdisc.Enqueue(workload1);
-        Assert.AreEqual(1, qdisc.Count);
+        Assert.AreEqual(1, qdisc.BestEffortCount);
         Assert.IsFalse(qdisc.IsEmpty);
 
         AbstractWorkloadBase workload2 = NewDummyWorkload();
         ulong id2 = workload2.Id;
         qdisc.Enqueue(workload2);
-        Assert.AreEqual(2, qdisc.Count);
+        Assert.AreEqual(2, qdisc.BestEffortCount);
         Assert.IsFalse(qdisc.IsEmpty);
 
         AbstractWorkloadBase workload3 = NewDummyWorkload();
         ulong id3 = workload3.Id;
         qdisc.Enqueue(workload3);
-        Assert.AreEqual(3, qdisc.Count);
+        Assert.AreEqual(3, qdisc.BestEffortCount);
         Assert.IsFalse(qdisc.IsEmpty);
 
         AbstractWorkloadBase workload4 = NewDummyWorkload();
         ulong id4 = workload4.Id;
         qdisc.Enqueue(workload4);
-        int count = qdisc.Count;
+        int count = qdisc.BestEffortCount;
         Assert.AreEqual(4, count);
         Assert.IsFalse(qdisc.IsEmpty);
 
         bool success = qdisc.TryDequeueInternal(0, false, out AbstractWorkloadBase? result4);
         Assert.IsTrue(success);
         Assert.AreEqual(id4, result4!.Id);
-        Assert.AreEqual(3, qdisc.Count);
+        Assert.AreEqual(3, qdisc.BestEffortCount);
         Assert.IsFalse(qdisc.IsEmpty);
 
         AbstractWorkloadBase workload5 = NewDummyWorkload();
         ulong id5 = workload5.Id;
         qdisc.Enqueue(workload5);
-        Assert.AreEqual(4, qdisc.Count);
+        Assert.AreEqual(4, qdisc.BestEffortCount);
         Assert.IsFalse(qdisc.IsEmpty);
 
         AbstractWorkloadBase workload6 = NewDummyWorkload();
         ulong id6 = workload6.Id;
         qdisc.Enqueue(workload6);
-        Assert.AreEqual(4, qdisc.Count);
+        Assert.AreEqual(4, qdisc.BestEffortCount);
         Assert.IsFalse(qdisc.IsEmpty);
 
         Assert.IsTrue(qdisc.TryDequeueInternal(0, false, out AbstractWorkloadBase? result6));
         Assert.AreEqual(id6, result6!.Id);
-        Assert.AreEqual(3, qdisc.Count);
+        Assert.AreEqual(3, qdisc.BestEffortCount);
         Assert.IsFalse(qdisc.IsEmpty);
 
         Assert.IsTrue(qdisc.TryDequeueInternal(0, false, out AbstractWorkloadBase? result5));
         Assert.AreEqual(id5, result5!.Id);
-        Assert.AreEqual(2, qdisc.Count);
+        Assert.AreEqual(2, qdisc.BestEffortCount);
         Assert.IsFalse(qdisc.IsEmpty);
 
         Assert.IsTrue(qdisc.TryDequeueInternal(0, false, out AbstractWorkloadBase? result3));
         Assert.AreEqual(id3, result3!.Id);
-        Assert.AreEqual(1, qdisc.Count);
+        Assert.AreEqual(1, qdisc.BestEffortCount);
         Assert.IsFalse(qdisc.IsEmpty);
 
         Assert.IsTrue(qdisc.TryDequeueInternal(0, false, out AbstractWorkloadBase? result2));
         Assert.AreEqual(id2, result2!.Id);
-        Assert.AreEqual(0, qdisc.Count);
+        Assert.AreEqual(0, qdisc.BestEffortCount);
         Assert.IsTrue(qdisc.IsEmpty);
 
         Assert.IsFalse(qdisc.TryDequeueInternal(0, false, out AbstractWorkloadBase? result7));
         Assert.IsNull(result7);
-        Assert.AreEqual(0, qdisc.Count);
+        Assert.AreEqual(0, qdisc.BestEffortCount);
         Assert.IsTrue(qdisc.IsEmpty);
     }
 

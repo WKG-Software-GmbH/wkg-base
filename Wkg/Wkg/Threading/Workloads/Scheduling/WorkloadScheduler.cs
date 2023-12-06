@@ -160,6 +160,10 @@ internal class WorkloadScheduler : INotifyWorkScheduled
                 {
                     // no more tasks, exit
                     DebugLog.WriteDebug($"Worker holding ID {previousWorkerId} previously found no tasks, exiting.", LogWriter.Blocking);
+                    if (_state.VolatileWorkerCount == 0)
+                    {
+                        DebugLog.WriteDiagnostic($"Last worker {workerId} resigned.", LogWriter.Blocking);
+                    }
                 }
                 return false;
             }
@@ -237,9 +241,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
             // pre-decrement, so we start at the maximum value - 1
             int workerCount = Interlocked.Decrement(ref _currentDegreeOfParallelism);
             _workerIds.Add(workerId);
-            int[] workerIds;
             Debug.Assert(workerCount >= 0);
-            Debug.Assert((workerIds = [.. _workerIds]) != null && workerIds.Length == workerIds.Distinct().Count());
             workerId = -1;
         }
     }

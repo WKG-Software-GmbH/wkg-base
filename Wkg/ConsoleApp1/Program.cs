@@ -20,6 +20,11 @@ using Wkg.Threading.Workloads.Queuing.Classless.Lifo;
 using Wkg.Threading.Workloads.Queuing.Classless.PriorityFifoFast;
 using static Wkg.Common.SyntacticSugar;
 
+Environment.SetEnvironmentVariable("R_HOME", @"C:\Program Files\R\R-4.3.2");
+
+BenchmarkRunner.Run<Tests>();
+Console.ReadLine();
+return;
 Log.UseLogger(Logger.Create(LoggerConfiguration.Create()
     //.AddSink<ColoredThreadBasedConsoleSink>()
     .AddSink<ColoredConsoleSink>()
@@ -27,6 +32,27 @@ Log.UseLogger(Logger.Create(LoggerConfiguration.Create()
     .UseEntryGenerator<TracingLogEntryGenerator>()
     .RegisterMainThread(Thread.CurrentThread)
     .UseDefaultLogWriter(LogWriter.Blocking)));
+
+Tests tests = new()
+{
+    Concurrency = 2,
+    SleepTime = 0,
+};
+tests.GlobalSetup();
+Random random = new(42);
+
+for (int i = 0; i < 250; i++)
+{
+    for (int j = 0; j < 2048; j++)
+    {
+        await tests.Locking();
+        Thread.SpinWait(random.Next(0, 1000));
+    }
+    Log.WriteDebug($"{i}");
+}
+
+Log.WriteInfo("AAAAAAAAAAAAAAAA");
+return;
 
 using (ClassfulWorkloadFactory<QdiscType> clubmappFactory = WorkloadFactoryBuilder.Create<QdiscType>()
     // the root scheduler is allowed to run up to 4 workers at the same time
@@ -43,7 +69,7 @@ using (ClassfulWorkloadFactory<QdiscType> clubmappFactory = WorkloadFactoryBuild
     // the root scheduler will fairly dequeue workloads alternating between the two child schedulers (Round Robin)
     // a classifying root scheduler can have children and also allows dynamic assignment of workloads to child schedulers
     // based on some state object
-    .UseClassfulRoot<RoundRobin>(QdiscType.RoundRobin, roundRobinClassBuilder => roundRobinClassBuilder
+    .UseClassfulRoot<RoundRobinBitmap>(QdiscType.RoundRobin, roundRobinClassBuilder => roundRobinClassBuilder
         .ConfigureClassificationPredicates(classificationBuilder => classificationBuilder
             .AddPredicate<State>(state => state.QdiscType == QdiscType.RoundRobin))
         // one child scheduler will dequeue workloads in a First In First Out manner
@@ -73,7 +99,7 @@ using ClassfulWorkloadFactoryWithDI<int> factory = WorkloadFactoryBuilder.Create
         .AddService<IMyService, MyService>(() => new MyService())
         .AddService(() => new MyService()))
     .UseAnonymousWorkloadPooling(poolSize: 64)
-    .UseClassfulRoot<WeightedFairQueuing<int>>(1, root => root
+    .UseClassfulRoot<GeneralizedFairQueuing<int>>(1, root => root
         .WithClassificationPredicate(o => o is State state && state.QdiscType == QdiscType.RoundRobin)
         .WithLocalQueue<Fifo>()
         .AssumeMaximimNumberOfDistinctPayloads(16)

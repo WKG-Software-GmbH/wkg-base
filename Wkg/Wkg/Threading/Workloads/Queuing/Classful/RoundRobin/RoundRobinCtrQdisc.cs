@@ -15,7 +15,7 @@ namespace Wkg.Threading.Workloads.Queuing.Classful.RoundRobin;
 /// A classful qdisc that implements the Round Robin scheduling algorithm to dequeue workloads from its children.
 /// </summary>
 /// <typeparam name="THandle">The type of the handle.</typeparam>
-internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassfulQdisc<THandle>
+internal sealed class RoundRobinCtrQdisc<THandle> : ClassfulQdisc<THandle>, IClassfulQdisc<THandle>
     where THandle : unmanaged
 {
     private readonly IQdisc?[] _localLasts;
@@ -27,7 +27,7 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
     private int _rrIndex;
     private int _criticalDequeueSection;
 
-    public RoundRobinQdisc(THandle handle, Predicate<object?>? predicate, IClasslessQdiscBuilder localQueueBuilder, int maxConcurrency) : base(handle, predicate)
+    public RoundRobinCtrQdisc(THandle handle, Predicate<object?>? predicate, IClasslessQdiscBuilder localQueueBuilder, int maxConcurrency) : base(handle, predicate)
     {
         _localQueue = localQueueBuilder.BuildUnsafe(default(THandle), MatchNothingPredicate);
         _localLasts = new IQdisc[maxConcurrency];
@@ -39,9 +39,9 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
     protected override void OnInternalInitialize(INotifyWorkScheduled parentScheduler) =>
         BindChildQdisc(_localQueue);
 
-    public override bool IsEmpty => Count == 0;
+    public override bool IsEmpty => BestEffortCount == 0;
 
-    public override int Count
+    public override int BestEffortCount
     {
         get
         {
@@ -77,7 +77,7 @@ internal sealed class RoundRobinQdisc<THandle> : ClassfulQdisc<THandle>, IClassf
         int count = 0;
         for (int i = 0; i < children.Length; i++)
         {
-            count += children[i].Count;
+            count += children[i].BestEffortCount;
         }
         return count;
     }

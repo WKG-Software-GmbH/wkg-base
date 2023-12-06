@@ -42,7 +42,7 @@ public abstract class ClasslessQdisc<THandle> : IClassifyingQdisc<THandle> where
     public abstract bool IsEmpty { get; }
 
     /// <inheritdoc/>
-    public abstract int Count { get; }
+    public abstract int BestEffortCount { get; }
 
     bool IClassifyingQdisc.IsCompleted => ReferenceEquals(ParentScheduler, NotifyWorkScheduledSentinel.Completed);
 

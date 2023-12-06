@@ -9,7 +9,7 @@ internal class LatestOnlyQdisc<THandle>(THandle handle, Predicate<object?>? pred
 
     public override bool IsEmpty => _singleWorkload is null;
 
-    public override int Count => IsEmpty ? 0 : 1;
+    public override int BestEffortCount => IsEmpty ? 0 : 1;
 
     protected override bool CanClassify(object? state) => Predicate.Invoke(state);
 

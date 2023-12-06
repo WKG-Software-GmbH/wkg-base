@@ -10,12 +10,12 @@ namespace Wkg.Threading.Workloads.Queuing.Classful.FairQueuing;
 public class FairQueuing : ClassfulQdiscBuilder<FairQueuing>, IClassfulQdiscBuilder<FairQueuing>
 {
     private readonly IQdiscBuilderContext _context;
-    private readonly WfqQdiscParams _params;
+    private readonly GfqQdiscParams _params;
 
     private FairQueuing(IQdiscBuilderContext context)
     {
         _context = context;
-        _params = new WfqQdiscParams()
+        _params = new GfqQdiscParams()
         {
             Inner = null,
             ConcurrencyLevel = context.MaximumConcurrency,
@@ -157,11 +157,11 @@ public class FairQueuing : ClassfulQdiscBuilder<FairQueuing>, IClassfulQdiscBuil
         _params.Predicate = predicate;
         if (!_params.HasVirtualTimeFunction)
         {
-            ParameterizedWfqVirtualTimeFunction virtualTimeFunction = new(_params.SchedulingParams);
+            ParameterizedGfqVirtualTimeFunction virtualTimeFunction = new(_params.SchedulingParams);
             _params.VirtualFinishTimeFunction = virtualTimeFunction.CalculateVirtualFinishTime;
             _params.VirtualExecutionTimeFunction = virtualTimeFunction.CalculateVirtualExecutionTime;
             _params.VirtualAccumulatedFinishTimeFunction = virtualTimeFunction.CalculateVirtualAccumulatedFinishTime;
         }
-        return new WfqQdisc<THandle>(handle, _params);
+        return new GfqQdisc<THandle>(handle, _params);
     }
 }

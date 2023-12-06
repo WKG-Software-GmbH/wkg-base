@@ -18,7 +18,7 @@ internal sealed class FifoQdisc<THandle>(THandle handle, Predicate<object?>? pre
 
     public override bool IsEmpty => _queue.IsEmpty;
 
-    public override int Count => _queue.Count;
+    public override int BestEffortCount => _queue.Count;
 
     protected override bool CanClassify(object? state) => Predicate.Invoke(state);
 
@@ -62,4 +62,6 @@ internal sealed class FifoQdisc<THandle>(THandle handle, Predicate<object?>? pre
     protected override bool TryPeekUnsafe(int workerId, [NotNullWhen(true)] out AbstractWorkloadBase? workload) => _queue.TryPeek(out workload);
 
     protected override bool TryRemoveInternal(AwaitableWorkload workload) => false;
+
+    public override string ToString() => $"FIFO qdisc (handle: {Handle}, count: {BestEffortCount})";
 }

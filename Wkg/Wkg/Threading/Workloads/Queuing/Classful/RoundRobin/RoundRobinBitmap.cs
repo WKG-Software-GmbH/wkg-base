@@ -8,24 +8,24 @@ namespace Wkg.Threading.Workloads.Queuing.Classful.RoundRobin;
 /// <summary>
 /// A classful qdisc that implements the Round Robin scheduling algorithm to dequeue workloads from its children.
 /// </summary>
-public sealed class RoundRobin : ClassfulQdiscBuilder<RoundRobin>, IClassfulQdiscBuilder<RoundRobin>
+public sealed class RoundRobinBitmap : ClassfulQdiscBuilder<RoundRobinBitmap>, IClassfulQdiscBuilder<RoundRobinBitmap>
 {
     private readonly IQdiscBuilderContext _context;
     private IClasslessQdiscBuilder? _localQueueBuilder;
 
-    private RoundRobin(IQdiscBuilderContext context) => _context = context;
+    private RoundRobinBitmap(IQdiscBuilderContext context) => _context = context;
 
-    public static RoundRobin CreateBuilder(IQdiscBuilderContext context) => new(context);
+    public static RoundRobinBitmap CreateBuilder(IQdiscBuilderContext context) => new(context);
 
-    public RoundRobin WithLocalQueue<TLocalQueue>() 
+    public RoundRobinBitmap WithLocalQueue<TLocalQueue>() 
         where TLocalQueue : ClasslessQdiscBuilder<TLocalQueue>, IClasslessQdiscBuilder<TLocalQueue> =>
             WithLocalQueueCore<TLocalQueue>(null);
 
-    public RoundRobin WithLocalQueue<TLocalQueue>(Action<TLocalQueue> configureLocalQueue) 
+    public RoundRobinBitmap WithLocalQueue<TLocalQueue>(Action<TLocalQueue> configureLocalQueue) 
         where TLocalQueue : ClasslessQdiscBuilder<TLocalQueue>, IClasslessQdiscBuilder<TLocalQueue> =>
             WithLocalQueueCore(configureLocalQueue);
 
-    private RoundRobin WithLocalQueueCore<TLocalQueue>(Action<TLocalQueue>? configureLocalQueue)
+    private RoundRobinBitmap WithLocalQueueCore<TLocalQueue>(Action<TLocalQueue>? configureLocalQueue)
         where TLocalQueue : ClasslessQdiscBuilder<TLocalQueue>, IClasslessQdiscBuilder<TLocalQueue>
     {
         if (_localQueueBuilder is not null)
@@ -44,6 +44,6 @@ public sealed class RoundRobin : ClassfulQdiscBuilder<RoundRobin>, IClassfulQdis
     protected internal override IClassfulQdisc<THandle> BuildInternal<THandle>(THandle handle, Predicate<object?>? predicate)
     {
         _localQueueBuilder ??= Fifo.CreateBuilder(_context);
-        return new RoundRobinQdisc<THandle>(handle, predicate, _localQueueBuilder, _context.MaximumConcurrency);
+        return new RoundRobinBitmapQdisc<THandle>(handle, predicate, _localQueueBuilder, _context.MaximumConcurrency);
     }
 }

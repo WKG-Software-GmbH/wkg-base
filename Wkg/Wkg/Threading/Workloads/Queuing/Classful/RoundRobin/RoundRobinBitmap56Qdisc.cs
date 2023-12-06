@@ -15,7 +15,7 @@ namespace Wkg.Threading.Workloads.Queuing.Classful.RoundRobin;
 /// A classful qdisc that implements the Round Robin scheduling algorithm to dequeue workloads from its children.
 /// </summary>
 /// <typeparam name="THandle">The type of the handle.</typeparam>
-internal sealed class RoundRobinBitmapQdisc<THandle> : ClassfulQdisc<THandle>, IClassfulQdisc<THandle>
+internal sealed class RoundRobinBitmap56Qdisc<THandle> : ClassfulQdisc<THandle>, IClassfulQdisc<THandle>
     where THandle : unmanaged
 {
     private readonly ThreadLocal<int?> __LAST_ENQUEUED_CHILD_INDEX = new();
@@ -25,11 +25,11 @@ internal sealed class RoundRobinBitmapQdisc<THandle> : ClassfulQdisc<THandle>, I
 
     private volatile IClassifyingQdisc<THandle>[] _children;
     private readonly ReaderWriterLockSlim _childrenLock;
-    private readonly ConcurrentBitmap _dataMap;
+    private ConcurrentBitmap56State _dataMap;
     private int _rrIndex;
     private int _maxRoutingPathDepthEncountered = 4;
 
-    public RoundRobinBitmapQdisc(THandle handle, Predicate<object?>? predicate, IClasslessQdiscBuilder localQueueBuilder, int maxConcurrency) : base(handle, predicate)
+    public RoundRobinBitmap56Qdisc(THandle handle, Predicate<object?>? predicate, IClasslessQdiscBuilder localQueueBuilder, int maxConcurrency) : base(handle, predicate)
     {
         _localQueue = localQueueBuilder.BuildUnsafe(default(THandle), MatchNothingPredicate);
         _localLasts = new IQdisc[maxConcurrency];

@@ -2,8 +2,6 @@
 using System.Text;
 using Wkg.Common;
 using Wkg.Data.Pooling;
-using Wkg.Internals.Diagnostic;
-using Wkg.Logging.Writers;
 
 namespace Wkg.Collections.Concurrent.BitmapInternals;
 
@@ -145,135 +143,102 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
         _children.Array[index] = newNode;
     }
 
-    public override void UpdateBit(int index, bool value)
+    public override void UpdateBit(int index, bool value, out bool emptinessTrackingChanged)
     {
         int child = index / _childMaxBitSize;
         int childOffset = index % _childMaxBitSize;
-        int iteration = 0;
-        ConcurrentBitmap56 nodeStateSnapshot;
-        do
+        _children.Array[child].UpdateBit(childOffset, value, out emptinessTrackingChanged);
+        if (emptinessTrackingChanged)
         {
-            nodeStateSnapshot = ConcurrentBitmap56.VolatileRead(ref _nodeState);
-            if (iteration == 0)
-            {
-                _children.Array[child].UpdateBit(childOffset, value);
-            }
-            else
-            {
-                bool newValue = _children.Array[child].IsBitSet(childOffset);
-                if (newValue != value)
-                {
-                    // our value is no longer relevant, (another write operation wrote to the same segment)
-                    return;
-                }
-                Debug.Assert(iteration < 100, "Too many iterations, something is wrong.");
-                DebugLog.WriteDiagnostic($"Retrying update of bit {index} in child {child} (iteration {iteration}).", LogWriter.Blocking);
-            }
-            iteration++;
-        } while (ConcurrentBitmap56.VolatileRead(ref _nodeState).GetToken() != nodeStateSnapshot.GetToken()
-            || UpdateStateSnapshotIfRequired(ref nodeStateSnapshot, value, child) && !ConcurrentBitmap56.TryWrite(ref _nodeState, nodeStateSnapshot));
+            emptinessTrackingChanged = UpdateNodeStateBit(child);
+        }
     }
 
-    public override bool TryUpdateBit(int index, byte token, bool value)
+    public override bool TryUpdateBit(int index, byte token, bool value, out bool emptinessTrackingChanged)
     {
-        int child = index / _childMaxBitSize;
+        int childIndex = index / _childMaxBitSize;
         int childOffset = index % _childMaxBitSize;
-        int iteration = 0;
-        ConcurrentBitmap56 nodeStateSnapshot;
-        do
+        if (!_children.Array[childIndex].TryUpdateBit(childOffset, token, value, out emptinessTrackingChanged))
         {
-            nodeStateSnapshot = ConcurrentBitmap56.VolatileRead(ref _nodeState);
-            if (iteration == 0)
-            {
-                if (!_children.Array[child].TryUpdateBit(childOffset, token, value))
-                {
-                    return false;
-                }
-            }
-            else
-            {
-                // we updated the segment, but the nodeState changed in the meantime
-                // we need to resample the value we wrote earlier (which may have been overwritten by another thread)
-                // based on the single resampled value, we can update the clusterstate
-                GuardedBitInfo bitInfo = _children.Array[child].GetBitInfo(childOffset);
-                if (bitInfo.Token != token)
-                {
-                    // our value is no longer relevant, (another write operation wrote to the same segment)
-                    return false;
-                }
-                bool newValue = bitInfo.IsSet;
-                // if the value is the same as before (e.g., the value we wrote is still there), we need to update the clusterstate accordingly
-                // otherwise something is wrong, because the token should have been updated as well
-                Debug.Assert(newValue == value, "The token should have been updated as well.");
-                Debug.Assert(iteration < 100, "Too many iterations, something is wrong.");
-                DebugLog.WriteDiagnostic($"Retrying update of bit {index} in child {child} (iteration {iteration}).", LogWriter.Blocking);
-            }
-            iteration++;
-        } while (ConcurrentBitmap56.VolatileRead(ref _nodeState).GetToken() != nodeStateSnapshot.GetToken()
-            || UpdateStateSnapshotIfRequired(ref nodeStateSnapshot, value, child) && !ConcurrentBitmap56.TryWrite(ref _nodeState, nodeStateSnapshot));
-        return true;
-    }
-
-    private bool UpdateStateSnapshotIfRequired(ref ConcurrentBitmap56 snapshot, bool value, int child)
-    {
-        ConcurrentBitmapNode childNode = _children.Array[child];
-        int childCapacity = childNode.NodeLength;
-        ConcurrentBitmap56 childState = ConcurrentBitmap56.VolatileRead(ref childNode.InternalStateBitmap);
-        if (!value && childState.AreChildrenEmpty(childCapacity) && !snapshot.IsChildEmpty(child))
-        {
-            // we set the bit to 0, and the child is now empty which is not yet reflected in the cluster bitmap
-            // --> mark the child as empty
-            snapshot = snapshot.SetChildEmpty(child);
-        }
-        else if (value && childState.AreChildrenFull(childCapacity) && !snapshot.IsChildFull(child))
-        {
-            // we set the bit to 1, and the child is now full which is not yet reflected in the cluster bitmap
-            // --> mark the child as full
-            snapshot = snapshot.SetChildFull(child);
-        }
-        else if (value && !childState.AreChildrenEmpty(childCapacity) && snapshot.IsChildEmpty(child))
-        {
-            // we set the bit to 1, and the child is now not empty anymore which is not yet reflected in the cluster bitmap
-            // --> clear the empty bit
-            snapshot = snapshot.ClearChildEmpty(child);
-        }
-        else if (!value && !childState.AreChildrenFull(childCapacity) && snapshot.IsChildFull(child))
-        {
-            // we set the bit to 0, and the child is now not full anymore which is not yet reflected in the cluster bitmap
-            // --> clear the full bit
-            snapshot = snapshot.ClearChildFull(child);
-        }
-        else
-        {
-            // no change
+            emptinessTrackingChanged = false;
             return false;
         }
+        if (emptinessTrackingChanged)
+        {
+            emptinessTrackingChanged = UpdateNodeStateBit(childIndex);
+        }
         return true;
     }
 
-    private bool UpdateStateSnapshot(ref ConcurrentBitmap56 snapshot, int child)
+    private bool UpdateNodeStateBit(int childIndex)
     {
-        ConcurrentBitmapNode childNode = _children.Array[child];
-        int childCapacity = childNode.NodeLength;
-        ConcurrentBitmap56 childState = ConcurrentBitmap56.VolatileRead(ref childNode.InternalStateBitmap);
-        if (childState.AreChildrenEmpty(childCapacity) && !snapshot.IsChildEmpty(child))
+        ConcurrentBitmapNode child = _children.Array[childIndex];
+        int childCapacity = child.NodeLength;
+        lock (child)
+        {
+            ConcurrentBitmap56 nodeState;
+            do
+            {
+                nodeState = ConcurrentBitmap56.VolatileRead(ref _nodeState);
+                ConcurrentBitmap56 childState = ConcurrentBitmap56.VolatileRead(ref child.InternalStateBitmap);
+                if (childState.AreChildrenEmpty(childCapacity) && !nodeState.IsChildEmpty(childIndex))
+                {
+                    // and the child is empty which is not yet reflected in the cluster bitmap
+                    // --> mark the child as empty
+                    nodeState = nodeState.SetChildEmpty(childIndex);
+                }
+                else if (childState.AreChildrenFull(childCapacity) && !nodeState.IsChildFull(childIndex))
+                {
+                    // the child is full which is not yet reflected in the cluster bitmap
+                    // --> mark the child as full
+                    nodeState = nodeState.SetChildFull(childIndex);
+                }
+                else if (!childState.AreChildrenEmpty(childCapacity) && nodeState.IsChildEmpty(childIndex))
+                {
+                    // the child is not empty anymore which is not yet reflected in the cluster bitmap
+                    // --> clear the empty bit
+                    nodeState = nodeState.ClearChildEmpty(childIndex);
+                }
+                else if (!childState.AreChildrenFull(childCapacity) && nodeState.IsChildFull(childIndex))
+                {
+                    // the child is not full anymore which is not yet reflected in the cluster bitmap
+                    // --> clear the full bit
+                    nodeState = nodeState.ClearChildFull(childIndex);
+                }
+                else
+                {
+                    // no change
+                    return false;
+                }
+                // update the cluster state
+            } while (!ConcurrentBitmap56.TryWrite(ref _nodeState, nodeState));
+            return true;
+        }
+    }
+
+    private bool UpdateStateSnapshot(ref ConcurrentBitmap56 nodeState, int childIndex)
+    {
+        ConcurrentBitmapNode child = _children.Array[childIndex];
+        int childCapacity = child.NodeLength;
+        ConcurrentBitmap56 childState = ConcurrentBitmap56.VolatileRead(ref child.InternalStateBitmap);
+        if (childState.AreChildrenEmpty(childCapacity) && !nodeState.IsChildEmpty(childIndex))
         {
             // we set the bit to 0, and the child is now empty which is not yet reflected in the cluster bitmap
             // --> mark the child as empty
-            snapshot = snapshot.SetChildEmpty(child);
+            nodeState = nodeState.SetChildEmpty(childIndex);
         }
-        else if (childState.AreChildrenFull(childCapacity) && !snapshot.IsChildFull(child))
+        else if (childState.AreChildrenFull(childCapacity) && !nodeState.IsChildFull(childIndex))
         {
             // we set the bit to 1, and the child is now full which is not yet reflected in the cluster bitmap
             // --> mark the child as full
-            snapshot = snapshot.SetChildFull(child);
+            nodeState = nodeState.SetChildFull(childIndex);
         }
-        else if (!childState.AreChildrenEmpty(childCapacity) && snapshot.IsChildEmpty(child) 
-            || !childState.AreChildrenFull(childCapacity) && snapshot.IsChildFull(child))
+        else if (!childState.AreChildrenEmpty(childCapacity) && nodeState.IsChildEmpty(childIndex) 
+            || !childState.AreChildrenFull(childCapacity) && nodeState.IsChildFull(childIndex))
         {
             // we set the bit to 1, and the child is now not empty anymore which is not yet reflected in the cluster bitmap
             // --> clear the empty bit
-            snapshot = snapshot.ClearChildEmpty(child).ClearChildFull(child);
+            nodeState = nodeState.ClearChildEmpty(childIndex).ClearChildFull(childIndex);
         }
         else
         {
@@ -301,7 +266,7 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
                 // the removed bit must then be inserted at the end of the previous child
                 bool value = child.IsBitSet(0);
                 child.RemoveBitAt(0);
-                _children.Array[i - 1].UpdateBit(_children.Array[i - 1].Length - 1, value);
+                _children.Array[i - 1].UpdateBit(_children.Array[i - 1].Length - 1, value, out _);
             }
         }
     }

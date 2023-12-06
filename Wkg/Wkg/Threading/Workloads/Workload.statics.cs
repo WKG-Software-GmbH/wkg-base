@@ -1,8 +1,5 @@
 ﻿using System.Diagnostics;
-using Wkg.Common.Extensions;
 using Wkg.Threading.Workloads.Continuations;
-using Wkg.Threading.Workloads.Factories;
-using Wkg.Threading.Workloads.Queuing.Classless;
 
 namespace Wkg.Threading.Workloads;
 
@@ -11,18 +8,6 @@ using static ConcurrentBoolean;
 public partial class Workload
 {
     #region WhenAll
-
-    public static int logCacheIndex = 0;
-    public static readonly string[] logCache = new string[16384];
-    public static object factory;
-    public static string LogEntries => string.Join(Environment.NewLine, [.. logCache[(logCacheIndex + 1)..], .. logCache[..logCacheIndex]]);
-    public static bool ActuallyEmpty => Enumerable.Range(1, 13).Aggregate(0, (sum, handle) => 
-        factory.To<ClassfulWorkloadFactory<int>>().Root.TryFindChild(handle, out IClassifyingQdisc<int>? child) 
-            ? sum + child.BestEffortCount 
-            : sum) == 0;
-    public static object? Who => Enumerable.Range(1, 13)
-        .Select(handle => factory.To<ClassfulWorkloadFactory<int>>().Root.TryFindChild(handle, out IClassifyingQdisc<int>? child) ? child : null)
-        .FirstOrDefault(child => child?.BestEffortCount > 0);
 
     public static ValueTask WhenAll(IEnumerable<AwaitableWorkload> workloads)
     {

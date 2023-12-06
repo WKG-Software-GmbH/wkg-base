@@ -3,12 +3,9 @@ using BenchmarkDotNet.Exporters.Csv;
 using Wkg.Data.Pooling;
 using Wkg.Threading.Workloads;
 using Wkg.Threading.Workloads.Configuration;
-using Wkg.Threading.Workloads.Configuration.Classful;
 using Wkg.Threading.Workloads.Factories;
-using Wkg.Threading.Workloads.Queuing.Classful.Classification;
 using Wkg.Threading.Workloads.Queuing.Classful.RoundRobin;
 using Wkg.Threading.Workloads.Queuing.Classless.Fifo;
-using Wkg.Threading.Workloads.Queuing.Classless.PriorityFifoFast;
 
 namespace ConsoleApp1;
 
@@ -19,46 +16,111 @@ public class Tests
     [Params(1000)]
     public int WorkloadCount;
 
-    [Params(2, 4, 8)]
+    [Params(2, 4, 8, 16)]
     public int Concurrency;
 
-    [Params(0, 10, 20)]
-    public int SleepTime;
+    [Params(10000, 250000)]
+    public int Spins;
 
     private static readonly Random _bitmapRandom = new(42);
     private static readonly Random _lockingRandom = new(42);
 
     public ClassfulWorkloadFactory<int>[] _bitmaps = null!;
 
-    private ClasslessWorkloadFactory<int>[] _locking = null!;
+    private ClassfulWorkloadFactory<int>[] _locking = null!;
 
     [GlobalSetup]
     public void GlobalSetup()
     {
         _bitmaps = new ClassfulWorkloadFactory<int>[17];
-        _locking = new ClasslessWorkloadFactory<int>[17];
+        _locking = new ClassfulWorkloadFactory<int>[17];
         for (int i = 1; i < 17; i++)
         {
             _bitmaps[i] = WorkloadFactoryBuilder.Create<int>()
                 .UseMaximumConcurrency(i)
                 .UseClassfulRoot<RoundRobinBitmap>(1, root => root
                     .AddClassfulChild<RoundRobinBitmap>(2, child => child
-                        .AddClasslessChild<Fifo>(3)
-                        .AddClasslessChild<Fifo>(4)
-                        .AddClasslessChild<Fifo>(5))
-                    .AddClassfulChild<RoundRobinBitmap>(6, child => child
-                        .AddClasslessChild<Fifo>(7)
-                        .AddClasslessChild<Fifo>(8)
-                        .AddClasslessChild<Fifo>(9))
-                    .AddClassfulChild<RoundRobinBitmap>(10, child => child
-                        .AddClasslessChild<Fifo>(11)
-                        .AddClasslessChild<Fifo>(12)
-                        .AddClasslessChild<Fifo>(13)));
+                        .AddClassfulChild<RoundRobinBitmap>(3, child => child
+                            .AddClasslessChild<Fifo>(4)
+                            .AddClasslessChild<Fifo>(5)
+                            .AddClasslessChild<Fifo>(6))
+                        .AddClassfulChild<RoundRobinBitmap>(7, child => child
+                            .AddClasslessChild<Fifo>(8)
+                            .AddClasslessChild<Fifo>(9)
+                            .AddClasslessChild<Fifo>(10))
+                        .AddClassfulChild<RoundRobinBitmap>(11, child => child
+                            .AddClasslessChild<Fifo>(12)
+                            .AddClasslessChild<Fifo>(13)
+                            .AddClasslessChild<Fifo>(14)))
+                    .AddClassfulChild<RoundRobinBitmap>(15, child => child
+                        .AddClassfulChild<RoundRobinBitmap>(16, child => child
+                            .AddClasslessChild<Fifo>(17)
+                            .AddClasslessChild<Fifo>(18)
+                            .AddClasslessChild<Fifo>(19))
+                        .AddClassfulChild<RoundRobinBitmap>(20, child => child
+                            .AddClasslessChild<Fifo>(21)
+                            .AddClasslessChild<Fifo>(22)
+                            .AddClasslessChild<Fifo>(23))
+                        .AddClassfulChild<RoundRobinBitmap>(24, child => child
+                            .AddClasslessChild<Fifo>(25)
+                            .AddClasslessChild<Fifo>(26)
+                            .AddClasslessChild<Fifo>(27)))
+                    .AddClassfulChild<RoundRobinBitmap>(28, child => child
+                        .AddClassfulChild<RoundRobinBitmap>(29, child => child
+                            .AddClasslessChild<Fifo>(30)
+                            .AddClasslessChild<Fifo>(31)
+                            .AddClasslessChild<Fifo>(32))
+                        .AddClassfulChild<RoundRobinBitmap>(33, child => child
+                            .AddClasslessChild<Fifo>(34)
+                            .AddClasslessChild<Fifo>(35)
+                            .AddClasslessChild<Fifo>(36))
+                        .AddClassfulChild<RoundRobinBitmap>(37, child => child
+                            .AddClasslessChild<Fifo>(38)
+                            .AddClasslessChild<Fifo>(39)
+                            .AddClasslessChild<Fifo>(40))));
 
             _locking[i] = WorkloadFactoryBuilder.Create<int>()
                 .UseMaximumConcurrency(i)
-                .UseClasslessRoot<PriorityFifoFastLocking>(1, root => root
-                    .WithBandHandles(1, 2, 3, 4, 5));
+                .UseClassfulRoot<RoundRobinLocking>(1, root => root
+                    .AddClassfulChild<RoundRobinLocking>(2, child => child
+                        .AddClassfulChild<RoundRobinLocking>(3, child => child
+                            .AddClasslessChild<Fifo>(4)
+                            .AddClasslessChild<Fifo>(5)
+                            .AddClasslessChild<Fifo>(6))
+                        .AddClassfulChild<RoundRobinLocking>(7, child => child
+                            .AddClasslessChild<Fifo>(8)
+                            .AddClasslessChild<Fifo>(9)
+                            .AddClasslessChild<Fifo>(10))
+                        .AddClassfulChild<RoundRobinLocking>(11, child => child
+                            .AddClasslessChild<Fifo>(12)
+                            .AddClasslessChild<Fifo>(13)
+                            .AddClasslessChild<Fifo>(14)))
+                    .AddClassfulChild<RoundRobinLocking>(15, child => child
+                        .AddClassfulChild<RoundRobinLocking>(16, child => child
+                            .AddClasslessChild<Fifo>(17)
+                            .AddClasslessChild<Fifo>(18)
+                            .AddClasslessChild<Fifo>(19))
+                        .AddClassfulChild<RoundRobinLocking>(20, child => child
+                            .AddClasslessChild<Fifo>(21)
+                            .AddClasslessChild<Fifo>(22)
+                            .AddClasslessChild<Fifo>(23))
+                        .AddClassfulChild<RoundRobinLocking>(24, child => child
+                            .AddClasslessChild<Fifo>(25)
+                            .AddClasslessChild<Fifo>(26)
+                            .AddClasslessChild<Fifo>(27)))
+                    .AddClassfulChild<RoundRobinLocking>(28, child => child
+                        .AddClassfulChild<RoundRobinLocking>(29, child => child
+                            .AddClasslessChild<Fifo>(30)
+                            .AddClasslessChild<Fifo>(31)
+                            .AddClasslessChild<Fifo>(32))
+                        .AddClassfulChild<RoundRobinLocking>(33, child => child
+                            .AddClasslessChild<Fifo>(34)
+                            .AddClasslessChild<Fifo>(35)
+                            .AddClasslessChild<Fifo>(36))
+                        .AddClassfulChild<RoundRobinLocking>(37, child => child
+                            .AddClasslessChild<Fifo>(38)
+                            .AddClasslessChild<Fifo>(39)
+                            .AddClasslessChild<Fifo>(40))));
         }
     }
 
@@ -67,25 +129,27 @@ public class Tests
     {
         PooledArray<AwaitableWorkload> workloads = ArrayPool.Rent<AwaitableWorkload>(WorkloadCount);
         ClassfulWorkloadFactory<int> bitmap = _bitmaps[Concurrency];
-        for (int i = 0; i < workloads.Length; i++)
+        int handle = _bitmapRandom.Next(1, 41);
+        await Parallel.ForAsync(0, workloads.Length, (i, _) =>
         {
-            int handle = _bitmapRandom.Next(1, 14);
             workloads.Array[i] = bitmap.ScheduleAsync(handle, Work);
-        }
+            return ValueTask.CompletedTask;
+        });
         await Workload.WhenAll(workloads.Array[..workloads.Length]);
         ArrayPool.Return(workloads);
     }
 
-    //[Benchmark]
+    [Benchmark]
     public async Task Locking()
     {
         PooledArray<AwaitableWorkload> workloads = ArrayPool.Rent<AwaitableWorkload>(WorkloadCount);
-        ClasslessWorkloadFactory<int> counter = _locking[Concurrency];
-        for (int i = 0; i < workloads.Length; i++)
+        ClassfulWorkloadFactory<int> locking = _locking[Concurrency];
+        int handle = _lockingRandom.Next(1, 41);
+        await Parallel.ForAsync(0, workloads.Length, (i, _) =>
         {
-            int handle = _lockingRandom.Next(1, 6);
-            workloads.Array[i] = counter.ScheduleAsync(handle, Work);
-        }
+            workloads.Array[i] = locking.ScheduleAsync(handle, Work);
+            return ValueTask.CompletedTask;
+        });
         await Workload.WhenAll(workloads.Array[..workloads.Length]);
         ArrayPool.Return(workloads);
     }
@@ -93,7 +157,7 @@ public class Tests
     private void Work(CancellationFlag flag)
     {
         flag.ThrowIfCancellationRequested();
-        Thread.Sleep(SleepTime);
+        Thread.SpinWait(Spins);
     }
 }
 

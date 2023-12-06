@@ -186,7 +186,7 @@ public ref struct ConcurrentBitmap56
     public static bool TryUpdateBit(ref ConcurrentBitmap56State state, byte token, int index, ConcurrentBoolean isSet)
     {
         Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, 55, nameof(index));
-        return TryUpdateBitUnsafe(ref state, ref token, index, isSet);
+        return TryUpdateBitUnsafe(ref state, token, index, isSet);
     }
 
     /// <summary>
@@ -197,7 +197,7 @@ public ref struct ConcurrentBitmap56
     /// <param name="index">The index of the bit to update.</param>
     /// <param name="isSet"><see langword="true"/> to set the bit at the specified index to 1, <see langword="false"/> to clear the bit at the specified index to 0.</param>
     /// <returns><see langword="true"/> if the bit was updated, otherwise <see langword="false"/> if the specified <paramref name="token"/> was invalid.</returns>
-    public static bool TryUpdateBitUnsafe(ref ConcurrentBitmap56State state, ref byte token, int index, ConcurrentBoolean isSet)
+    public static bool TryUpdateBitUnsafe(ref ConcurrentBitmap56State state, byte token, int index, ConcurrentBoolean isSet)
     {
         Debug.Assert(index is >= 0 and < 56);
         ref ulong target = ref AsUlongPointer(ref state);
@@ -213,7 +213,6 @@ public ref struct ConcurrentBitmap56
         map._guardToken = (byte)(token + 1);
         // the guard token is included in the state, so we can simply write it back
         newState = map._state;
-        token = map._guardToken;
         return Interlocked.CompareExchange(ref target, newState, oldState) == oldState;
     }
 

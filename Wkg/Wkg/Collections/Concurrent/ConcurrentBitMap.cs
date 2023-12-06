@@ -169,13 +169,13 @@ public class ConcurrentBitmap : IDisposable, IParentNode
 
         // sync root is only used in write mode only when restructuring the tree or operating on cross-node boundaries
         using ILockOwnership readLock = _syncRoot.AcquireReadLock();
-        _root.UpdateBit(index, isSet);
+        _root.UpdateBit(index, isSet, out _);
     }
 
     public void UpdateBitUnsafe(int index, bool isSet)
     {
         Debug.Assert(index >= 0 && index < Length);
-        _root.UpdateBit(index, isSet);
+        _root.UpdateBit(index, isSet, out _);
     }
 
     public bool TryUpdateBit(int index, byte token, bool isSet)
@@ -184,13 +184,13 @@ public class ConcurrentBitmap : IDisposable, IParentNode
 
         // sync root is only used in write mode when restructuring the tree or operating on cross-node boundaries
         using ILockOwnership readLock = _syncRoot.AcquireWriteLock();
-        return _root.TryUpdateBit(index, token, isSet);
+        return _root.TryUpdateBit(index, token, isSet, out _);
     }
 
     public bool TryUpdateBitUnsafe(int index, byte token, bool isSet)
     {
         Debug.Assert(index >= 0 && index < Length);
-        return _root.TryUpdateBit(index, token, isSet);
+        return _root.TryUpdateBit(index, token, isSet, out _);
     }
 
     public void InsertBitAt(int index, bool value, bool grow = false)

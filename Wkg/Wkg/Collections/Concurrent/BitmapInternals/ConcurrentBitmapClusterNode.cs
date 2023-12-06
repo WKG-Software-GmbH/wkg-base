@@ -22,6 +22,7 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
     private Unmanaged<ConcurrentBitmap56State> _segments;
     private int _usedSegmentCount;
     private int _lastSegmentSize;
+    private object[] _segmentLocks;
 
     public ConcurrentBitmapClusterNode(int externalNodeIndex, int baseAddress, int clusterBitSize, IParentNode parent) : base(externalNodeIndex, baseAddress, parent, clusterBitSize)
     {
@@ -30,6 +31,7 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
         // round up to nearest multiple of SEGMENT_BIT_SIZE
         int segmentCount = (clusterBitSize + SEGMENT_BIT_SIZE - 1) / SEGMENT_BIT_SIZE;
         _segments = new Unmanaged<ConcurrentBitmap56State>(segmentCount, initialize: true);
+        _segmentLocks = new object[segmentCount];
         _lastSegmentSize = clusterBitSize % SEGMENT_BIT_SIZE;
         _usedSegmentCount = segmentCount;
         // correct for last segment size if we have a perfect multiple of SEGMENT_BIT_SIZE
@@ -43,6 +45,7 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
         for (int i = 0; i < _segments.Length; i++)
         {
             state = state.SetChildEmpty(i);
+            _segmentLocks[i] = new object();
         }
         ConcurrentBitmap56.VolatileWrite(ref _clusterState, state);
     }
@@ -160,6 +163,13 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
             {
                 // yes, we need to grow the unmanaged array
                 _segments.Realloc(newTotalSegmentCount);
+                object[] oldSegmentLocks = _segmentLocks;
+                _segmentLocks = new object[newTotalSegmentCount];
+                Array.Copy(oldSegmentLocks, _segmentLocks, oldSegmentLocks.Length);
+                for (int i = oldSegmentLocks.Length; i < _segmentLocks.Length; i++)
+                {
+                    _segmentLocks[i] = new object();
+                }
             }
             _usedSegmentCount = newTotalSegmentCount;
             // update the cluster state
@@ -186,56 +196,15 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
         return stateChanged;
     }
 
-    public override void UpdateBit(int index, bool value)
+    public override void UpdateBit(int index, bool value, out bool emptinessTrackingChanged)
     {
-        // result: clusterstate is empty
-        // scheduler sets value = true
-        int segment = index / SEGMENT_BIT_SIZE;
+        int segmentIndex = index / SEGMENT_BIT_SIZE;
         int segmentOffset = index % SEGMENT_BIT_SIZE;
-        int iteration = 0;
-        bool updateRequired;
-        ConcurrentBitmap56 clusterStateSnapshot;
-        do
-        {
-            clusterStateSnapshot = ConcurrentBitmap56.VolatileRead(ref _clusterState);
-            if (iteration == 0)
-            {
-                // works!
-                // worker succeeds with segment update, so this is executed *after* TryUpdateBit is called by the worker
-                ConcurrentBitmap56.UpdateBitUnsafe(ref _segments.GetRefUnsafe(segment), segmentOffset, value);
-                DebugLog.WriteDiagnostic($"Update of bit {index} to {value} in segment {segment} (iteration {iteration}) succeeded.", LogWriter.Blocking);
-            }
-            else
-            {
-                // second or later iteration, we forced an update in a segment, but the clusterstate changed in the meantime
-                // we need to resample the value we wrote earlier (which may have been overwritten by another thread)
-                // based on the single resampled value, we can update the clusterstate
-                bool newValue = ConcurrentBitmap56.VolatileRead(ref _segments.GetRefUnsafe(segment)).IsBitSet(segmentOffset);
-                // if the value is the same as before (e.g., the value we wrote is still there), we need to update the clusterstate accordingly
-                // if the value is different (our value was overwritten by another thread), then our value is outdated and no longer relevant
-                // in that case we trust that whoever overwrote our value also updated the clusterstate accordingly
-                if (newValue != value)
-                {
-                    // our value is no longer relevant, (another write operation overrode it)
-                    return;
-                }
-                DebugLog.WriteDiagnostic($"Retrying update of bit {index} in segment {segment} (iteration {iteration}).", LogWriter.Blocking);
-                Debug.Assert(iteration < 100, "Too many iterations, something is wrong.");
-            }
-            // BUG: segment is not empty, worker sets to empty, we set bit in setment to not empty (segment is not empty), worker sets clusterstate to empty
-            // we don't update the clusterstate because our (outdated) view of the clusterstate says that it's already not empty, so we just return
-            // leaving an non-empty segment in an empty cluster (INCONSISTENT STATE!)
-            updateRequired = UpdateStateSnapshotIfRequired(ref clusterStateSnapshot, value, segment);
-            if (updateRequired)
-            {
-                DebugLog.WriteDiagnostic($"Update of bit {index} to {value} in segment {segment} (iteration {iteration}) requires clusterstate update to empty: {clusterStateSnapshot.IsBitSet(segment)}.", LogWriter.Blocking);
-            }
-            iteration++;
-            // repeat while the token changed or our writes fail
-        } while (ConcurrentBitmap56.VolatileRead(ref _clusterState).GetToken() != clusterStateSnapshot.GetToken() 
-            || updateRequired && !ConcurrentBitmap56.TryWrite(ref _clusterState, clusterStateSnapshot));
+        ConcurrentBitmap56.UpdateBitUnsafe(ref _segments.GetRefUnsafe(segmentIndex), segmentOffset, value);
+        emptinessTrackingChanged = UpdateClusterStateBit(segmentIndex, segmentOffset);
     }
 
+    // TODO: is this fixed?
     // 1. worker successfully sets bit x to empty
     // 2. worker decides to set clusterstate to empty
     // 3. scheduler sets bit y to not empty
@@ -245,94 +214,63 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
     // 7. INCONSISTENT STATE!
     // 8. FUCK MY LIFE
 
-    public override bool TryUpdateBit(int index, byte token, bool value)
+    public override bool TryUpdateBit(int index, byte token, bool value, out bool emptinessTrackingChanged)
     {
-        // result: clusterstate is empty
-        // worker sets value = false
-        int segment = index / SEGMENT_BIT_SIZE;
+        int segmentIndex = index / SEGMENT_BIT_SIZE;
         int segmentOffset = index % SEGMENT_BIT_SIZE;
-        int iteration = 0;
-        bool updateRequired = true;
-        ConcurrentBitmap56 clusterStateSnapshot;
-        do
+        if (!ConcurrentBitmap56.TryUpdateBitUnsafe(ref _segments.GetRefUnsafe(segmentIndex), token, segmentOffset, value))
         {
-            clusterStateSnapshot = ConcurrentBitmap56.VolatileRead(ref _clusterState);
-            if (iteration == 0)
-            {
-                // must succeed to reproduce bug.
-                // therefore this is executed *before* UpdateBit by the scheduler
-                if (!ConcurrentBitmap56.TryUpdateBitUnsafe(ref _segments.GetRefUnsafe(segment), token, segmentOffset, value))
-                {
-                    // not chosing this path
-                    return false;
-                }
-                // we succeeded, so our token has been incremented
-                DebugLog.WriteDiagnostic($"Update of bit {index} to {value} in segment {segment} (iteration {iteration}) succeeded.", LogWriter.Blocking);
-            }
-            else
-            {
-                // we updated the segment, but the clusterstate changed in the meantime
-                // we need to resample the value we wrote earlier (which may have been overwritten by another thread)
-                // based on the single resampled value, we can update the clusterstate
-                ConcurrentBitmap56 segmentSnapshot = ConcurrentBitmap56.VolatileRead(ref _segments.GetRefUnsafe(segment));
-                if (segmentSnapshot.GetToken() != token)
-                {
-                    // our value is no longer relevant, (another write operation wrote to the same segment)
-                    return false;
-                }
-                bool newValue = segmentSnapshot.IsBitSet(segmentOffset);
-                // if the value is the same as before (e.g., the value we wrote is still there), we need to update the clusterstate accordingly
-                // otherwise something is wrong, because the token should have been updated as well
-                Debug.Assert(newValue == value, "The token should have been updated as well.");
-                Debug.Assert(iteration < 100, "Too many iterations, something is wrong.");
-                DebugLog.WriteDiagnostic($"Retrying update of bit {index} in segment {segment} (iteration {iteration}).", LogWriter.Blocking);
-            }
-            updateRequired = UpdateStateSnapshotIfRequired(ref clusterStateSnapshot, value, segment);
-            if (updateRequired)
-            {
-                DebugLog.WriteDiagnostic($"Update of bit {index} to {value} in segment {segment} (iteration {iteration}) requires clusterstate update to empty: {clusterStateSnapshot.IsBitSet(segment)}.", LogWriter.Blocking);
-            }
-            iteration++;
-            // repeat while the token changed or our writes fail
-        } while (ConcurrentBitmap56.VolatileRead(ref _clusterState).GetToken() != clusterStateSnapshot.GetToken()
-            || updateRequired && !ConcurrentBitmap56.TryWrite(ref _clusterState, clusterStateSnapshot));
+            emptinessTrackingChanged = false;
+            return false;
+        }
+        emptinessTrackingChanged = UpdateClusterStateBit(segmentIndex, segmentOffset);
         return true;
     }
 
-    private bool UpdateStateSnapshotIfRequired(ref ConcurrentBitmap56 snapshot, bool value, int segment)
+    private bool UpdateClusterStateBit(int segmentIndex, int segmentOffset)
     {
-        int segmentCapacity = segment == _usedSegmentCount - 1 ? _lastSegmentSize : SEGMENT_BIT_SIZE;
-        ConcurrentBitmap56 bmp = ConcurrentBitmap56.VolatileRead(ref _segments.GetRefUnsafe(segment));
-        if (!value && bmp.IsEmptyUnsafe(segmentCapacity) && !snapshot.IsChildEmpty(segment))
+        lock (_segmentLocks[segmentIndex])
         {
-            // we set the bit to 0, and the segment is now empty which is not yet reflected in the cluster bitmap
-            // --> mark the segment as empty
-            snapshot = snapshot.SetChildEmpty(segment);
+            ConcurrentBitmap56 clusterState;
+            do
+            {
+                clusterState = ConcurrentBitmap56.VolatileRead(ref _clusterState);
+                int segmentCapacity = segmentIndex == _usedSegmentCount - 1 ? _lastSegmentSize : SEGMENT_BIT_SIZE;
+                ConcurrentBitmap56 segment = ConcurrentBitmap56.VolatileRead(ref _segments.GetRefUnsafe(segmentIndex));
+                bool value = segment.IsBitSet(segmentOffset);
+                if (!value && segment.IsEmptyUnsafe(segmentCapacity) && !clusterState.IsChildEmpty(segmentIndex))
+                {
+                    // we set the bit to 0, and the segment is now empty which is not yet reflected in the cluster bitmap
+                    // --> mark the segment as empty
+                    clusterState = clusterState.SetChildEmpty(segmentIndex);
+                }
+                else if (value && segment.IsFullUnsafe(segmentCapacity) && !clusterState.IsChildFull(segmentIndex))
+                {
+                    // we set the bit to 1, and the segment is now full which is not yet reflected in the cluster bitmap
+                    // --> mark the segment as full
+                    clusterState = clusterState.SetChildFull(segmentIndex);
+                }
+                else if (value && !segment.IsEmptyUnsafe(segmentCapacity) && clusterState.IsChildEmpty(segmentIndex))
+                {
+                    // we set the bit to 1, and the segment is now not empty anymore which is not yet reflected in the cluster bitmap
+                    // --> clear the empty bit
+                    clusterState = clusterState.ClearChildEmpty(segmentIndex);
+                }
+                else if (!value && !segment.IsFullUnsafe(segmentCapacity) && clusterState.IsChildFull(segmentIndex))
+                {
+                    // we set the bit to 0, and the segment is now not full anymore which is not yet reflected in the cluster bitmap
+                    // --> clear the full bit
+                    clusterState = clusterState.ClearChildFull(segmentIndex);
+                }
+                else
+                {
+                    // no change
+                    return false;
+                }
+                // update the cluster state
+            } while (!ConcurrentBitmap56.TryWrite(ref _clusterState, clusterState));
+            return true;
         }
-        else if (value && bmp.IsFullUnsafe(segmentCapacity) && !snapshot.IsChildFull(segment))
-        {
-            // we set the bit to 1, and the segment is now full which is not yet reflected in the cluster bitmap
-            // --> mark the segment as full
-            snapshot = snapshot.SetChildFull(segment);
-        }
-        else if (value && !bmp.IsEmptyUnsafe(segmentCapacity) && snapshot.IsChildEmpty(segment))
-        {
-            // we set the bit to 1, and the segment is now not empty anymore which is not yet reflected in the cluster bitmap
-            // --> clear the empty bit
-            snapshot = snapshot.ClearChildEmpty(segment);
-        }
-        else if (!value && !bmp.IsFullUnsafe(segmentCapacity) && snapshot.IsChildFull(segment))
-        {
-            // we set the bit to 0, and the segment is now not full anymore which is not yet reflected in the cluster bitmap
-            // --> clear the full bit
-            snapshot = snapshot.ClearChildFull(segment);
-        }
-        else
-        {
-            // no change
-            return false;
-        }
-        return true;
     }
 
     private bool UpdateStateSnapshot(ref ConcurrentBitmap56 snapshot, int segment)

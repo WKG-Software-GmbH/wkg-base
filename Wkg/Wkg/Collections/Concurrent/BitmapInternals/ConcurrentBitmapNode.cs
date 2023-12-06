@@ -44,13 +44,13 @@ internal abstract class ConcurrentBitmapNode : IDisposable, IParentNode
 
     internal abstract void ToString(StringBuilder sb, int depth);
 
-    public abstract void UpdateBit(int index, bool value);
+    public abstract void UpdateBit(int index, bool value, out bool emptinessTrackingChanged);
 
     public abstract int UnsafePopCount();
 
     public abstract byte GetToken(int index);
 
-    public abstract bool TryUpdateBit(int index, byte token, bool value);
+    public abstract bool TryUpdateBit(int index, byte token, bool value, out bool emptinessTrackingChanged);
 
     public abstract bool IsBitSet(int index);
 

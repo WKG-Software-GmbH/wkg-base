@@ -13,8 +13,7 @@ namespace Wkg.Threading.Workloads.Queuing.Classful.FairQueuing;
 
 internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmanaged
 {
-    [ThreadStatic]
-    private static int? __LAST_ENQUEUED_CHILD_INDEX;
+    private readonly ThreadLocal<int?> __LAST_ENQUEUED_CHILD_INDEX = new();
 
     private readonly IVirtualTimeTable _timeTable;
     private readonly ReaderWriterLockSlim _childModificationLock = new();
@@ -75,7 +74,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
             }
             // don't forget the local caches
             // just pop-count all the bits that are not set
-            return count + _hasDataMap.UnsafePopCount;
+            return count + _hasDataMap.VolatilePopCount;
         }
     }
 
@@ -408,7 +407,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
                 // update the emptiness tracking
                 // the actual reset happens in the OnWorkScheduled callback, but we need to
                 // set up the index of the child that was just enqueued to for that
-                __LAST_ENQUEUED_CHILD_INDEX = i;
+                __LAST_ENQUEUED_CHILD_INDEX.Value = i;
                 childState.Child.Enqueue(workload);
                 DebugLog.WriteDiagnostic($"{this}: enqueued workload {workload} to child {childState.Child}.", LogWriter.Blocking);
                 goto SUCCESS;
@@ -428,7 +427,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
                 // update the emptiness tracking
                 // the actual reset happens in the OnWorkScheduled callback, but we need to
                 // set up the index of the child that was just enqueued to for that
-                __LAST_ENQUEUED_CHILD_INDEX = i;
+                __LAST_ENQUEUED_CHILD_INDEX.Value = i;
 
                 // we need to call WillEnqueueFromRoutingPath on all nodes in the path
                 // failure to do so may result in incorrect emptiness tracking of the child qdiscs
@@ -465,7 +464,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
                     // update the emptiness tracking
                     // the actual reset happens in the OnWorkScheduled callback, but we need to
                     // set up the index of the child that was just enqueued to for that
-                    __LAST_ENQUEUED_CHILD_INDEX = i;
+                    __LAST_ENQUEUED_CHILD_INDEX.Value = i;
                     if (!childState.Child.TryEnqueue(state, workload))
                     {
                         // this should never happen, as we already checked if the child can classify the workload
@@ -547,7 +546,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         DebugLog.WriteDiagnostic($"{this}: expecting to enqueue workload {workload} to child {childState.Child} via routing path.", LogWriter.Blocking);
 
         UpdateWorkloadState(workload, childState.Weight);
-        __LAST_ENQUEUED_CHILD_INDEX = index;
+        __LAST_ENQUEUED_CHILD_INDEX.Value = index;
     }
 
     protected override bool TryEnqueueDirect(object? state, AbstractWorkloadBase workload)
@@ -572,7 +571,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         // update the emptiness tracking
         // the actual reset happens in the OnWorkScheduled callback, but we need to
         // set up the index of the child that was just enqueued to for that
-        __LAST_ENQUEUED_CHILD_INDEX = localQueueIndex;
+        __LAST_ENQUEUED_CHILD_INDEX.Value = localQueueIndex;
         _localQueue.Enqueue(workload);
         DebugLog.WriteDiagnostic($"{this}: enqueued workload {workload} to local queue.", LogWriter.Blocking);
     }
@@ -588,7 +587,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         }
         // we are inside a callback of an enqueuing thread
         // load the index of the child that was just enqueued to
-        int? lastEnqueuedChildIndex = __LAST_ENQUEUED_CHILD_INDEX;
+        int? lastEnqueuedChildIndex = __LAST_ENQUEUED_CHILD_INDEX.Value;
         if (lastEnqueuedChildIndex is null)
         {
             // this should never happen, as this method can only be part of the enqueueing call stack
@@ -604,7 +603,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         // so no ABA problem here (not empty -> worker finds no workload -> we set it to not empty -> worker tries to set it to empty -> worker fails)
         _hasDataMap.UpdateBit(index, isSet: true);
         // reset the last enqueued child index
-        __LAST_ENQUEUED_CHILD_INDEX = null;
+        __LAST_ENQUEUED_CHILD_INDEX.Value = null;
         DebugLog.WriteDebug($"{this}: cleared empty flag for child {index}.", LogWriter.Blocking);
         base.OnWorkScheduled();
     }

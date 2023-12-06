@@ -132,9 +132,12 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
 
     internal override int NodeLength => _children.Length;
 
+    // TODO: we can probably optimize these modulo operations as we know that the values are always of a certain step size
     public override byte GetToken(int index) => _children.Array[index / _childMaxBitSize].GetToken(index % _childMaxBitSize);
 
     public override bool IsBitSet(int index) => _children.Array[index / _childMaxBitSize].IsBitSet(index % _childMaxBitSize);
+
+    public override GuardedBitInfo GetBitInfo(int index) => _children.Array[index / _childMaxBitSize].GetBitInfo(index % _childMaxBitSize);
 
     protected override void ReplaceChildNode(int index, ConcurrentBitmapNode newNode)
     {
@@ -147,20 +150,28 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
         int child = index / _childMaxBitSize;
         int childOffset = index % _childMaxBitSize;
         int iteration = 0;
-        ConcurrentBitmap56 nodeBmpSnapshot;
+        ConcurrentBitmap56 nodeStateSnapshot;
         do
         {
-            nodeBmpSnapshot = ConcurrentBitmap56.VolatileRead(ref _nodeState);
+            nodeStateSnapshot = ConcurrentBitmap56.VolatileRead(ref _nodeState);
             if (iteration == 0)
             {
                 _children.Array[child].UpdateBit(childOffset, value);
             }
             else
             {
+                bool newValue = _children.Array[child].IsBitSet(childOffset);
+                if (newValue != value)
+                {
+                    // our value is no longer relevant, (another write operation wrote to the same segment)
+                    return;
+                }
+                Debug.Assert(iteration < 100, "Too many iterations, something is wrong.");
                 DebugLog.WriteDiagnostic($"Retrying update of bit {index} in child {child} (iteration {iteration}).", LogWriter.Blocking);
             }
             iteration++;
-        } while (UpdateStateSnapshotIfRequired(ref nodeBmpSnapshot, value, child) && !ConcurrentBitmap56.TryWrite(ref _nodeState, nodeBmpSnapshot));
+        } while (ConcurrentBitmap56.VolatileRead(ref _nodeState).GetToken() != nodeStateSnapshot.GetToken()
+            || UpdateStateSnapshotIfRequired(ref nodeStateSnapshot, value, child) && !ConcurrentBitmap56.TryWrite(ref _nodeState, nodeStateSnapshot));
     }
 
     public override bool TryUpdateBit(int index, byte token, bool value)
@@ -181,10 +192,25 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
             }
             else
             {
+                // we updated the segment, but the nodeState changed in the meantime
+                // we need to resample the value we wrote earlier (which may have been overwritten by another thread)
+                // based on the single resampled value, we can update the clusterstate
+                GuardedBitInfo bitInfo = _children.Array[child].GetBitInfo(childOffset);
+                if (bitInfo.Token != token)
+                {
+                    // our value is no longer relevant, (another write operation wrote to the same segment)
+                    return false;
+                }
+                bool newValue = bitInfo.IsSet;
+                // if the value is the same as before (e.g., the value we wrote is still there), we need to update the clusterstate accordingly
+                // otherwise something is wrong, because the token should have been updated as well
+                Debug.Assert(newValue == value, "The token should have been updated as well.");
+                Debug.Assert(iteration < 100, "Too many iterations, something is wrong.");
                 DebugLog.WriteDiagnostic($"Retrying update of bit {index} in child {child} (iteration {iteration}).", LogWriter.Blocking);
             }
             iteration++;
-        } while (UpdateStateSnapshotIfRequired(ref nodeStateSnapshot, value, child) && !ConcurrentBitmap56.TryWrite(ref _nodeState, nodeStateSnapshot));
+        } while (ConcurrentBitmap56.VolatileRead(ref _nodeState).GetToken() != nodeStateSnapshot.GetToken()
+            || UpdateStateSnapshotIfRequired(ref nodeStateSnapshot, value, child) && !ConcurrentBitmap56.TryWrite(ref _nodeState, nodeStateSnapshot));
         return true;
     }
 

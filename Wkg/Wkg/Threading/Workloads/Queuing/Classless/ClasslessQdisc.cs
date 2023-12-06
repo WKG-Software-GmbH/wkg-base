@@ -71,7 +71,7 @@ public abstract class ClasslessQdisc<THandle> : IClassifyingQdisc<THandle> where
 
     void IQdisc.InternalInitialize(INotifyWorkScheduled parentScheduler)
     {
-        DebugLog.WriteDiagnostic($"Initializing qdisc {this} with parent scheduler {parentScheduler}.", LogWriter.Blocking);
+        DebugLog.WriteDiagnostic($"Initializing qdisc {GetType().Name} ({Handle}) with parent scheduler {parentScheduler.GetType().Name} ({parentScheduler.As<IQdisc<THandle>>()?.Handle.ToString().Coalesce("<unknown>")}).", LogWriter.Blocking);
         if (!ReferenceEquals(Interlocked.CompareExchange(ref _parentScheduler, parentScheduler, NotifyWorkScheduledSentinel.Uninitialized), NotifyWorkScheduledSentinel.Uninitialized))
         {
             WorkloadSchedulingException exception = WorkloadSchedulingException.CreateVirtual("A workload scheduler was already set for this qdisc. This is a bug in the qdisc implementation.");

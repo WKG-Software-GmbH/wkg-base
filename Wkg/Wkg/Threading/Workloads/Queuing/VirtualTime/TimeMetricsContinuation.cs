@@ -1,5 +1,6 @@
 ﻿using Wkg.Data.Pooling;
 using Wkg.Internals.Diagnostic;
+using Wkg.Logging.Writers;
 using Wkg.Threading.Workloads.Continuations;
 
 namespace Wkg.Threading.Workloads.Queuing.VirtualTime;
@@ -26,7 +27,7 @@ internal class TimeMetricsContinuation : IWorkloadContinuation, IPoolable<TimeMe
     {
         long endTime = _timeTable.Now();
         long delta = endTime - _startTime;
-        DebugLog.WriteDiagnostic($"Workload {workload} took {delta} ticks to execute.");
+        DebugLog.WriteDiagnostic($"Workload {workload} took {delta} ticks to execute.", LogWriter.Blocking);
         _timeTable.GetEntryFor(workload).AddMeasurement(delta);
         _startTime = 0;
         _pool.Return(this);

@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text;
 using Wkg.Collections.Concurrent.BitmapInternals;
 using Wkg.Common.ThrowHelpers;
@@ -84,7 +85,7 @@ public class ConcurrentBitmap : IDisposable, IParentNode
         _depth--;
     }
 
-    public int UnsafePopCount
+    public int VolatilePopCount
     {
         get
         {
@@ -93,6 +94,8 @@ public class ConcurrentBitmap : IDisposable, IParentNode
         }
     }
 
+    public int VolatilePopCountUnsafe => _root.UnsafePopCount();
+
     public byte GetToken(int index)
     {
         Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, Length - 1, nameof(index));
@@ -100,6 +103,27 @@ public class ConcurrentBitmap : IDisposable, IParentNode
         // sync root is only used in write mode only when restructuring the tree or operating on cross-node boundaries
         using ILockOwnership readLock = _syncRoot.AcquireReadLock();
         return _root.GetToken(index);
+    }
+
+    public byte GetTokenUnsafe(int index)
+    {
+        Debug.Assert(index >= 0 && index < Length);
+        return _root.GetToken(index);
+    }
+
+    public GuardedBitInfo GetBitInfo(int index)
+    {
+        Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, Length - 1, nameof(index));
+
+        // sync root is only used in write mode only when restructuring the tree or operating on cross-node boundaries
+        using ILockOwnership readLock = _syncRoot.AcquireReadLock();
+        return _root.GetBitInfo(index);
+    }
+
+    public GuardedBitInfo GetBitInfoUnsafe(int index)
+    {
+        Debug.Assert(index >= 0 && index < Length);
+        return _root.GetBitInfo(index);
     }
 
     public int Length => _root.Length;
@@ -122,12 +146,20 @@ public class ConcurrentBitmap : IDisposable, IParentNode
         }
     }
 
+    public bool IsEmptyUnsafe => _root.IsEmpty;
+
     public bool IsBitSet(int index)
     {
         Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, Length - 1, nameof(index));
 
         // sync root is only used in write mode only when restructuring the tree or operating on cross-node boundaries
         using ILockOwnership readLock = _syncRoot.AcquireReadLock();
+        return _root.IsBitSet(index);
+    }
+
+    public bool IsBitSetUnsafe(int index)
+    {
+        Debug.Assert(index >= 0 && index < Length);
         return _root.IsBitSet(index);
     }
 
@@ -140,12 +172,24 @@ public class ConcurrentBitmap : IDisposable, IParentNode
         _root.UpdateBit(index, isSet);
     }
 
+    public void UpdateBitUnsafe(int index, bool isSet)
+    {
+        Debug.Assert(index >= 0 && index < Length);
+        _root.UpdateBit(index, isSet);
+    }
+
     public bool TryUpdateBit(int index, byte token, bool isSet)
     {
         Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, Length - 1, nameof(index));
 
         // sync root is only used in write mode when restructuring the tree or operating on cross-node boundaries
         using ILockOwnership readLock = _syncRoot.AcquireWriteLock();
+        return _root.TryUpdateBit(index, token, isSet);
+    }
+
+    public bool TryUpdateBitUnsafe(int index, byte token, bool isSet)
+    {
+        Debug.Assert(index >= 0 && index < Length);
         return _root.TryUpdateBit(index, token, isSet);
     }
 
@@ -257,4 +301,44 @@ public class ConcurrentBitmap : IDisposable, IParentNode
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }
+}
+
+/// <summary>
+/// A struct that contains information about a bit in a <see cref="ConcurrentBitmap"/>. 
+/// The validity of the returned information is protected by a guard token.
+/// </summary>
+[StructLayout(LayoutKind.Explicit, Size = sizeof(ulong))]
+public readonly struct GuardedBitInfo
+{
+    /// <summary>
+    /// Whether the bit is set or not.
+    /// </summary>
+    // accessed very frequently, so 32 bit aligned
+    [FieldOffset(0)]
+    public readonly bool IsSet;
+    // kinda whatever, not oftenly accessed
+    [FieldOffset(2)]
+    private readonly ushort IndexLow;
+    /// <summary>
+    /// The guard token of the segment that contains the bit.
+    /// </summary>
+    // also accessed very frequently, so 32 bit aligned
+    [FieldOffset(4)]
+    public readonly byte Token;
+    // also who cares, not oftenly accessed
+    [FieldOffset(6)]
+    private readonly ushort IndexHigh;
+
+    internal GuardedBitInfo(bool isSet, byte token, int index)
+    {
+        IsSet = isSet;
+        Token = token;
+        IndexLow = (ushort)index;
+        IndexHigh = (ushort)(index >> 16);
+    }
+
+    /// <summary>
+    /// The index of the bit.
+    /// </summary>
+    public int Index => (IndexHigh << 16) | IndexLow;
 }

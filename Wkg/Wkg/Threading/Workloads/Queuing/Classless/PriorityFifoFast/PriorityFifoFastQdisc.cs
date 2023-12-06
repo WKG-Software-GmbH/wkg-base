@@ -13,6 +13,10 @@ namespace Wkg.Threading.Workloads.Queuing.Classless.PriorityFifoFast;
 internal class PriorityFifoFastQdisc<THandle> : ClasslessQdisc<THandle>, INotifyWorkScheduled
     where THandle : unmanaged
 {
+    // it is impossible to have a hierachy of PriorityFifoFastQdiscs (classless)
+    // an the life-time of values in this field is limited to a single enqueue operation
+    // so static is fine here because this won't be set for multiple instances at the same time
+    // => (no ThreadLocal required)
     [ThreadStatic]
     private static int? __LAST_ENQUEUED_CHILD_INDEX;
 

@@ -66,6 +66,29 @@ public ref struct ConcurrentBitmap56
     public readonly byte GetToken() => _guardToken;
 
     /// <summary>
+    /// Retrieves information about the bit at the specified <paramref name="index"/> in this bitmap. 
+    /// The validity of the information is guarded by a token.
+    /// </summary>
+    /// <param name="index">The index of the bit to retrieve information about.</param>
+    /// <returns>Information about the bit at the specified <paramref name="index"/> in this bitmap.</returns>
+    public readonly GuardedBitInfo GetBitInfo(int index)
+    {
+        Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, 55, nameof(index));
+        ulong mask = 1uL << index;
+        return new GuardedBitInfo((_state & mask) == mask, _guardToken, index);
+    }
+
+    /// <inheritdoc cref="GetBitInfo(int)"/>
+    /// <remarks>
+    /// This method does not perform any bounds checking and should therefore be used with caution.
+    /// </remarks>
+    public readonly GuardedBitInfo GetBitInfoUnsafe(int index)
+    {
+        ulong mask = 1uL << index;
+        return new GuardedBitInfo((_state & mask) == mask, _guardToken, index);
+    }
+
+    /// <summary>
     /// Determines whether all bits in this bitmap up to the specified <paramref name="capacity"/> are set (1).
     /// </summary>
     /// <param name="capacity">The size of this bitmap in bits.</param>
@@ -122,6 +145,19 @@ public ref struct ConcurrentBitmap56
     public static ConcurrentBitmap56 UpdateBit(ref ConcurrentBitmap56State state, int index, ConcurrentBoolean isSet)
     {
         Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, 55, nameof(index));
+        return UpdateBitUnsafe(ref state, index, isSet);
+    }
+
+    /// <summary>
+    /// Updates the bit at the specified index to the specified value without performing any bounds checking.
+    /// </summary>
+    /// <param name="state">A reference to the <see cref="ConcurrentBitmap56State"/>.</param>
+    /// <param name="index">The index of the bit to update.</param>
+    /// <param name="isSet"><see langword="true"/> to set the bit at the specified index, <see langword="false"/> to clear the bit at the specified index.</param>
+    /// <returns>The updated <see cref="ConcurrentBitmap56"/> that was written to the specified <paramref name="state"/>.</returns>
+    public static ConcurrentBitmap56 UpdateBitUnsafe(ref ConcurrentBitmap56State state, int index, ConcurrentBoolean isSet)
+    {
+        Debug.Assert(index is >= 0 and < 56);
         ref ulong target = ref AsUlongPointer(ref state);
         ulong oldState, newState;
         ConcurrentBitmap56 map;
@@ -150,6 +186,20 @@ public ref struct ConcurrentBitmap56
     public static bool TryUpdateBit(ref ConcurrentBitmap56State state, byte token, int index, ConcurrentBoolean isSet)
     {
         Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, 55, nameof(index));
+        return TryUpdateBitUnsafe(ref state, ref token, index, isSet);
+    }
+
+    /// <summary>
+    /// Attempts to update the bit at the specified index to the specified value if the specified <paramref name="token"/> is still valid. Does not perform any bounds checking.
+    /// </summary>
+    /// <param name="state">A reference to the <see cref="ConcurrentBitmap56State"/>.</param>
+    /// <param name="token">A token previously retrieved from <see cref="GetToken"/>.</param>
+    /// <param name="index">The index of the bit to update.</param>
+    /// <param name="isSet"><see langword="true"/> to set the bit at the specified index to 1, <see langword="false"/> to clear the bit at the specified index to 0.</param>
+    /// <returns><see langword="true"/> if the bit was updated, otherwise <see langword="false"/> if the specified <paramref name="token"/> was invalid.</returns>
+    public static bool TryUpdateBitUnsafe(ref ConcurrentBitmap56State state, ref byte token, int index, ConcurrentBoolean isSet)
+    {
+        Debug.Assert(index is >= 0 and < 56);
         ref ulong target = ref AsUlongPointer(ref state);
         ulong oldState, newState;
         oldState = Volatile.Read(ref target);
@@ -163,6 +213,7 @@ public ref struct ConcurrentBitmap56
         map._guardToken = (byte)(token + 1);
         // the guard token is included in the state, so we can simply write it back
         newState = map._state;
+        token = map._guardToken;
         return Interlocked.CompareExchange(ref target, newState, oldState) == oldState;
     }
 

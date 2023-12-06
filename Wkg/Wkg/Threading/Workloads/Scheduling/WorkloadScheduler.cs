@@ -160,7 +160,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
                 {
                     // no more tasks, exit
                     DebugLog.WriteDebug($"Worker holding ID {previousWorkerId} previously found no tasks, exiting.", LogWriter.Blocking);
-                    if (_state.VolatileWorkerCount == 0)
+                    if (_state.VolatileWorkerCount == 0 && !_rootQdisc.IsEmpty)
                     {
                         DebugLog.WriteDiagnostic($"Last worker {workerId} resigned.", LogWriter.Blocking);
                     }
@@ -247,7 +247,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
     }
 
     [StructLayout(LayoutKind.Explicit, Size = sizeof(ulong))]
-    private protected readonly ref struct WorkerStateSnapshot(int callerWorkerId, int workerCount)
+    private protected readonly struct WorkerStateSnapshot(int callerWorkerId, int workerCount)
     {
         [FieldOffset(0)]
         public readonly int CallerWorkerId = callerWorkerId;

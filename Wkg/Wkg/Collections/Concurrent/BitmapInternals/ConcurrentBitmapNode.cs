@@ -14,7 +14,6 @@ internal abstract class ConcurrentBitmapNode : IDisposable, IParentNode
     private protected int _bitSize;
     private protected int _externalNodeIndex;
 
-
     protected ConcurrentBitmapNode(int externalNodeIndex, int baseAddress, IParentNode parent, int bitSize)
     {
         _externalNodeIndex = externalNodeIndex;
@@ -54,6 +53,8 @@ internal abstract class ConcurrentBitmapNode : IDisposable, IParentNode
     public abstract bool TryUpdateBit(int index, byte token, bool value);
 
     public abstract bool IsBitSet(int index);
+
+    public abstract GuardedBitInfo GetBitInfo(int index);
 
     public abstract void InsertBitAt(int index, bool value, out bool lastBit);
 

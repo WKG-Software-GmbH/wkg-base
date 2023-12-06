@@ -1,13 +1,18 @@
 ﻿using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices.Marshalling;
 using Wkg.Logging;
 using Wkg.Logging.Loggers;
 using Wkg.Logging.Writers;
+using Wkg.Threading;
+using Wkg.Threading.Workloads;
 
 namespace Wkg.Internals.Diagnostic;
 
+using static Workload;
+
 [DebuggerStepThrough]
-internal class DebugLog /*: ILog*/ // We cannot implement ILog because we use conditional compilation to trim the code in release builds.
+public class DebugLog /*: ILog*/ // We cannot implement ILog because we use conditional compilation to trim the code in release builds.
 {
     private const string DEBUG = "DEBUG";
 
@@ -31,7 +36,7 @@ internal class DebugLog /*: ILog*/ // We cannot implement ILog because we use co
     [StackTraceHidden]
     [Conditional(DEBUG)]
     public static void WriteDebug(string message, ILogWriter logWriter) =>
-        Log.WriteDebug(message, logWriter);
+        WriteToCache(message); //Log.WriteDebug(message, logWriter);
 
     /// <inheritdoc cref="Log.WriteDiagnostic(string)"/>
     [StackTraceHidden]
@@ -42,8 +47,8 @@ internal class DebugLog /*: ILog*/ // We cannot implement ILog because we use co
     /// <inheritdoc cref="Log.WriteDiagnostic(string, ILogWriter)"/>
     [StackTraceHidden]
     [Conditional(DEBUG)]
-    public static void WriteDiagnostic(string message, ILogWriter logWriter) => 
-        Log.WriteDiagnostic(message, logWriter);
+    public static void WriteDiagnostic(string message, ILogWriter logWriter) =>
+        WriteToCache(message);//Log.WriteDiagnostic(message, logWriter);
 
     /// <inheritdoc cref="Log.WriteWarning(string, ILogWriter)"/>
     /// <remarks>
@@ -167,4 +172,10 @@ internal class DebugLog /*: ILog*/ // We cannot implement ILog because we use co
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void WriteWarning(string message, ILogWriter logWriter) =>
         Log.WriteWarning(message, logWriter);
+
+    private static void WriteToCache(string message)
+    {
+        int index = Atomic.IncrementModulo(ref logCacheIndex, logCache.Length);
+        Volatile.Write(ref logCache[index], $"0x{Environment.CurrentManagedThreadId:x}: {message}");
+    }
 }

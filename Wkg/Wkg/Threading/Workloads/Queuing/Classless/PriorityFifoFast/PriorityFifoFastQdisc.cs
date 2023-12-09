@@ -71,21 +71,27 @@ internal class PriorityFifoFastQdisc<THandle> : ClasslessQdisc<THandle>, INotify
     {
         // we loop until we find something to dequeue
         // a simple for loop isn't enough because new workloads may be inserted at a lower band after we've checked it
+        IClassifyingQdisc<THandle>[] bands = _bands;
         while (!IsEmpty)
         {
-            for (int i = 0; i < _bands.Length; i++)
+            for (int i = 0; i < bands.Length; i++)
             {
-                if (!_dataMap.IsBitSet(i))
+                GuardedBitInfo bitInfo = _dataMap.GetBitInfoUnsafe(i);
+                if (!bitInfo.IsSet)
                 {
                     // just skip this band if it's empty
                     // a lookup in the data map is faster than an attempted dequeue
                     continue;
                 }
-                byte token;
+                byte token = bitInfo.Token;
+                int j = 0;
                 do
                 {
-                    token = _dataMap.GetToken(i);
-                    if (_bands[i].TryDequeueInternal(workerId, backTrack, out workload))
+                    if (j != 0)
+                    {
+                        token = _dataMap.GetTokenUnsafe(i);
+                    }
+                    if (bands[i].TryDequeueInternal(workerId, backTrack, out workload))
                     {
                         Interlocked.Decrement(ref _fuzzyCount);
                         return true;
@@ -94,7 +100,8 @@ internal class PriorityFifoFastQdisc<THandle> : ClasslessQdisc<THandle>, INotify
                     // so we need to update the data map to reflect the new state
                     // something may have been enqueued in the meantime, so we use a token to ensure that we don't overwrite
                     // a newer state with an older one
-                } while (!_dataMap.TryUpdateBit(i, token, false));
+                    j++;
+                } while (!_dataMap.TryUpdateBitUnsafe(i, token, isSet: false));
             }
         }
         // the queue was empty, and we didn't find anything to dequeue

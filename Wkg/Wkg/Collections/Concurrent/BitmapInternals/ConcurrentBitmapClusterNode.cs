@@ -197,16 +197,6 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
         emptinessTrackingChanged = UpdateClusterStateBit(segmentIndex, segmentOffset);
     }
 
-    // TODO: is this fixed?
-    // 1. worker successfully sets bit x to empty
-    // 2. worker decides to set clusterstate to empty
-    // 3. scheduler sets bit y to not empty
-    // 4. scheduler decides: whatever, clusterstate is already not empty, so I don't need to update it
-    // 5. worker sets clusterstate to empty
-    // 6. clusterstate is empty, but bit y is not empty
-    // 7. INCONSISTENT STATE!
-    // 8. FUCK MY LIFE
-
     public override bool TryUpdateBit(int index, byte token, bool value, out bool emptinessTrackingChanged)
     {
         int segmentIndex = index / SEGMENT_BIT_SIZE;

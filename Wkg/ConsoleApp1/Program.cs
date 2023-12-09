@@ -12,6 +12,7 @@ using Wkg.Threading.Workloads.Configuration;
 using Wkg.Threading.Workloads.DependencyInjection.Implementations;
 using Wkg.Threading.Workloads.Factories;
 using Wkg.Threading.Workloads.Queuing.Classful.FairQueuing;
+using Wkg.Threading.Workloads.Queuing.Classful.PrioFast;
 using Wkg.Threading.Workloads.Queuing.Classful.RoundRobin;
 using Wkg.Threading.Workloads.Queuing.Classless.ConstrainedFifo;
 using Wkg.Threading.Workloads.Queuing.Classless.ConstrainedLifo;
@@ -27,7 +28,7 @@ using static Wkg.Common.SyntacticSugar;
 Environment.SetEnvironmentVariable("R_HOME", @"C:\Program Files\R\R-4.3.2");
 
 Stopwatch sw = Stopwatch.StartNew();
-Thread.SpinWait(100000);
+Thread.SpinWait(10000);
 sw.Stop();
 Console.WriteLine(sw.Elapsed);
 
@@ -45,6 +46,7 @@ Log.UseLogger(Logger.Create(LoggerConfiguration.Create()
 Tests tests = new()
 {
     Concurrency = 2,
+    Depth = 6,
 };
 tests.GlobalSetup();
 Random random = new(42);

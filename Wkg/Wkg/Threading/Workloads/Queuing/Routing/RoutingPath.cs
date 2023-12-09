@@ -13,7 +13,7 @@ public ref struct RoutingPath<THandle> where THandle : unmanaged
     internal RoutingPath(int capacity)
     {
         _path = ArrayPool.Rent<RoutingPathNode<THandle>>(capacity);
-        _path.TryResize(0, out _path);
+        _path.TryResizeUnsafe(0, out _path);
     }
 
     /// <summary>
@@ -39,14 +39,16 @@ public ref struct RoutingPath<THandle> where THandle : unmanaged
     /// <param name="node">The node to add.</param>
     public void Add(RoutingPathNode<THandle> node)
     {
-        if (!_path.TryResize(_path.Length + 1, out _path))
+        PooledArray<RoutingPathNode<THandle>> path = _path;
+        if (!path.TryResizeUnsafe(path.Length + 1, out PooledArray<RoutingPathNode<THandle>> resized))
         {
-            int newLength = _path.Length * 2;
+            int newLength = path.Length * 2;
             PooledArray<RoutingPathNode<THandle>> newPath = ArrayPool.Rent<RoutingPathNode<THandle>>(newLength);
-            _path.AsSpan().CopyTo(newPath.AsSpan());
-            newPath.TryResize(newLength + 1, out _path);
+            path.Array.AsSpan().CopyTo(newPath.Array.AsSpan());
+            _path = new PooledArray<RoutingPathNode<THandle>>(newPath.Array, path.Length + 1, noChecks: true);
         }
-        _path[^1] = node;
+        resized.Array[path.Length] = node;
+        _path = resized;
     }
 
     /// <summary>

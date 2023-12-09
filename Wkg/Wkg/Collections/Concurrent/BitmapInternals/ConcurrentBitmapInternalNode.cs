@@ -36,7 +36,7 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
                 childStepSize *= SEGMENTS_PER_CLUSTER;
             }
             int childCount = (bitSize + childStepSize - 1) / childStepSize;
-            _children = new PooledArray<ConcurrentBitmapNode>(new ConcurrentBitmapNode[childCount], childCount);
+            _children = new PooledArray<ConcurrentBitmapNode>(new ConcurrentBitmapNode[childCount], childCount, noChecks: true);
             Span<ConcurrentBitmapNode> children = _children.AsSpan();
             int remainingBits = bitSize;
             for (int i = 0; i < children.Length; i++, remainingBits -= childStepSize)
@@ -68,7 +68,7 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
             // we are one level above the leaf nodes
             // split the bitSize into multiple clusters
             int childCount = (bitSize + CLUSTER_BIT_SIZE - 1) / CLUSTER_BIT_SIZE;
-            _children = new PooledArray<ConcurrentBitmapNode>(new ConcurrentBitmapNode[childCount], childCount);
+            _children = new PooledArray<ConcurrentBitmapNode>(new ConcurrentBitmapNode[childCount], childCount, noChecks: true);
             Span<ConcurrentBitmapNode> children = _children.AsSpan();
             int remainingBits = bitSize;
             for (int i = 0; i < children.Length; i++, remainingBits -= CLUSTER_BIT_SIZE)
@@ -332,13 +332,14 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
             int newChildCount = newTotalChildCount - _children.Length;
             Debug.Assert(newChildCount > 0);
             // do we need to grow the array, or can we resize the existing array?
-            if (!_children.TryResize(newTotalChildCount, out _children))
+            if (!_children.TryResize(newTotalChildCount, out PooledArray<ConcurrentBitmapNode> resized))
             {
                 // grow the array
                 ConcurrentBitmapNode[] newChildren = new ConcurrentBitmapNode[newTotalChildCount];
                 Array.Copy(_children.Array, newChildren, _children.Array.Length);
-                _children = new PooledArray<ConcurrentBitmapNode>(newChildren, newChildren.Length);
+                _children = new PooledArray<ConcurrentBitmapNode>(newChildren, newChildren.Length, noChecks: true);
             }
+            _children = resized;
             Span<ConcurrentBitmapNode> children = _children.AsSpan();
             int remainingBits = additionalSize;
             ConcurrentBitmap56 nodeStateSnapshot = ConcurrentBitmap56.VolatileRead(ref _nodeState);

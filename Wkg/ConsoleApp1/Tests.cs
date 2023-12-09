@@ -3,10 +3,8 @@ using BenchmarkDotNet.Exporters.Csv;
 using Wkg.Data.Pooling;
 using Wkg.Threading.Workloads;
 using Wkg.Threading.Workloads.Configuration;
-using Wkg.Threading.Workloads.Configuration.Classful;
 using Wkg.Threading.Workloads.Factories;
-using Wkg.Threading.Workloads.Queuing.Classful.Classification;
-using Wkg.Threading.Workloads.Queuing.Classful.RoundRobin;
+using Wkg.Threading.Workloads.Queuing.Classful.PrioFast;
 using Wkg.Threading.Workloads.Queuing.Classless.Fifo;
 
 namespace ConsoleApp1;
@@ -22,18 +20,21 @@ public class Tests
     public int Concurrency;
     private const int MAX_CONCURRENCY = 16;
 
-    [Params(1, 2, 3, 4, 5, 6)]
+    [Params(1, 2, 3, 4, 5, 6, 7)]
     public int Depth;
-    private const int MAX_DEPTH = 6;
+    private const int MAX_DEPTH = 7;
 
     //[Params(4)]
     public int BranchingFactor => 4;
 
     //[Params(100000)]
-    public int Spins => 100000;
+    public int Spins => 10000;
 
     private static readonly Random _bitmapRandom = new(42);
+    private static readonly ManualResetEventSlim _bitmapMres = new(false);
+
     private static readonly Random _lockingRandom = new(42);
+    private static readonly ManualResetEventSlim _lockingMres = new(false);
 
     public ClassfulWorkloadFactory<int>[,] _bitmaps = null!;
 
@@ -49,29 +50,27 @@ public class Tests
             for (int depth = 0; depth < MAX_DEPTH; depth++)
             {
                 // concurrency and depth are 1-based (obviously), so adjust array indices accordingly
-                _bitmaps[concurrency, depth] = CreateFactory<RoundRobinBitmap56>(concurrency + 1, depth + 1, BranchingFactor);
-                _locking[concurrency, depth] = CreateFactory<RoundRobinLocking>(concurrency + 1, depth + 1, BranchingFactor);
+                _bitmaps[concurrency, depth] = CreateBitmapFactory(concurrency + 1, depth + 1, BranchingFactor);
+                _locking[concurrency, depth] = CreateLockingFactory(concurrency + 1, depth + 1, BranchingFactor);
             }
         }
     }
 
-    public static ClassfulWorkloadFactory<int> CreateFactory<TQdisc>(int concurrency, int depth, int branchingFactor)
-        where TQdisc : ClassfulQdiscBuilder<TQdisc>, IClassfulQdiscBuilder<TQdisc>
+    public static ClassfulWorkloadFactory<int> CreateBitmapFactory(int concurrency, int depth, int branchingFactor)
     {
         HandleCounter handleCounter = new(2);
         return WorkloadFactoryBuilder.Create<int>()
             .UseMaximumConcurrency(concurrency)
-            .UseClassfulRoot<TQdisc>(1, root => ConfigureLevel(root, depth - 1, branchingFactor, handleCounter));
+            .UseClassfulRoot<PrioFastBitmap56<int>>(1, root => ConfigureBitmapLevel(root, depth - 1, branchingFactor, handleCounter));
     }
 
-    private static void ConfigureLevel<TQdisc>(ClassfulBuilder<int, SimplePredicateBuilder, TQdisc> builder, int remainingDepth, int branchingFactor, HandleCounter nextHandle)
-        where TQdisc : ClassfulQdiscBuilder<TQdisc>, IClassfulQdiscBuilder<TQdisc>
+    private static void ConfigureBitmapLevel(PrioFastBitmap56<int> builder, int remainingDepth, int branchingFactor, HandleCounter nextHandle)
     {
         if (remainingDepth == 0)
         {
             for (int i = 0; i < branchingFactor; i++, nextHandle.Handle++)
             {
-                builder.AddClasslessChild<Fifo>(nextHandle.Handle);
+                builder.AddClasslessChild<Fifo>(nextHandle.Handle, i);
             }
         }
         else
@@ -80,7 +79,35 @@ public class Tests
             {
                 int handle = nextHandle.Handle;
                 nextHandle.Handle++;
-                builder.AddClassfulChild<TQdisc>(handle, child => ConfigureLevel(child, remainingDepth - 1, branchingFactor, nextHandle));
+                builder.AddClassfulChild<PrioFastBitmap56<int>>(handle, i, child => ConfigureBitmapLevel(child, remainingDepth - 1, branchingFactor, nextHandle));
+            }
+        }
+    }
+
+    public static ClassfulWorkloadFactory<int> CreateLockingFactory(int concurrency, int depth, int branchingFactor)
+    {
+        HandleCounter handleCounter = new(2);
+        return WorkloadFactoryBuilder.Create<int>()
+            .UseMaximumConcurrency(concurrency)
+            .UseClassfulRoot<PrioFastLocking<int>>(1, root => ConfigureLockingLevel(root, depth - 1, branchingFactor, handleCounter));
+    }
+
+    private static void ConfigureLockingLevel(PrioFastLocking<int> builder, int remainingDepth, int branchingFactor, HandleCounter nextHandle)
+    {
+        if (remainingDepth == 0)
+        {
+            for (int i = 0; i < branchingFactor; i++, nextHandle.Handle++)
+            {
+                builder.AddClasslessChild<Fifo>(nextHandle.Handle, i);
+            }
+        }
+        else
+        {
+            for (int i = 0; i < branchingFactor; i++)
+            {
+                int handle = nextHandle.Handle;
+                nextHandle.Handle++;
+                builder.AddClassfulChild<PrioFastLocking<int>>(handle, i, child => ConfigureLockingLevel(child, remainingDepth - 1, branchingFactor, nextHandle));
             }
         }
     }
@@ -92,13 +119,18 @@ public class Tests
     {
         PooledArray<AwaitableWorkload> workloads = ArrayPool.Rent<AwaitableWorkload>(WorkloadCount);
         ClassfulWorkloadFactory<int> bitmap = _bitmaps[Concurrency - 1, Depth - 1];
+        _bitmapMres.Reset();
         int totalNodes = NodeCount(Depth, BranchingFactor);
-        await Parallel.ForAsync(0, workloads.Length, (i, _) =>
+        for (int i = 0; i < Concurrency; i++)
         {
-            int handle = Random.Shared.Next(1, totalNodes + 1);
+            bitmap.Schedule(_bitmapMres.Wait);
+        }
+        for (int i = 0; i < workloads.Length; i++)
+        {
+            int handle = _bitmapRandom.Next(1, totalNodes + 1);
             workloads.Array[i] = bitmap.ScheduleAsync(handle, Work);
-            return ValueTask.CompletedTask;
-        });
+        }
+        _bitmapMres.Set();
         await Workload.WhenAll(workloads.Array[..workloads.Length]);
         ArrayPool.Return(workloads);
     }
@@ -109,12 +141,17 @@ public class Tests
         PooledArray<AwaitableWorkload> workloads = ArrayPool.Rent<AwaitableWorkload>(WorkloadCount);
         ClassfulWorkloadFactory<int> locking = _locking[Concurrency - 1, Depth - 1];
         int totalNodes = NodeCount(Depth, BranchingFactor);
-        await Parallel.ForAsync(0, workloads.Length, (i, _) =>
+        _lockingMres.Reset();
+        for (int i = 0; i < Concurrency; i++)
         {
-            int handle = Random.Shared.Next(1, totalNodes + 1);
+            locking.Schedule(_lockingMres.Wait);
+        }
+        for (int i = 0; i < workloads.Length; i++)
+        {
+            int handle = _lockingRandom.Next(1, totalNodes + 1);
             workloads.Array[i] = locking.ScheduleAsync(handle, Work);
-            return ValueTask.CompletedTask;
-        });
+        }
+        _lockingMres.Set();
         await Workload.WhenAll(workloads.Array[..workloads.Length]);
         ArrayPool.Return(workloads);
     }

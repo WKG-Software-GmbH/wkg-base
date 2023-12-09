@@ -1,4 +1,5 @@
-﻿using Wkg.Common.ThrowHelpers;
+﻿using System.Diagnostics;
+using Wkg.Common.ThrowHelpers;
 
 namespace Wkg.Data.Pooling;
 
@@ -11,6 +12,16 @@ public readonly struct PooledArray<T>
     {
         ArgumentNullException.ThrowIfNull(array, nameof(array));
         Throw.ArgumentOutOfRangeException.IfNotInRange(actualLength, 0, array.Length, nameof(actualLength));
+
+        _array = array;
+        _length = actualLength;
+    }
+
+    internal PooledArray(T[] array, int actualLength, bool noChecks)
+    {
+        Debug.Assert(noChecks);
+        Debug.Assert(array is not null);
+        Debug.Assert(actualLength >= 0 && actualLength <= array.Length);
 
         _array = array;
         _length = actualLength;
@@ -33,14 +44,24 @@ public readonly struct PooledArray<T>
 
     public bool TryResize(int newLength, out PooledArray<T> resized)
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(newLength, nameof(newLength));
-
         if (newLength > _array.Length)
         {
             resized = default;
             return false;
         }
-        resized = new(_array, newLength);
+        ArgumentOutOfRangeException.ThrowIfNegative(newLength, nameof(newLength));
+        resized = new PooledArray<T>(_array, newLength, noChecks: true);
+        return true;
+    }
+
+    public bool TryResizeUnsafe(int newLength, out PooledArray<T> resized)
+    {
+        if (newLength > _array.Length)
+        {
+            resized = default;
+            return false;
+        }
+        resized = new PooledArray<T>(_array, newLength, noChecks: true);
         return true;
     }
 

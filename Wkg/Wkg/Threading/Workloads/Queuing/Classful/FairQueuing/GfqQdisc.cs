@@ -1,6 +1,8 @@
 ﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Text;
 using Wkg.Collections.Concurrent;
+using Wkg.Common.Extensions;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
 using Wkg.Threading.Extensions;
@@ -787,6 +789,16 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         {
             childState.Child.Complete();
             childState.Child.Dispose();
+        }
+    }
+
+    protected override void ChildrenToTreeString(StringBuilder builder, int indent)
+    {
+        using ILockOwnership readLock = _childModificationLock.AcquireReadLock();
+        for (int i = 0; i < _childStates.Length; i++)
+        {
+            builder.AppendIndent(indent).Append($"Child {i} (Weight: {_childStates[i].Weight}): ");
+            ChildToTreeString(_childStates[i].Child, builder, indent);
         }
     }
 

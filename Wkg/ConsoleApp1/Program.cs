@@ -20,6 +20,10 @@ using Wkg.Threading.Workloads.Queuing.Classless.Lifo;
 using Wkg.Threading.Workloads.Queuing.Classless.PriorityFifoFast;
 using static Wkg.Common.SyntacticSugar;
 
+//var f = Tests.CreateFactory<RoundRobinBitmap56>(8, depth: 6, branchingFactor: 4);
+//Console.WriteLine(f.Root.ToTreeString());
+//Console.WriteLine(Tests.NodeCount(6, 4));
+
 Environment.SetEnvironmentVariable("R_HOME", @"C:\Program Files\R\R-4.3.2");
 
 Stopwatch sw = Stopwatch.StartNew();
@@ -41,8 +45,6 @@ Log.UseLogger(Logger.Create(LoggerConfiguration.Create()
 Tests tests = new()
 {
     Concurrency = 2,
-    Spins = 0,
-    WorkloadCount = 1000
 };
 tests.GlobalSetup();
 Random random = new(42);

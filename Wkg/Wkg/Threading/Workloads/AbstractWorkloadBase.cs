@@ -35,7 +35,7 @@ public abstract class AbstractWorkloadBase
     public ulong Id { get; } = WorkloadIdGenerator.Generate();
 
     /// <summary>
-    /// Retrives the current <see cref="WorkloadStatus"/> of this workload.
+    /// Retrieves the current <see cref="WorkloadStatus"/> of this workload.
     /// </summary>
     public WorkloadStatus Status => Volatile.Read(ref _status);
 

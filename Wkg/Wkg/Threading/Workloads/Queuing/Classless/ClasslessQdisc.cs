@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Runtime.ExceptionServices;
+using System.Text;
 using Wkg.Common.Extensions;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
@@ -221,5 +222,27 @@ public abstract class ClasslessQdisc<THandle> : IClassifyingQdisc<THandle> where
         // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
+    }
+
+    protected virtual void ChildrenToTreeString(StringBuilder builder, int indent) => Pass();
+
+    /// <inheritdoc/>
+    public virtual string ToTreeString()
+    {
+        StringBuilder builder = new();
+        ChildToTreeString(this, builder, 0);
+        return builder.ToString();
+    }
+
+    /// <summary>
+    /// Appends a string representation of the specified qdisc and its children to the specified <see cref="StringBuilder"/>.
+    /// </summary>
+    protected void ChildToTreeString(IClassifyingQdisc<THandle> qdisc, StringBuilder builder, int currentIndent)
+    {
+        if (qdisc is ClasslessQdisc<THandle> classlessQdisc)
+        {
+            builder.AppendLine(classlessQdisc.ToString());
+            classlessQdisc.ChildrenToTreeString(builder, currentIndent + 1);
+        }
     }
 }

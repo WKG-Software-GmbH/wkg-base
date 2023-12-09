@@ -4,7 +4,6 @@ using System.Text;
 using Wkg.Collections.Concurrent;
 using Wkg.Common.Extensions;
 using Wkg.Common.ThrowHelpers;
-using Wkg.Text;
 using Wkg.Threading.Workloads.Queuing.Classless.Fifo;
 using Wkg.Threading.Workloads.Queuing.Routing;
 
@@ -214,5 +213,12 @@ internal class PriorityFifoFastQdisc<THandle> : ClasslessQdisc<THandle>, INotify
 
     void INotifyWorkScheduled.DisposeRoot() => ParentScheduler.DisposeRoot();
 
-    public override string ToString() => $"IsEmpty: {IsEmpty}, BestEffortCount: {BestEffortCount}, Bands: [{string.Join(", ", _bands.Select(b => $"{b?.Handle} ({b?.BestEffortCount} items)"))}]";
+    protected override void ChildrenToTreeString(StringBuilder builder, int indent)
+    {
+        for (int i = 0; i < _bands.Length; i++)
+        {
+            builder.AppendIndent(indent).Append($"Band {i}: ");
+            ChildToTreeString(_bands[i], builder, indent);
+        }
+    }
 }

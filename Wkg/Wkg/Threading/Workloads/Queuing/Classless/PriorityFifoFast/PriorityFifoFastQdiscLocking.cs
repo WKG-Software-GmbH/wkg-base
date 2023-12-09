@@ -171,5 +171,12 @@ internal class PriorityFifoFastQdiscLocking<THandle> : ClasslessQdisc<THandle>, 
 
     void INotifyWorkScheduled.DisposeRoot() => ParentScheduler.DisposeRoot();
 
-    public override string ToString() => $"IsEmpty: {IsEmpty}, BestEffortCount: {BestEffortCount}, Bands: [{string.Join(", ", _bands.Select(b => $"{b?.Handle} ({b?.BestEffortCount} items)"))}]";
+    protected override void ChildrenToTreeString(StringBuilder builder, int indent)
+    {
+        for (int i = 0; i < _bands.Length; i++)
+        {
+            builder.AppendIndent(indent).Append($"Band {i}: ");
+            ChildToTreeString(_bands[i], builder, indent);
+        }
+    }
 }

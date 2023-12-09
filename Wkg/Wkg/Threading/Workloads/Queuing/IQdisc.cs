@@ -6,6 +6,11 @@ namespace Wkg.Threading.Workloads.Queuing;
 public interface IQdisc : IDisposable
 {
     /// <summary>
+    /// Returns a string representation of the qdisc and all child qdiscs.
+    /// </summary>
+    string ToTreeString();
+
+    /// <summary>
     /// Initializes the qdisc with the specified parent scheduler.
     /// </summary>
     /// <param name="parentScheduler">The parent scheduler.</param>

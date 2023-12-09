@@ -1,6 +1,8 @@
 ﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Text;
 using Wkg.Collections.Concurrent;
+using Wkg.Common.Extensions;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
 using Wkg.Threading.Extensions;
@@ -533,5 +535,17 @@ internal sealed class RoundRobinBitmapQdisc<THandle> : ClassfulQdisc<THandle>, I
         _localLasts.AsSpan().Clear();
 
         base.DisposeManaged();
+    }
+
+    protected override void ChildrenToTreeString(StringBuilder builder, int indent)
+    {
+        using ILockOwnership readLock = _childrenLock.AcquireReadLock();
+        builder.AppendIndent(indent).Append($"Local 0: ");
+        ChildToTreeString(_localQueue, builder, indent);
+        for (int i = 1; i < _children.Length; i++)
+        {
+            builder.AppendIndent(indent).Append($"Child {i}: ");
+            ChildToTreeString(_children[i], builder, indent);
+        }
     }
 }

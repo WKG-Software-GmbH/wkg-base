@@ -436,6 +436,7 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
         void IQdisc.InternalInitialize(INotifyWorkScheduled parentScheduler) => ThrowHelper<bool>();
         void IQdisc.Complete() => ThrowHelper<bool>();
         void IQdisc.OnWorkerTerminated(int workerId) => ThrowHelper<bool>();
+        string IQdisc.ToTreeString() => ThrowHelper<string>();
         bool IQdisc.TryPeekUnsafe(int workerId, [NotNullWhen(true)] out AbstractWorkloadBase? workload) => (workload = null) is null && ThrowHelper<bool>();
         void IDisposable.Dispose() => ThrowHelper<bool>();
 

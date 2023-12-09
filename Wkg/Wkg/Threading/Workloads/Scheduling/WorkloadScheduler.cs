@@ -43,7 +43,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
         DebugLog.WriteDiagnostic("Workload scheduler was poked.", LogWriter.Blocking);
         // this atomic clamped increment is committing, if we have room for another worker, we must start one
         // we are not allowed to abort the operation, because that could lead to starvation
-        WorkerStateSnapshot state = _state.ClaimWorkerSlot();
+        WorkerStateSnapshot state = _state.TryClaimWorkerSlot();
         if (!_disposed && state.CallerClaimedWorkerSlot)
         {
             // we have room for another worker, so we'll start one
@@ -173,7 +173,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
             // we could be racing against a scheduling thread, or any other worker that is also trying to exit
             // we attempt to atomically restore the worker count to the previous value and claim a new worker slot
             // note that restoring the worker count may result in a different worker id being assigned to us
-            WorkerStateSnapshot state = _state.ClaimWorkerSlot();
+            WorkerStateSnapshot state = _state.TryClaimWorkerSlot();
             if (_disposed || !state.CallerClaimedWorkerSlot)
             {
                 if (_disposed)
@@ -216,7 +216,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
 
         public int VolatileWorkerCount => Volatile.Read(ref _currentDegreeOfParallelism);
 
-        public WorkerStateSnapshot ClaimWorkerSlot()
+        public WorkerStateSnapshot TryClaimWorkerSlot()
         {
             // post increment, so we start at 0
             int workerId = -1;

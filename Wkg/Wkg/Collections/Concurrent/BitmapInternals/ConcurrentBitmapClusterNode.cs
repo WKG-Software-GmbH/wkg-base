@@ -1,9 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Text;
 using Wkg.Common;
-using Wkg.Internals.Diagnostic;
-using Wkg.Logging.Writers;
-using Wkg.Unmanaged.MemoryManagement;
+using System.Runtime.CompilerServices;
 
 namespace Wkg.Collections.Concurrent.BitmapInternals;
 
@@ -17,10 +15,9 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
     private ConcurrentBitmap56State _clusterState;
     private bool disposedValue;
     // this class is very hot, as it's used by workload scheduling
-    // we use an unmanaged array to avoid bound checking and the overhead of a managed array
-    // DO NOT MARK THIS FIELD AS READONLY - it is a mutable struct
-    private Unmanaged<ConcurrentBitmap56State> _segments;
-    private int _usedSegmentCount;
+    // we use an inline array to avoid bound checking and the overhead of a managed array
+    private ConcurrentBitmap56StateCluster _segments;
+    private int _segmentCount;
     private int _lastSegmentSize;
     private object[] _segmentLocks;
 
@@ -29,11 +26,9 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
         Debug.Assert(clusterBitSize > 0);
         Debug.Assert(clusterBitSize <= CLUSTER_BIT_SIZE);
         // round up to nearest multiple of SEGMENT_BIT_SIZE
-        int segmentCount = (clusterBitSize + SEGMENT_BIT_SIZE - 1) / SEGMENT_BIT_SIZE;
-        _segments = new Unmanaged<ConcurrentBitmap56State>(segmentCount, initialize: true);
-        _segmentLocks = new object[segmentCount];
+        _segmentCount = (clusterBitSize + SEGMENT_BIT_SIZE - 1) / SEGMENT_BIT_SIZE;
+        _segmentLocks = new object[_segmentCount];
         _lastSegmentSize = clusterBitSize % SEGMENT_BIT_SIZE;
-        _usedSegmentCount = segmentCount;
         // correct for last segment size if we have a perfect multiple of SEGMENT_BIT_SIZE
         if (_lastSegmentSize == 0)
         {
@@ -42,7 +37,7 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
 
         // initialize the node state
         ConcurrentBitmap56 state = default;
-        for (int i = 0; i < _segments.Length; i++)
+        for (int i = 0; i < _segmentCount; i++)
         {
             state = state.SetChildEmpty(i);
             _segmentLocks[i] = new object();
@@ -50,23 +45,23 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
         ConcurrentBitmap56.VolatileWrite(ref _clusterState, state);
     }
 
-    internal override int NodeLength => Volatile.Read(ref _usedSegmentCount);
+    internal override int NodeLength => Volatile.Read(ref _segmentCount);
 
     public override int MaxNodeBitLength => CLUSTER_BIT_SIZE;
 
     public override bool IsLeaf => true;
 
-    public override bool IsFull => ConcurrentBitmap56.VolatileRead(ref _clusterState).AreChildrenFull(_usedSegmentCount);
+    public override bool IsFull => ConcurrentBitmap56.VolatileRead(ref _clusterState).AreChildrenFull(_segmentCount);
 
-    public override bool IsEmpty => ConcurrentBitmap56.VolatileRead(ref _clusterState).AreChildrenEmpty(_usedSegmentCount);
+    public override bool IsEmpty => ConcurrentBitmap56.VolatileRead(ref _clusterState).AreChildrenEmpty(_segmentCount);
 
     internal override ref ConcurrentBitmap56State InternalStateBitmap => ref _clusterState;
 
-    public override byte GetToken(int index) => ConcurrentBitmap56.VolatileRead(ref _segments.GetRefUnsafe(index / SEGMENT_BIT_SIZE)).GetToken();
+    public override byte GetToken(int index) => ConcurrentBitmap56.VolatileRead(ref _segments[index / SEGMENT_BIT_SIZE]).GetToken();
 
-    public override bool IsBitSet(int index) => ConcurrentBitmap56.VolatileRead(ref _segments.GetRefUnsafe(index / SEGMENT_BIT_SIZE)).IsBitSet(index % SEGMENT_BIT_SIZE);
+    public override bool IsBitSet(int index) => ConcurrentBitmap56.VolatileRead(ref _segments[index / SEGMENT_BIT_SIZE]).IsBitSet(index % SEGMENT_BIT_SIZE);
 
-    public override GuardedBitInfo GetBitInfo(int index) => ConcurrentBitmap56.VolatileRead(ref _segments.GetRefUnsafe(index / SEGMENT_BIT_SIZE)).GetBitInfo(index % SEGMENT_BIT_SIZE);
+    public override GuardedBitInfo GetBitInfo(int index) => ConcurrentBitmap56.VolatileRead(ref _segments[index / SEGMENT_BIT_SIZE]).GetBitInfo(index % SEGMENT_BIT_SIZE);
 
     internal override bool Shrink(int removalSize)
     {
@@ -84,7 +79,7 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
         if (_lastSegmentSize - removalSize > 0)
         {
             // no, we can just shrink the last segment
-            int lastSegmentIndex = _usedSegmentCount - 1;
+            int lastSegmentIndex = _segmentCount - 1;
             _lastSegmentSize -= removalSize;
             ConcurrentBitmap56 clusterState = ConcurrentBitmap56.VolatileRead(ref _clusterState);
             // did this change anything about the emptiness state of the segment?
@@ -102,18 +97,18 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
             int lastSegmentRemovalSize = removalSize - _lastSegmentSize;
             // we always remove at least one segment (lastSegmentRemovalSize can be 0, but we don't want to keep an empty segment)
             int removedSegmentCount = FastMath.Max((lastSegmentRemovalSize + SEGMENT_BIT_SIZE - 1) / SEGMENT_BIT_SIZE, 1);
-            int newTotalSegmentCount = _usedSegmentCount - removedSegmentCount;
+            int newTotalSegmentCount = _segmentCount - removedSegmentCount;
             _lastSegmentSize = SEGMENT_BIT_SIZE - (lastSegmentRemovalSize % SEGMENT_BIT_SIZE);
             int newLastSegmentIndex = newTotalSegmentCount - 1;
             // update the cluster state
             // we know that we removed segments, so we can just clear the bits
             // we only need special handling for the new last segment
             ConcurrentBitmap56 clusterState = ConcurrentBitmap56.VolatileRead(ref _clusterState);
-            for (int i = newLastSegmentIndex + 1; i < _usedSegmentCount; i++)
+            for (int i = newLastSegmentIndex + 1; i < _segmentCount; i++)
             {
                 clusterState = clusterState.ClearChildEmpty(i).ClearChildFull(i);
             }
-            _usedSegmentCount = newTotalSegmentCount;
+            _segmentCount = newTotalSegmentCount;
             UpdateStateSnapshot(ref clusterState, newLastSegmentIndex);
             ConcurrentBitmap56.VolatileWrite(ref _clusterState, clusterState, updateToken: true);
             stateChanged = true;
@@ -139,7 +134,7 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
         if (_lastSegmentSize + additionalSize < SEGMENT_BIT_SIZE)
         {
             // no, we can just grow the last segment
-            int lastSegmentIndex = _usedSegmentCount - 1;
+            int lastSegmentIndex = _segmentCount - 1;
             _lastSegmentSize += additionalSize;
             ConcurrentBitmap56 clusterState = ConcurrentBitmap56.VolatileRead(ref _clusterState);
             if (UpdateStateSnapshot(ref clusterState, lastSegmentIndex))
@@ -153,16 +148,14 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
         {
             // yes, we need to add more segments
             // how many segments do we need to add?
-            int lastSegmentIndex = _usedSegmentCount - 1;
+            int lastSegmentIndex = _segmentCount - 1;
             int lastSegmentAdditionalSize = SEGMENT_BIT_SIZE - _lastSegmentSize;
             int additionalSizeForNewSegments = additionalSize - lastSegmentAdditionalSize;
             int additionalSegmentCount = (additionalSizeForNewSegments + SEGMENT_BIT_SIZE - 1) / SEGMENT_BIT_SIZE;
-            int newTotalSegmentCount = _usedSegmentCount + additionalSegmentCount;
-            // do we need to grow the unmanaged array?
-            if (newTotalSegmentCount > _segments.Length)
+            int newTotalSegmentCount = _segmentCount + additionalSegmentCount;
+            // do we need to grow the allocated locks?
+            if (newTotalSegmentCount > _segmentLocks.Length)
             {
-                // yes, we need to grow the unmanaged array
-                _segments.Realloc(newTotalSegmentCount);
                 object[] oldSegmentLocks = _segmentLocks;
                 _segmentLocks = new object[newTotalSegmentCount];
                 Array.Copy(oldSegmentLocks, _segmentLocks, oldSegmentLocks.Length);
@@ -171,14 +164,14 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
                     _segmentLocks[i] = new object();
                 }
             }
-            _usedSegmentCount = newTotalSegmentCount;
+            _segmentCount = newTotalSegmentCount;
             // update the cluster state
             ConcurrentBitmap56 clusterState = ConcurrentBitmap56.VolatileRead(ref _clusterState);
             if (lastSegmentAdditionalSize > 0)
             {
                 UpdateStateSnapshot(ref clusterState, lastSegmentIndex);
             }
-            for (int i = _usedSegmentCount - additionalSegmentCount; i < _usedSegmentCount; i++)
+            for (int i = _segmentCount - additionalSegmentCount; i < _segmentCount; i++)
             {
                 clusterState = clusterState.SetChildEmpty(i);
             }
@@ -200,7 +193,7 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
     {
         int segmentIndex = index / SEGMENT_BIT_SIZE;
         int segmentOffset = index % SEGMENT_BIT_SIZE;
-        ConcurrentBitmap56.UpdateBitUnsafe(ref _segments.GetRefUnsafe(segmentIndex), segmentOffset, value);
+        ConcurrentBitmap56.UpdateBitUnsafe(ref _segments[segmentIndex], segmentOffset, value);
         emptinessTrackingChanged = UpdateClusterStateBit(segmentIndex, segmentOffset);
     }
 
@@ -218,7 +211,7 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
     {
         int segmentIndex = index / SEGMENT_BIT_SIZE;
         int segmentOffset = index % SEGMENT_BIT_SIZE;
-        if (!ConcurrentBitmap56.TryUpdateBitUnsafe(ref _segments.GetRefUnsafe(segmentIndex), token, segmentOffset, value))
+        if (!ConcurrentBitmap56.TryUpdateBitUnsafe(ref _segments[segmentIndex], token, segmentOffset, value))
         {
             emptinessTrackingChanged = false;
             return false;
@@ -235,8 +228,8 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
             do
             {
                 clusterState = ConcurrentBitmap56.VolatileRead(ref _clusterState);
-                int segmentCapacity = segmentIndex == _usedSegmentCount - 1 ? _lastSegmentSize : SEGMENT_BIT_SIZE;
-                ConcurrentBitmap56 segment = ConcurrentBitmap56.VolatileRead(ref _segments.GetRefUnsafe(segmentIndex));
+                int segmentCapacity = segmentIndex == _segmentCount - 1 ? _lastSegmentSize : SEGMENT_BIT_SIZE;
+                ConcurrentBitmap56 segment = ConcurrentBitmap56.VolatileRead(ref _segments[segmentIndex]);
                 bool value = segment.IsBitSet(segmentOffset);
                 if (!value && segment.IsEmptyUnsafe(segmentCapacity) && !clusterState.IsChildEmpty(segmentIndex))
                 {
@@ -275,8 +268,8 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
 
     private bool UpdateStateSnapshot(ref ConcurrentBitmap56 snapshot, int segment)
     {
-        int segmentCapacity = segment == _usedSegmentCount - 1 ? _lastSegmentSize : SEGMENT_BIT_SIZE;
-        ConcurrentBitmap56 segmentState = ConcurrentBitmap56.VolatileRead(ref _segments.GetRefUnsafe(segment));
+        int segmentCapacity = segment == _segmentCount - 1 ? _lastSegmentSize : SEGMENT_BIT_SIZE;
+        ConcurrentBitmap56 segmentState = ConcurrentBitmap56.VolatileRead(ref _segments[segment]);
         if (segmentState.IsEmptyUnsafe(segmentCapacity) && !snapshot.IsChildEmpty(segment))
         {
             // we set the bit to 0, and the segment is now empty which is not yet reflected in the cluster bitmap
@@ -315,22 +308,22 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
         // the very last bit must have been remembered by the caller
         int currentSegmentSize = SEGMENT_BIT_SIZE;
         lastBit = default;
-        for (int i = segment; i < _usedSegmentCount; i++)
+        for (int i = segment; i < _segmentCount; i++)
         {
-            if (i == _usedSegmentCount - 1)
+            if (i == _segmentCount - 1)
             {
                 currentSegmentSize = _lastSegmentSize;
             }
             if (i == segment)
             {
-                lastBit = ConcurrentBitmap56.VolatileRead(ref _segments.GetRef(segment)).IsBitSet(currentSegmentSize - 1);
-                ConcurrentBitmap56.InsertBitAt(ref _segments.GetRefUnsafe(i), segmentOffset, value);
+                lastBit = ConcurrentBitmap56.VolatileRead(ref _segments[i]).IsBitSet(currentSegmentSize - 1);
+                ConcurrentBitmap56.InsertBitAt(ref _segments[i] , segmentOffset, value);
             }
             else
             {
                 // not the first segment, we need to insert the last bit at the beginning of the next segment
-                bool temp = ConcurrentBitmap56.VolatileRead(ref _segments.GetRef(i)).IsBitSet(currentSegmentSize - 1);
-                ConcurrentBitmap56.InsertBitAt(ref _segments.GetRefUnsafe(i), 0, lastBit);
+                bool temp = ConcurrentBitmap56.VolatileRead(ref _segments[i]).IsBitSet(currentSegmentSize - 1);
+                ConcurrentBitmap56.InsertBitAt(ref _segments[i], 0, lastBit);
                 lastBit = temp;
             }
         }
@@ -341,19 +334,19 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
         // has global write lock
         int segment = index / SEGMENT_BIT_SIZE;
         int segmentOffset = index % SEGMENT_BIT_SIZE;
-        for (int i = segment; i < _usedSegmentCount; i++)
+        for (int i = segment; i < _segmentCount; i++)
         {
             if (i == segment)
             {
-                ConcurrentBitmap56.RemoveBitAt(ref _segments.GetRef(i), segmentOffset);
+                ConcurrentBitmap56.RemoveBitAt(ref _segments[i], segmentOffset);
             }
             else
             {
                 // not the first segment, we need to remove the first bit and shift the rest
                 // the removed bit must then be inserted at the end of the previous segment
-                bool value = ConcurrentBitmap56.VolatileRead(ref _segments.GetRef(i)).IsBitSet(0);
-                ConcurrentBitmap56.RemoveBitAt(ref _segments.GetRefUnsafe(i), 0);
-                ConcurrentBitmap56.UpdateBit(ref _segments.GetRefUnsafe(i - 1), SEGMENT_BIT_SIZE - 1, value);
+                bool value = ConcurrentBitmap56.VolatileRead(ref _segments[i]).IsBitSet(0);
+                ConcurrentBitmap56.RemoveBitAt(ref _segments[i], 0);
+                ConcurrentBitmap56.UpdateBit(ref _segments[i - 1], SEGMENT_BIT_SIZE - 1, value);
             }
         }
     }
@@ -364,13 +357,13 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
         ConcurrentBitmap56 clusterStateSnapshot = ConcurrentBitmap56.VolatileRead(ref _clusterState);
         int segmentCapacity = SEGMENT_BIT_SIZE;
         int segmentIndex = startIndex / SEGMENT_BIT_SIZE;
-        for (int i = segmentIndex; i < _usedSegmentCount; i++)
+        for (int i = segmentIndex; i < _segmentCount; i++)
         {
-            if (i == _usedSegmentCount - 1)
+            if (i == _segmentCount - 1)
             {
                 segmentCapacity = _lastSegmentSize;
             }
-            ConcurrentBitmap56 segment = ConcurrentBitmap56.VolatileRead(ref _segments.GetRefUnsafe(i));
+            ConcurrentBitmap56 segment = ConcurrentBitmap56.VolatileRead(ref _segments[i]);
             if (segment.IsEmptyUnsafe(segmentCapacity))
             {
                 clusterStateSnapshot = clusterStateSnapshot.SetChildEmpty(i);
@@ -394,13 +387,13 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
     {
         int count = 0;
         int segmentCapacity = SEGMENT_BIT_SIZE;
-        for (int i = 0; i < _usedSegmentCount; i++)
+        for (int i = 0; i < _segmentCount; i++)
         {
-            if (i == _usedSegmentCount - 1)
+            if (i == _segmentCount - 1)
             {
                 segmentCapacity = _lastSegmentSize;
             }
-            count += ConcurrentBitmap56.VolatileRead(ref _segments.GetRefUnsafe(i)).PopCountUnsafe(segmentCapacity);
+            count += ConcurrentBitmap56.VolatileRead(ref _segments[i]).PopCountUnsafe(segmentCapacity);
         }
         return count;
     }
@@ -409,9 +402,9 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
     {
         sb.Append(' ', depth * 2)
             .Append($"Leaf cluster (Base offset: 0x{_baseAddress:x8}, ")
-            .Append(_usedSegmentCount)
+            .Append(_segmentCount)
             .Append(" segments (")
-            .Append(_segments.Length)
+            .Append(SEGMENTS_PER_CLUSTER)
             .Append(" allocated), Total size: ")
             .Append(_bitSize)
             .Append(" bits, state: ")
@@ -420,12 +413,12 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
             .Append(ConcurrentBitmap56.VolatileRead(ref _clusterState).ToString())
             .AppendLine(")");
 
-        for (int i = 0; i < _segments.Length; i++)
+        for (int i = 0; i < SEGMENTS_PER_CLUSTER; i++)
         {
             sb.Append(' ', (depth + 1) * 2)
                 .Append($"Segment offset: 0x{_baseAddress + i * SEGMENT_BIT_SIZE:x8}, ")
-                .Append(ConcurrentBitmap56.VolatileRead(ref _segments.GetRefUnsafe(i)).ToString());
-            if (i >= _usedSegmentCount)
+                .Append(ConcurrentBitmap56.VolatileRead(ref _segments[i]).ToString());
+            if (i >= _segmentCount)
             {
                 sb.Append(" (reserved, not in use)");
             }
@@ -437,7 +430,6 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
     {
         if (!disposedValue)
         {
-            _segments.Dispose();
             disposedValue = true;
         }
     }
@@ -454,4 +446,10 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }
+}
+
+[InlineArray(SEGMENTS_PER_CLUSTER)]
+internal struct ConcurrentBitmap56StateCluster
+{
+    private ConcurrentBitmap56State _firstElement;
 }

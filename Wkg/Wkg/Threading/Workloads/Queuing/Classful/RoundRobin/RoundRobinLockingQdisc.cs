@@ -1,4 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Text;
+using Wkg.Common.Extensions;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
 using Wkg.Threading.Workloads.Configuration.Classless;
@@ -324,5 +326,19 @@ internal sealed class RoundRobinLockingQdisc<THandle> : ClassfulQdisc<THandle>, 
         _children = [];
 
         base.DisposeManaged();
+    }
+
+    protected override void ChildrenToTreeString(StringBuilder builder, int indent)
+    {
+        lock (_syncRoot)
+        {
+            builder.AppendIndent(indent).Append($"Local 0: ");
+            ChildToTreeString(_localQueue, builder, indent);
+            for (int i = 1; i < _children.Length; i++)
+            {
+                builder.AppendIndent(indent).Append($"Child {i}: ");
+                ChildToTreeString(_children[i], builder, indent);
+            }
+        }
     }
 }

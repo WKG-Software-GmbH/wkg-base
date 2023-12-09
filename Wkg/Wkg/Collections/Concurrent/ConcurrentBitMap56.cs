@@ -36,6 +36,8 @@ public ref struct ConcurrentBitmap56
     [FieldOffset(7)]
     private byte _guardToken;
 
+    public const int MAX_CAPACITY = 56;
+
     internal ConcurrentBitmap56(ulong state) => _state = state;
 
     /// <summary>

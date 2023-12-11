@@ -158,7 +158,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
                         // in either case, we now have a workload to return
                         workload = candidate;
                         // update the virtual time
-                        GfqState state = (GfqState)workload._state!;
+                        GfqState state = (GfqState)workload._schedulerState!;
                         EventuallyConsistentVirtualTimeTableEntry latestTimingInfo = _timeTable.GetEntryFor(workload);
                         // we assume average execution time for the aggregate
                         // but we assume worst case execution time for the workload itself
@@ -171,7 +171,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
                         // we just changed the virtual finish time of a child, so we need to increment the generation counter
                         Interlocked.Increment(ref _generationCounter);
                         // don't forget to strip our state from the workload
-                        workload._state = state.Strip();
+                        workload._schedulerState = state.Strip();
                         // start the next execution time measurement
                         _timeTable.StartMeasurement(workload);
                         return true;
@@ -279,7 +279,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
                 }
             }
             // we actually found a non-null candidate.
-            if (possibleCandidate._state is not GfqState candidateState)
+            if (possibleCandidate._schedulerState is not GfqState candidateState)
             {
                 // this should never happen, as we only enqueue workloads with an earliest due date state
                 // before we can abort the workload, we must acquire the child qdisc lock
@@ -613,7 +613,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
     private void UpdateWorkloadState(AbstractWorkloadBase workload, GfqWeight weight)
     {
         EventuallyConsistentVirtualTimeTableEntry timingInformation = _timeTable.GetEntryFor(workload);
-        workload._state = new GfqState(workload._state, timingInformation, weight);
+        workload._schedulerState = new GfqState(workload._schedulerState, timingInformation, weight);
     }
 
     public override bool RemoveChild(IClassifyingQdisc<THandle> child) =>

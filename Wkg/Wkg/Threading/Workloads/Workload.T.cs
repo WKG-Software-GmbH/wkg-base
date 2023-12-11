@@ -1,4 +1,5 @@
-﻿using Wkg.Internals.Diagnostic;
+﻿using System.Runtime.CompilerServices;
+using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
 using Wkg.Threading.Workloads.Continuations;
 
@@ -8,7 +9,7 @@ using CommonFlags = WorkloadStatus.CommonFlags;
 
 public abstract class Workload<TResult> : AwaitableWorkload, IWorkload<TResult>
 {
-    private volatile ResultBox<TResult>? _result;
+    private volatile object? _result;
 
     private protected Workload(WorkloadStatus status, WorkloadContextOptions options, CancellationToken cancellationToken)
         : base(status, options, cancellationToken) => Pass();
@@ -26,7 +27,14 @@ public abstract class Workload<TResult> : AwaitableWorkload, IWorkload<TResult>
         if (preTerminationStatus.IsOneOf(CommonFlags.WillCompleteSuccessfully))
         {
             Volatile.Write(ref _exception, null);
-            _result = new ResultBox<TResult>(result);
+            if (typeof(TResult).IsValueType)
+            {
+                _result = new WorkloadResultBox<TResult>(result);
+            }
+            else
+            {
+                _result = result;
+            }
             DebugLog.WriteDiagnostic($"{this}: Successfully completed execution.", LogWriter.Blocking);
             return true;
         }
@@ -92,7 +100,7 @@ public abstract class Workload<TResult> : AwaitableWorkload, IWorkload<TResult>
 
     internal WorkloadResult<TResult> GetResultUnsafe()
     {
-        ResultBox<TResult>? box = _result;
+        object? box = _result;
         TResult? result;
         if (box is null)
         {
@@ -101,7 +109,15 @@ public abstract class Workload<TResult> : AwaitableWorkload, IWorkload<TResult>
         }
         else
         {
-            result = box.Result;
+            // this should get optimized away by the JIT
+            if (typeof(TResult).IsValueType)
+            {
+                result = ReinterpretCast<object, WorkloadResultBox<TResult>>(box).Result;
+            }
+            else
+            {
+                result = Unsafe.As<object, TResult>(ref box);
+            }
         }
         return new(Status, Volatile.Read(ref _exception), result);
     }

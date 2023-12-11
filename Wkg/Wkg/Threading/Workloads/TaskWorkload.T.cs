@@ -1,4 +1,5 @@
-﻿using Wkg.Internals.Diagnostic;
+﻿using System.Runtime.CompilerServices;
+using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
 using Wkg.Threading.Workloads.Continuations;
 
@@ -8,7 +9,7 @@ using CommonFlags = WorkloadStatus.CommonFlags;
 
 public abstract class TaskWorkload<TResult> : AsyncWorkload, IWorkload<TResult>
 {
-    private volatile ResultBox<TResult>? _result;
+    private volatile object? _result;
 
     internal TaskWorkload(WorkloadStatus status, WorkloadContextOptions continuationOptions, CancellationToken cancellationToken) 
         : base(status, continuationOptions, cancellationToken) => Pass();
@@ -26,7 +27,14 @@ public abstract class TaskWorkload<TResult> : AsyncWorkload, IWorkload<TResult>
         if (preTerminationStatus.IsOneOf(CommonFlags.WillCompleteSuccessfully))
         {
             Volatile.Write(ref _exception, null);
-            _result = new ResultBox<TResult>(result);
+            if (typeof(TResult).IsValueType)
+            {
+                _result = new WorkloadResultBox<TResult>(result);
+            }
+            else
+            {
+                _result = result;
+            }
             DebugLog.WriteDiagnostic($"{this}: Successfully completed execution.", LogWriter.Blocking);
             return WorkloadStatus.AsyncSuccess;
         }
@@ -92,7 +100,7 @@ public abstract class TaskWorkload<TResult> : AsyncWorkload, IWorkload<TResult>
 
     internal WorkloadResult<TResult> GetResultUnsafe()
     {
-        ResultBox<TResult>? resultContainer = _result;
+        object? resultContainer = _result;
         TResult? result;
         if (resultContainer is null)
         {
@@ -101,17 +109,17 @@ public abstract class TaskWorkload<TResult> : AsyncWorkload, IWorkload<TResult>
         }
         else
         {
-            result = resultContainer.Result;
+            if (typeof(TResult).IsValueType)
+            {
+                result = ReinterpretCast<object, WorkloadResultBox<TResult>>(resultContainer).Result;
+            }
+            else
+            {
+                result = Unsafe.As<object,TResult>(ref resultContainer);
+            }
         }
         return new(Status, Volatile.Read(ref _exception), result);
     }
 
     WorkloadResult<TResult> IWorkload<TResult>.GetResultUnsafe() => GetResultUnsafe();
-
-    
-}
-
-internal class ResultBox<TResult>(TResult result)
-{
-    public TResult Result { get; } = result;
 }

@@ -36,15 +36,21 @@ public class Tests
     private static readonly Random _lockingRandom = new(42);
     private static readonly ManualResetEventSlim _lockingMres = new(false);
 
-    public ClassfulWorkloadFactory<int>[,] _bitmaps = null!;
+    private static readonly Random _lockingBitmapRandom = new(42);
+    private static readonly ManualResetEventSlim _lockingBitmapMres = new(false);
+
+    private ClassfulWorkloadFactory<int>[,] _bitmaps = null!;
 
     private ClassfulWorkloadFactory<int>[,] _locking = null!;
+
+    private ClassfulWorkloadFactory<int>[,] _lockingBitmaps = null!;
 
     [GlobalSetup]
     public void GlobalSetup()
     {
         _bitmaps = new ClassfulWorkloadFactory<int>[MAX_CONCURRENCY, MAX_DEPTH];
         _locking = new ClassfulWorkloadFactory<int>[MAX_CONCURRENCY, MAX_DEPTH];
+        _lockingBitmaps = new ClassfulWorkloadFactory<int>[MAX_CONCURRENCY, MAX_DEPTH];
         for (int concurrency = 0; concurrency < MAX_CONCURRENCY; concurrency++)
         {
             for (int depth = 0; depth < MAX_DEPTH; depth++)
@@ -52,6 +58,7 @@ public class Tests
                 // concurrency and depth are 1-based (obviously), so adjust array indices accordingly
                 _bitmaps[concurrency, depth] = CreateBitmapFactory(concurrency + 1, depth + 1, BranchingFactor);
                 _locking[concurrency, depth] = CreateLockingFactory(concurrency + 1, depth + 1, BranchingFactor);
+                _lockingBitmaps[concurrency, depth] = CreateLockingBitmapFactory(concurrency + 1, depth + 1, BranchingFactor);
             }
         }
     }
@@ -112,6 +119,34 @@ public class Tests
         }
     }
 
+    public static ClassfulWorkloadFactory<int> CreateLockingBitmapFactory(int concurrency, int depth, int branchingFactor)
+    {
+        HandleCounter handleCounter = new(2);
+        return WorkloadFactoryBuilder.Create<int>()
+            .UseMaximumConcurrency(concurrency)
+            .UseClassfulRoot<PrioFastLockingBitmap<int>>(1, root => ConfigureLockingBitmapLevel(root, depth - 1, branchingFactor, handleCounter));
+    }
+
+    private static void ConfigureLockingBitmapLevel(PrioFastLockingBitmap<int> builder, int remainingDepth, int branchingFactor, HandleCounter nextHandle)
+    {
+        if (remainingDepth == 0)
+        {
+            for (int i = 0; i < branchingFactor; i++, nextHandle.Handle++)
+            {
+                builder.AddClasslessChild<Fifo>(nextHandle.Handle, i);
+            }
+        }
+        else
+        {
+            for (int i = 0; i < branchingFactor; i++)
+            {
+                int handle = nextHandle.Handle;
+                nextHandle.Handle++;
+                builder.AddClassfulChild<PrioFastLockingBitmap<int>>(handle, i, child => ConfigureLockingBitmapLevel(child, remainingDepth - 1, branchingFactor, nextHandle));
+            }
+        }
+    }
+
     public static int NodeCount(int depth, int branchingFactor) => (int)(Math.Pow(branchingFactor, depth + 1) - 1) / (branchingFactor - 1);
 
     [Benchmark]
@@ -125,9 +160,9 @@ public class Tests
         {
             bitmap.Schedule(_bitmapMres.Wait);
         }
+        int handle = _bitmapRandom.Next(1, totalNodes + 1);
         for (int i = 0; i < workloads.Length; i++)
         {
-            int handle = _bitmapRandom.Next(1, totalNodes + 1);
             workloads.Array[i] = bitmap.ScheduleAsync(handle, Work);
         }
         _bitmapMres.Set();
@@ -146,12 +181,33 @@ public class Tests
         {
             locking.Schedule(_lockingMres.Wait);
         }
+        int handle = _lockingRandom.Next(1, totalNodes + 1);
         for (int i = 0; i < workloads.Length; i++)
         {
-            int handle = _lockingRandom.Next(1, totalNodes + 1);
             workloads.Array[i] = locking.ScheduleAsync(handle, Work);
         }
         _lockingMres.Set();
+        await Workload.WhenAll(workloads.Array[..workloads.Length]);
+        ArrayPool.Return(workloads);
+    }
+
+    [Benchmark]
+    public async Task LockingBitmap()
+    {
+        PooledArray<AwaitableWorkload> workloads = ArrayPool.Rent<AwaitableWorkload>(WorkloadCount);
+        ClassfulWorkloadFactory<int> lockingBitmap = _lockingBitmaps[Concurrency - 1, Depth - 1];
+        int totalNodes = NodeCount(Depth, BranchingFactor);
+        _lockingBitmapMres.Reset();
+        for (int i = 0; i < Concurrency; i++)
+        {
+            lockingBitmap.Schedule(_lockingBitmapMres.Wait);
+        }
+        int handle = _lockingBitmapRandom.Next(1, totalNodes + 1);
+        for (int i = 0; i < workloads.Length; i++)
+        {
+            workloads.Array[i] = lockingBitmap.ScheduleAsync(handle, Work);
+        }
+        _lockingBitmapMres.Set();
         await Workload.WhenAll(workloads.Array[..workloads.Length]);
         ArrayPool.Return(workloads);
     }

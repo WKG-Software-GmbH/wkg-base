@@ -9,5 +9,5 @@ public abstract class QueuingStateNode
         _inner = inner;
     }
 
-    internal QueuingStateNode? Strip() => _inner;
+    public QueuingStateNode? Strip() => _inner;
 }

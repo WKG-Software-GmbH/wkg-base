@@ -33,6 +33,7 @@ public readonly struct WorkloadStatus
     // internal flags
     private const uint INTERNAL_POOLED_VALUE = 0x10000u;
     private const uint INTERNAL_ASYNC_SUCCESS_VALUE = 0x20000u;
+    private const uint INTERNAL_CONTINUATIONS_INVOKED_VALUE = 0x40000u;
 
     // we use a simple unsafe reinterpret_cast to convert between the uint and the enum
     // which makes conversions a zero-cost operation
@@ -92,6 +93,11 @@ public readonly struct WorkloadStatus
     internal static WorkloadStatus AsyncSuccess => INTERNAL_ASYNC_SUCCESS_VALUE;
 
     /// <summary>
+    /// Continuations have been invoked for this workload.
+    /// </summary>
+    internal static WorkloadStatus ContinuationsInvoked => INTERNAL_CONTINUATIONS_INVOKED_VALUE;
+
+    /// <summary>
     /// Reinterprets the specified <paramref name="status"/> as a <see cref="uint"/>.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -116,6 +122,8 @@ public readonly struct WorkloadStatus
         CANCELED_VALUE => nameof(Canceled),
         CANCELLATION_REQUESTED_VALUE => nameof(CancellationRequested),
         INTERNAL_POOLED_VALUE => nameof(Pooled),
+        INTERNAL_ASYNC_SUCCESS_VALUE => nameof(AsyncSuccess),
+        INTERNAL_CONTINUATIONS_INVOKED_VALUE => nameof(ContinuationsInvoked),
         _ => "Unknown"
     };
 

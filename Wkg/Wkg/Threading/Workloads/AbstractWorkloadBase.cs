@@ -44,7 +44,7 @@ public abstract class AbstractWorkloadBase
     /// </summary>
     public virtual bool IsCompleted => Status.IsOneOf(CommonFlags.Completed);
 
-    internal virtual bool ContinuationsInvoked => ReferenceEquals(Volatile.Read(ref _continuation), _workloadCompletionSentinel);
+    internal virtual bool ContinuationsInvoked => ReferenceEquals(Volatile.Read(in _continuation), _workloadCompletionSentinel);
 
     internal virtual void RegisterServiceProvider(IWorkloadServiceProvider serviceProvider) => Pass();
 
@@ -123,7 +123,7 @@ public abstract class AbstractWorkloadBase
             return false;
         }
         // attempt to simply CAS the continuation in
-        object? currentContinuation = Volatile.Read(ref _continuation);
+        object? currentContinuation = Volatile.Read(in _continuation);
         if (currentContinuation == null && Interlocked.CompareExchange(ref _continuation, continuation, null) == null)
         {
             DebugLog.WriteDiagnostic($"{this}: Successfully set continuation.", LogWriter.Blocking);
@@ -139,7 +139,7 @@ public abstract class AbstractWorkloadBase
     private protected virtual bool TryAddContinuationComplex(object continuation, bool scheduleBeforeOthers)
     {
         // take a snapshot of the current continuation
-        object? currentContinuation = Volatile.Read(ref _continuation);
+        object? currentContinuation = Volatile.Read(in _continuation);
         Debug.Assert(currentContinuation != null);
 
         // we know that the current continuation is either an simple continuation action, a list of continuation actions, or the sentinel
@@ -155,7 +155,7 @@ public abstract class AbstractWorkloadBase
         }
         // current continuation is now either a list of continuation actions, or the sentinel
         // resample the current continuation
-        currentContinuation = Volatile.Read(ref _continuation);
+        currentContinuation = Volatile.Read(in _continuation);
 
         Debug.Assert(ReferenceEquals(currentContinuation, _workloadCompletionSentinel) || currentContinuation is List<object?>);
 
@@ -165,7 +165,7 @@ public abstract class AbstractWorkloadBase
             lock (list)
             {
                 // it could be that the sentinel was set in the meantime while we were busy acquiring the lock
-                if (!ReferenceEquals(Volatile.Read(ref _continuation), _workloadCompletionSentinel))
+                if (!ReferenceEquals(Volatile.Read(in _continuation), _workloadCompletionSentinel))
                 {
                     if (list.Count == list.Capacity)
                     {
@@ -206,6 +206,9 @@ public abstract class AbstractWorkloadBase
         object? continuations = Interlocked.Exchange(ref _continuation, _workloadCompletionSentinel);
 
         Debug.Assert(!ReferenceEquals(continuations, _workloadCompletionSentinel), "Continuation sentinel was already set. This should never happen.");
+        WorkloadStatus previousStatus = Interlocked.Or(ref _status, WorkloadStatus.ContinuationsInvoked);
+        Debug.Assert(previousStatus.IsOneOf(CommonFlags.Completed), "Workload was not completed before running continuations.");
+        Debug.Assert((previousStatus & WorkloadStatus.ContinuationsInvoked) == 0, "Continuations were already invoked.");
 
         // decide what to do based on the current continuation
         switch (continuations)
@@ -262,7 +265,7 @@ public abstract class AbstractWorkloadBase
     internal virtual void RemoveContinuation(object continuation)
     {
         DebugLog.WriteDiagnostic($"{this}: Attempting to remove continuation.", LogWriter.Blocking);
-        object? currentContinuation = Volatile.Read(ref _continuation);
+        object? currentContinuation = Volatile.Read(in _continuation);
         if (ReferenceEquals(currentContinuation, _workloadCompletionSentinel))
         {
             DebugLog.WriteDiagnostic($"{this}: Continuation sentinel was set, nothing to do.", LogWriter.Blocking);
@@ -276,7 +279,7 @@ public abstract class AbstractWorkloadBase
                 // it is not the continuation we were looking for or someone else replace the original continuation with a list
                 // or the sentinel was set in the meantime
                 // so either it's the list now, or the sentinel
-                list = Volatile.Read(ref _continuation) as List<object?>;
+                list = Volatile.Read(in _continuation) as List<object?>;
                 DebugLog.WriteDiagnostic($"{this}: Lost race to replace continuation with list while removing continuation.", LogWriter.Blocking);
             }
             else
@@ -286,12 +289,12 @@ public abstract class AbstractWorkloadBase
                 return;
             }
         }
-        Debug.Assert(list is not null || ReferenceEquals(Volatile.Read(ref _continuation), _workloadCompletionSentinel));
+        Debug.Assert(list is not null || ReferenceEquals(Volatile.Read(in _continuation), _workloadCompletionSentinel));
         if (list is not null)
         {
             lock (list)
             {
-                if (!ReferenceEquals(Volatile.Read(ref _continuation), _workloadCompletionSentinel))
+                if (!ReferenceEquals(Volatile.Read(in _continuation), _workloadCompletionSentinel))
                 {
                     DebugLog.WriteDiagnostic($"{this}: Removing continuation from list.", LogWriter.Blocking);
                     int index = list.IndexOf(continuation);

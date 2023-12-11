@@ -27,7 +27,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
 
     private uint _generationCounter;
     private readonly ConcurrentBitmap _hasDataMap;
-    private volatile ChildQdiscState[] _childStates;
+    private volatile ChildClass[] _childClasses;
     private int _maxRoutingPathDepthEncountered = 2;
 
     public GfqQdisc(THandle handle, GfqQdiscParams parameters) : base(handle, parameters.Predicate)
@@ -45,7 +45,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         _virtualExecutionTimeFunction = parameters.VirtualExecutionTimeFunction;
         _virtualAccumulatedFinishTimeFunction = parameters.VirtualAccumulatedFinishTimeFunction;
         _localQueue = parameters.Inner.BuildUnsafe(default(THandle), MatchNothingPredicate);
-        _childStates = [new ChildQdiscState(_localQueue, new GfqWeight(1d, 1d))];
+        _childClasses = [new ChildClass(_localQueue, new GfqWeight(1d, 1d))];
         // by default we have one child, so the bit map is initialized with a single bit
         // if we have more children, the bit map will be resized automatically
         _hasDataMap = new ConcurrentBitmap(1);
@@ -69,7 +69,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
             // however, we need to ensure that no additional workloads are enqueued while we are counting
             using ILockOwnership exclusiveSchedulerLock = _schedulerLock.AcquireWriteLock();
             int count = 0;
-            ChildQdiscState[] childStates = _childStates;
+            ChildClass[] childStates = _childClasses;
             for (int i = 0; i < childStates.Length; i++)
             {
                 count += childStates[i].Child.BestEffortCount;
@@ -98,7 +98,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         DebugLog.WriteDiagnostic($"{this}: qdisc is not known to be empty. Taking slow path.", LogWriter.Blocking);
 
         SpinWait spinner = default;
-        ChildQdiscState[] childStates = _childStates;
+        ChildClass[] childStates = _childClasses;
 
         // we need to keep trying until we either find a candidate or we know that the qdisc is empty
         // if we find a candidate, we return immediately
@@ -136,7 +136,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         DebugLog.WriteDiagnostic($"{this}: qdisc is not known to be empty. Taking slow path.", LogWriter.Blocking);
 
         SpinWait spinner = default;
-        ChildQdiscState[] childStates = _childStates;
+        ChildClass[] childStates = _childClasses;
 
         // we need to keep trying until we either find a candidate or we know that the qdisc is empty
         // if we find a candidate, we return immediately
@@ -144,7 +144,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         {
             if (TryFindBestCandidateUnsafe(childStates, workerId, out int candidateIndex, out AbstractWorkloadBase? candidate) && candidate is not null)
             {
-                ChildQdiscState child = childStates[candidateIndex];
+                ChildClass child = childStates[candidateIndex];
                 // we found a candidate, attempt to dequeue it
                 lock (child.QdiscLock)
                 {
@@ -192,7 +192,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         return false;
     }
 
-    private bool TryFindBestCandidateUnsafe(ChildQdiscState[] childStates, int workerId, out int candidateIndex, out AbstractWorkloadBase? candidate)
+    private bool TryFindBestCandidateUnsafe(ChildClass[] childStates, int workerId, out int candidateIndex, out AbstractWorkloadBase? candidate)
     {
         // REQUIRES: read lock on _childModificationLock
         // prepare local variables for the candidate search
@@ -215,7 +215,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
                 continue;
             }
             // found a potentially non-empty child (we don't know for sure yet)
-            ChildQdiscState childState = childStates[i];
+            ChildClass childState = childStates[i];
             // get the next candidate from the child.
             // this is basically a peek operation
             // we keep candidates in a special property of the child qdisc state to avoid having to call into the child qdisc itself
@@ -338,7 +338,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         return true;
     }
 
-    private bool TryRepopulateCandidateUnsafe(ChildQdiscState child, int workerId, int childIndex, [NotNullWhen(true)] out AbstractWorkloadBase? workload)
+    private bool TryRepopulateCandidateUnsafe(ChildClass child, int workerId, int childIndex, [NotNullWhen(true)] out AbstractWorkloadBase? workload)
     {
         // before calling this method, the caller must own the following locks:
         // _childModificationLock
@@ -381,7 +381,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         using ILockOwnership readLock = _childModificationLock.AcquireReadLock();
 
         // snap a local copy of the children
-        ChildQdiscState[] childStates = _childStates;
+        ChildClass[] childStates = _childClasses;
         for (int i = 0; i < childStates.Length; i++)
         {
             if (childStates[i].Child.CanClassify(state))
@@ -398,11 +398,11 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         // multiple threads are allowed to enqueue, just counting workloads (Count property) must be exclusive
         using ILockOwnership enqueueLock = _schedulerLock.AcquireReadLock();
 
-        ChildQdiscState[] childStates = _childStates;
+        ChildClass[] childStates = _childClasses;
         RoutingPath<THandle> path = new(Volatile.Read(ref _maxRoutingPathDepthEncountered));
         for (int i = 0; i < childStates.Length; i++)
         {
-            ChildQdiscState childState = childStates[i];
+            ChildClass childState = childStates[i];
             if (childState.Child.Handle.Equals(handle))
             {
                 UpdateWorkloadState(workload, childState.Weight);
@@ -456,10 +456,10 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         using (ILockOwnership readLock = _childModificationLock.AcquireReadLock())
         {
             using ILockOwnership enqueueLock = _schedulerLock.AcquireReadLock();
-            ChildQdiscState[] childStates = _childStates;
+            ChildClass[] childStates = _childClasses;
             for (int i = 0; i < childStates.Length; i++)
             {
-                ChildQdiscState childState = childStates[i];
+                ChildClass childState = childStates[i];
                 if (childState.Child.CanClassify(state))
                 {
                     UpdateWorkloadState(workload, childState.Weight);
@@ -489,7 +489,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
     {
         using ILockOwnership readLock = _childModificationLock.AcquireReadLock();
 
-        ChildQdiscState[] childStates = _childStates;
+        ChildClass[] childStates = _childClasses;
         for (int i = 0; i < childStates.Length; i++)
         {
             IClassifyingQdisc<THandle> child = childStates[i].Child;
@@ -511,10 +511,10 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
     protected override void WillEnqueueFromRoutingPath(ref readonly RoutingPathNode<THandle> routingPathNode, AbstractWorkloadBase workload)
     {
         using ILockOwnership readLock = _childModificationLock.AcquireReadLock();
-        ChildQdiscState[] childStates = _childStates;
+        ChildClass[] childStates = _childClasses;
 
         int index = routingPathNode.Offset;
-        ChildQdiscState? childState = null;
+        ChildClass? childState = null;
 
         if (index < childStates.Length && childStates[index].Child.Handle.Equals(routingPathNode.Handle))
         {
@@ -567,7 +567,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         using ILockOwnership enqueueLock = _schedulerLock.AcquireReadLock();
 
         const int localQueueIndex = 0;
-        ChildQdiscState[] childStates = _childStates;
+        ChildClass[] childStates = _childClasses;
 
         UpdateWorkloadState(workload, childStates[0].Weight);
         // update the emptiness tracking
@@ -667,8 +667,8 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         }
 
         // remove the child and resize the buffers
-        ChildQdiscState[] oldChildStates = _childStates;
-        ChildQdiscState[] newChildStates = new ChildQdiscState[oldChildStates.Length - 1];
+        ChildClass[] oldChildStates = _childClasses;
+        ChildClass[] newChildStates = new ChildClass[oldChildStates.Length - 1];
         int index = -1;
         for (int i = 0; i < oldChildStates.Length && i < newChildStates.Length; i++)
         {
@@ -685,7 +685,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
 
         // update the emptiness tracking
         _hasDataMap.RemoveBitAt(index, shrink: true);
-        _childStates = newChildStates;
+        _childClasses = newChildStates;
         return true;
     }
 
@@ -699,7 +699,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
     {
         using ILockOwnership writeLock = _childModificationLock.AcquireWriteLock();
 
-        ChildQdiscState[] oldChildStates = _childStates;
+        ChildClass[] oldChildStates = _childClasses;
 
         if (TryFindChildUnsafe(child.Handle, out _))
         {
@@ -710,7 +710,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         // link the child qdisc to the parent qdisc first
         child.InternalInitialize(this);
 
-        ChildQdiscState[] newChildStates = new ChildQdiscState[oldChildStates.Length + 1];
+        ChildClass[] newChildStates = new ChildClass[oldChildStates.Length + 1];
         // copy the old child states and reset all virtual finish times
         for (int i = 0; i < oldChildStates.Length; i++)
         {
@@ -720,7 +720,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
             // we are the only thread currently allowed to do anything on this qdisc
             Volatile.Write(ref newChildStates[i].LastVirtualFinishTimeRef, 0);
         }
-        newChildStates[^1] = new ChildQdiscState(child, weight);
+        newChildStates[^1] = new ChildClass(child, weight);
         // update the emptiness tracking
         // instead of inserting a new bit, we just grow and update the last bit
         // this is a cheaper operation as we don't need to hold a write lock for the update
@@ -730,7 +730,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         _hasDataMap.UpdateBit(newChildStates.Length - 1, isSet: false);
 
         // done. write back the new child states
-        _childStates = newChildStates;
+        _childClasses = newChildStates;
         return true;
     }
 
@@ -745,7 +745,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
 
     private bool TryFindChildUnsafe(THandle handle, [NotNullWhen(true)] out IClassifyingQdisc<THandle>? child)
     {
-        ChildQdiscState[] childStates = _childStates;
+        ChildClass[] childStates = _childClasses;
         for (int i = 0; i < childStates.Length; i++)
         {
             child = childStates[i].Child;
@@ -768,7 +768,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
     {
         // forward to children, no lock needed. if children are removed then they don't need to be notified
         // and if new children are added, they shouldn't know about the worker anyway
-        ChildQdiscState[] childStates = _childStates;
+        ChildClass[] childStates = _childClasses;
         for (int i = 0; i < childStates.Length; i++)
         {
             childStates[i].Child.OnWorkerTerminated(workerId);
@@ -784,8 +784,8 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         _schedulerLock.Dispose();
         _childModificationLock.Dispose();
         _hasDataMap.Dispose();
-        ChildQdiscState[] childStates = Interlocked.Exchange(ref _childStates, []);
-        foreach (ChildQdiscState childState in childStates)
+        ChildClass[] childStates = Interlocked.Exchange(ref _childClasses, []);
+        foreach (ChildClass childState in childStates)
         {
             childState.Child.Complete();
             childState.Child.Dispose();
@@ -795,15 +795,15 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
     protected override void ChildrenToTreeString(StringBuilder builder, int indent)
     {
         using ILockOwnership readLock = _childModificationLock.AcquireReadLock();
-        for (int i = 0; i < _childStates.Length; i++)
+        for (int i = 0; i < _childClasses.Length; i++)
         {
-            builder.AppendIndent(indent).Append($"Child {i} (Weight: {_childStates[i].Weight}): ");
-            ChildToTreeString(_childStates[i].Child, builder, indent);
+            builder.AppendIndent(indent).Append($"Child {i} (Weight: {_childClasses[i].Weight}): ");
+            ChildToTreeString(_childClasses[i].Child, builder, indent);
         }
     }
 
     [DebuggerDisplay("Qdisc: {Child}, Count: {Child.Count} LVFT: {_lastVirtualFinishTime}, Candidate: {_candidate}")]
-    private class ChildQdiscState
+    private class ChildClass
     {
         private double _lastVirtualFinishTime;
         private AbstractWorkloadBase? _candidate;
@@ -814,7 +814,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
 
         public object QdiscLock { get; }
 
-        public ChildQdiscState(IClassifyingQdisc<THandle> child, GfqWeight weight)
+        public ChildClass(IClassifyingQdisc<THandle> child, GfqWeight weight)
         {
             Child = child;
             QdiscLock = new object();

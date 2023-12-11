@@ -23,7 +23,7 @@ internal class WorkloadImplWithDI : Workload
     private protected override void ExecuteCore()
     {
         Debug.Assert(_serviceProvider is not null);
-        _action(_serviceProvider!, new CancellationFlag(this));
+        _action(_serviceProvider, new CancellationFlag(this));
     }
 
     internal override nint GetPayloadFunctionPointer() => _action.Method.MethodHandle.GetFunctionPointer();

@@ -160,7 +160,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
                 {
                     // no more tasks, exit
                     DebugLog.WriteDebug($"Worker holding ID {previousWorkerId} previously found no tasks, exiting.", LogWriter.Blocking);
-                    if (_state.VolatileWorkerCount == 0 && !_rootQdisc.IsEmpty)
+                    if (_state.VolatileWorkerCount == 0)
                     {
                         DebugLog.WriteDiagnostic($"Last worker {workerId} resigned.", LogWriter.Blocking);
                     }
@@ -208,10 +208,9 @@ internal class WorkloadScheduler : INotifyWorkScheduled
         DebugLog.WriteInfo($"All workers terminated.", LogWriter.Blocking);
     }
 
-    private protected struct WorkerState(int maximumConcurrencyLevel)
+    private protected struct WorkerState(int _maximumConcurrencyLevel)
     {
-        private readonly ConcurrentBag<int> _workerIds = new(Enumerable.Range(0, maximumConcurrencyLevel));
-        private readonly int _maximumConcurrencyLevel = maximumConcurrencyLevel;
+        private readonly ConcurrentBag<int> _workerIds = new(Enumerable.Range(0, _maximumConcurrencyLevel));
         private int _currentDegreeOfParallelism = 0;
 
         public int VolatileWorkerCount => Volatile.Read(ref _currentDegreeOfParallelism);
@@ -247,7 +246,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
     }
 
     [StructLayout(LayoutKind.Explicit, Size = sizeof(ulong))]
-    private protected readonly struct WorkerStateSnapshot(int callerWorkerId, int workerCount)
+    private protected readonly ref struct WorkerStateSnapshot(int callerWorkerId, int workerCount)
     {
         [FieldOffset(0)]
         public readonly int CallerWorkerId = callerWorkerId;

@@ -7,7 +7,6 @@ namespace Wkg.Threading.Workloads;
 /// <summary>
 /// Represents a cancellation request for a workload.
 /// </summary>
-// TODO: somehow allow CancellationFlags to create CancellationToken instances (for TaskWorkloads)
 public readonly struct CancellationFlag
 {
     private static readonly AwaitableWorkload _neverCancelledWorkload = new WorkloadImpl(null!, WorkloadStatus.Invalid, null!, CancellationToken.None);
@@ -27,6 +26,12 @@ public readonly struct CancellationFlag
         // WorkloadStatus.Canceled is a terminal state, so it should never be set during workload execution
         // we still check for it, to be sure to exit as soon as possible in case of a scheduler bug
         _workload.Status.IsOneOf(WorkloadStatus.CancellationRequested | WorkloadStatus.Canceled);
+
+    /// <summary>
+    /// Gets the <see cref="CancellationToken"/> that was passed to the workload when it was scheduled, or creates a new <see cref="CancellationToken"/> that will be canceled when this flag is set.
+    /// </summary>
+    /// <returns>The <see cref="CancellationToken"/> that was passed to the workload when it was scheduled, or a new <see cref="CancellationToken"/> that will be canceled when this flag is set.</returns>
+    public CancellationToken GetCancellationToken() => _workload.GetOrCreateCancellationToken();
 
     /// <inheritdoc cref="CancellationToken.ThrowIfCancellationRequested"/>
     public void ThrowIfCancellationRequested()

@@ -18,7 +18,7 @@ public abstract class AbstractWorkloadBase
 {
     private protected uint _status;
     // this state may be used by qdiscs to store additional scheduling information
-    internal volatile QueuingStateNode? _state;
+    internal volatile QueuingStateNode? _schedulerState;
 
     // continuations
     private protected static readonly object _workloadCompletionSentinel = new();
@@ -35,9 +35,9 @@ public abstract class AbstractWorkloadBase
     public ulong Id { get; } = WorkloadIdGenerator.Generate();
 
     /// <summary>
-    /// Retrieves the current <see cref="WorkloadStatus"/> of this workload.
+    /// Retrives the current <see cref="WorkloadStatus"/> of this workload.
     /// </summary>
-    public WorkloadStatus Status => Volatile.Read(ref _status);
+    public WorkloadStatus Status => Volatile.Read(in _status);
 
     /// <summary>
     /// Indicates whether the workload is in any of the terminal states: <see cref="WorkloadStatus.RanToCompletion"/>, <see cref="WorkloadStatus.Faulted"/>, or <see cref="WorkloadStatus.Canceled"/>.

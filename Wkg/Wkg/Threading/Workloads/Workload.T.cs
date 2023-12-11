@@ -8,7 +8,7 @@ using CommonFlags = WorkloadStatus.CommonFlags;
 
 public abstract class Workload<TResult> : AwaitableWorkload, IWorkload<TResult>
 {
-    private TResult? _result;
+    private volatile ResultBox<TResult>? _result;
 
     private protected Workload(WorkloadStatus status, WorkloadContextOptions options, CancellationToken cancellationToken)
         : base(status, options, cancellationToken) => Pass();
@@ -26,7 +26,7 @@ public abstract class Workload<TResult> : AwaitableWorkload, IWorkload<TResult>
         if (preTerminationStatus.IsOneOf(CommonFlags.WillCompleteSuccessfully))
         {
             Volatile.Write(ref _exception, null);
-            _result = result;
+            _result = new ResultBox<TResult>(result);
             DebugLog.WriteDiagnostic($"{this}: Successfully completed execution.", LogWriter.Blocking);
             return true;
         }
@@ -90,7 +90,21 @@ public abstract class Workload<TResult> : AwaitableWorkload, IWorkload<TResult>
         _result = default;
     }
 
-    internal WorkloadResult<TResult> GetResultUnsafe() => new(Status, Volatile.Read(ref _exception), _result);
+    internal WorkloadResult<TResult> GetResultUnsafe()
+    {
+        ResultBox<TResult>? box = _result;
+        TResult? result;
+        if (box is null)
+        {
+            DebugLog.WriteWarning($"{this}: Accessing workload result before it was set.", LogWriter.Blocking);
+            result = default;
+        }
+        else
+        {
+            result = box.Result;
+        }
+        return new(Status, Volatile.Read(ref _exception), result);
+    }
 
     WorkloadResult<TResult> IWorkload<TResult>.GetResultUnsafe() => GetResultUnsafe();
 }

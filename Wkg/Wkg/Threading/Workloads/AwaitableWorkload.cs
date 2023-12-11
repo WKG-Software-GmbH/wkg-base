@@ -21,6 +21,7 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
     // result fields
     private protected Exception? _exception;
     private protected CancellationTokenRegistration? _cancellationTokenRegistration;
+    private protected volatile CancellationTokenSource? _lazyCancellationTokenSource;
 
     private readonly WorkloadContextOptions _continuationOptions;
 
@@ -37,6 +38,47 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
     {
         DebugLog.WriteDiagnostic($"{this}: cancellation token registration indicates cancellation request.", LogWriter.Blocking);
         TryCancel();
+    }
+
+    internal CancellationToken GetOrCreateCancellationToken()
+    {
+        // if an external cancellation token was provided, we can just return it
+        if (_cancellationTokenRegistration.HasValue)
+        {
+            return _cancellationTokenRegistration.Value.Token;
+        }
+        // we need to create a new cancellation token and link it to the workload cancellation logic
+        CancellationTokenSource? cts = _lazyCancellationTokenSource;
+        if (cts is null)
+        {
+            cts = new CancellationTokenSource();
+            // possibilities:
+            // 1. we successfully set the field:
+            //      - either we are faster than any attempt to cancel the workload (in which case we can just return the token)
+            //      - or the workload was already canceled (in which case we need to signal the cts). we need to lock the cts to prevent concurrent cancellation
+            // 2. another thread was faster (in which case we need to dispose our cts and return the one that was set by the other thread)
+            if (Interlocked.CompareExchange(ref _lazyCancellationTokenSource, cts, null) is null)
+            {
+                // we successfully set the field
+                // we need to lock the cts to prevent concurrent cancellation
+                lock (cts)
+                {
+                    // check if the workload was already canceled
+                    if (!cts.IsCancellationRequested && Status.IsOneOf(WorkloadStatus.CancellationRequested | WorkloadStatus.Canceled))
+                    {
+                        // the workload was already canceled, we need to signal the cts
+                        cts.Cancel();
+                    }
+                }
+            }
+            else
+            {
+                // another thread was faster
+                // dispose the cts
+                cts.Dispose();
+            }
+        }
+        return cts.Token;
     }
 
     /// <summary>
@@ -61,12 +103,13 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
         // try to abort from pre-execution state
         if (Atomic.TryTestAnyFlagsExchange(ref _status, WorkloadStatus.Canceled, CommonFlags.PreExecution))
         {
+            // we successfully transitioned to the canceled state
             DebugLog.WriteDiagnostic($"{this}: Successfully canceled workload from pre-execution state.", LogWriter.Blocking);
             // attempt to remove the workload from the qdisc
             IQdisc? qdisc, resampledQdisc;
             do
             {
-                qdisc = Volatile.Read(ref _qdisc);
+                qdisc = Volatile.Read(in _qdisc);
                 if (qdisc is null)
                 {
                     DebugLog.WriteDiagnostic($"{this}: Workload is not bound to a qdisc, nothing to do.", LogWriter.Blocking);
@@ -96,6 +139,19 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
         // we can only request cancellation but can't guarantee it will be honored
         if (Interlocked.CompareExchange(ref _status, WorkloadStatus.CancellationRequested, WorkloadStatus.Running) == WorkloadStatus.Running)
         {
+            CancellationTokenSource? cts = _lazyCancellationTokenSource;
+            // if we have a cancellation token source, we can try to cancel it
+            if (cts is not null)
+            {
+                lock (cts)
+                {
+                    if (!cts.IsCancellationRequested)
+                    {
+                        DebugLog.WriteDiagnostic($"{this}: Requesting cancellation of workload cancellation token.", LogWriter.Blocking);
+                        cts.Cancel();
+                    }
+                }
+            }
             // it is the responsibility of the workload to check for cancellation
             DebugLog.WriteDiagnostic($"{this}: Successfully requested cancellation of workload.", LogWriter.Blocking);
             return true;
@@ -227,7 +283,7 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
         }
     FAILURE:
         // not all qdiscs may support removal of canceled workloads)
-        if ((preTerminationStatus = Volatile.Read(ref _status)) != WorkloadStatus.Canceled)
+        if ((preTerminationStatus = Volatile.Read(in _status)) != WorkloadStatus.Canceled)
         {
             // log this occurrence as it should never happen
             WorkloadSchedulingException exception = WorkloadSchedulingException.CreateVirtual($"Workload is in an invalid state. This is a bug. Encountered Status '{preTerminationStatus}' during execution attempt.");

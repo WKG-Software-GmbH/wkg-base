@@ -16,7 +16,7 @@ public class EventuallyConsistentVirtualTimeTableEntry
     // it's a cheap version of the standard deviation, and is used to determine the confidence interval of the average.
     private double _mad;
 
-    public unsafe void AddMeasurement(long delta)
+    public void AddMeasurement(long delta)
     {
         // we increment the invocation count first, and then resample it to be used for the denominator
         // note that between the increment and a successful CAS, the average may be slightly off.

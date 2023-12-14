@@ -184,4 +184,37 @@ public static class WorkloadFactoryExtensions
         }
         return results;
     }
+
+    public static void TransformAll<THandle, TState, TResult>(this AbstractClasslessWorkloadFactory<THandle> factory, THandle handle, IEnumerable<TState> states, Func<TState, CancellationFlag, TResult> producer, Action<WorkloadResult<TResult>> consumer, CancellationToken cancellationToken)
+        where THandle : unmanaged =>
+        TransformAllCore(states.Select(state => factory.ScheduleAsync(handle, state, producer, cancellationToken)), consumer);
+
+    public static void TransformAll<THandle, TState, TResult>(this AbstractClasslessWorkloadFactory<THandle> factory, THandle handle, IEnumerable<TState> states, Func<TState, CancellationFlag, TResult> producer, Action<WorkloadResult<TResult>> consumer)
+        where THandle : unmanaged =>
+        TransformAllCore(states.Select(state => factory.ScheduleAsync(handle, state, producer)), consumer);
+
+    private static void TransformAllCore<TResult>(IEnumerable<Workload<TResult>> workloads, Action<WorkloadResult<TResult>> consumer)
+    {
+        foreach (Workload<TResult> workload in workloads)
+        {
+            workload.ContinueWith(consumer);
+        }
+    }
+
+    public static Task TransformAllAsync<THandle, TState, TResult>(this AbstractClasslessWorkloadFactory<THandle> factory, THandle handle, IEnumerable<TState> states, Func<TState, CancellationFlag, TResult> producer, Action<WorkloadResult<TResult>> consumer, CancellationToken cancellationToken)
+        where THandle : unmanaged =>
+        TransformAllCoreAsync(states.Select(state => factory.ScheduleAsync(handle, state, producer, cancellationToken)), consumer);
+
+    public static Task TransformAllAsync<THandle, TState, TResult>(this AbstractClasslessWorkloadFactory<THandle> factory, THandle handle, IEnumerable<TState> states, Func<TState, CancellationFlag, TResult> producer, Action<WorkloadResult<TResult>> consumer)
+        where THandle : unmanaged =>
+        TransformAllCoreAsync(states.Select(state => factory.ScheduleAsync(handle, state, producer)), consumer);
+
+    private static Task TransformAllCoreAsync<TResult>(IEnumerable<Workload<TResult>> workloads, Action<WorkloadResult<TResult>> consumer)
+    {
+        foreach (Workload<TResult> workload in workloads)
+        {
+            workload.ContinueWith(consumer);
+        }
+        return Workload.WhenAll(workloads).AsTask();
+    }
 }

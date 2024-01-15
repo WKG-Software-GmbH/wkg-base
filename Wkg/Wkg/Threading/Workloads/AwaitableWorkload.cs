@@ -478,6 +478,7 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
             {
                 RemoveContinuation(continuationBox);
             }
+            mres.Dispose();
         }
         return waitSuccessful;
     }

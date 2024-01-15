@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.Intrinsics;
 using System.Text;
 using Wkg.Collections.Concurrent;
 using Wkg.Common.Extensions;

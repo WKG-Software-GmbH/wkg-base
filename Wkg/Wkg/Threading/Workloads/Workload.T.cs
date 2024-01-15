@@ -119,7 +119,7 @@ public abstract class Workload<TResult> : AwaitableWorkload, IWorkload<TResult>
                 result = Unsafe.As<object, TResult>(ref box);
             }
         }
-        return new(Status, Volatile.Read(ref _exception), result);
+        return new WorkloadResult<TResult>(Status, Volatile.Read(ref _exception), result);
     }
 
     WorkloadResult<TResult> IWorkload<TResult>.GetResultUnsafe() => GetResultUnsafe();

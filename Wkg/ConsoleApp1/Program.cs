@@ -12,29 +12,25 @@ using Wkg.Threading.Workloads.Configuration;
 using Wkg.Threading.Workloads.DependencyInjection.Implementations;
 using Wkg.Threading.Workloads.Factories;
 using Wkg.Threading.Workloads.Queuing.Classful.FairQueuing;
-using Wkg.Threading.Workloads.Queuing.Classful.PrioFast;
 using Wkg.Threading.Workloads.Queuing.Classful.RoundRobin;
 using Wkg.Threading.Workloads.Queuing.Classless.ConstrainedFifo;
 using Wkg.Threading.Workloads.Queuing.Classless.ConstrainedLifo;
 using Wkg.Threading.Workloads.Queuing.Classless.Fifo;
 using Wkg.Threading.Workloads.Queuing.Classless.Lifo;
 using Wkg.Threading.Workloads.Queuing.Classless.PriorityFifoFast;
-using static Wkg.Common.SyntacticSugar;
 
-//var f = Tests.CreateFactory<RoundRobinBitmap56>(8, depth: 6, branchingFactor: 4);
-//Console.WriteLine(f.Root.ToTreeString());
-//Console.WriteLine(Tests.NodeCount(6, 4));
+//Stopwatch sw = Stopwatch.StartNew();
+//for (int i = 0; i < 1000; i++)
+//{
+//    ReliableSpinner.Spin(1 << 20);
+//}
+//sw.Stop();
+//Log.WriteInfo($"SpinWait: {TimeSpan.FromTicks(sw.ElapsedTicks / 1000)}");
 
-Environment.SetEnvironmentVariable("R_HOME", @"C:\Program Files\R\R-4.3.2");
-
-Stopwatch sw = Stopwatch.StartNew();
-Thread.SpinWait(10000);
-sw.Stop();
-Console.WriteLine(sw.Elapsed);
-
-BenchmarkRunner.Run<Tests>();
-Console.ReadLine();
-return;
+//Environment.SetEnvironmentVariable("R_HOME", @"E:\software\R-4.3.2");
+//BenchmarkRunner.Run<CashVsTpl>();
+//Console.ReadLine();
+//return;
 Log.UseLogger(Logger.Create(LoggerConfiguration.Create()
     //.AddSink<ColoredThreadBasedConsoleSink>()
     .AddSink<ColoredConsoleSink>()
@@ -43,27 +39,27 @@ Log.UseLogger(Logger.Create(LoggerConfiguration.Create()
     .RegisterMainThread(Thread.CurrentThread)
     .UseDefaultLogWriter(LogWriter.Blocking)));
 
-Tests tests = new()
-{
-    Concurrency = 2,
-    Depth = 6,
-};
-tests.GlobalSetup();
-Random random = new(42);
+//Tests tests = new()
+//{
+//    Concurrency = 2,
+//    Depth = 6,
+//};
+//tests.GlobalSetup();
+//Random random = new(42);
 
-for (int i = 0; i < 250; i++)
-{
-    for (int j = 0; j < 2048; j++)
-    {
-        await tests.Bitmap();
-        Thread.SpinWait(random.Next(0, 1000));
-        Log.WriteInfo($"Iteration {i} - {j}");
-    }
-    Log.WriteDebug($"{i}");
-}
+//for (int i = 0; i < 250; i++)
+//{
+//    for (int j = 0; j < 2048; j++)
+//    {
+//        await tests.Bitmap();
+//        Thread.SpinWait(random.Next(0, 1000));
+//        Log.WriteInfo($"Iteration {i} - {j}");
+//    }
+//    Log.WriteDebug($"{i}");
+//}
 
-Log.WriteInfo("AAAAAAAAAAAAAAAA");
-return;
+//Log.WriteInfo("AAAAAAAAAAAAAAAA");
+//return;
 
 using (ClassfulWorkloadFactory<QdiscType> clubmappFactory = WorkloadFactoryBuilder.Create<QdiscType>()
     // the root scheduler is allowed to run up to 4 workers at the same time
@@ -141,6 +137,11 @@ using ClassfulWorkloadFactoryWithDI<int> factory = WorkloadFactoryBuilder.Create
             .AddPredicate<int>(i => (i & 1) == 1))
         .AddClasslessChild<ConstrainedFifo>(8, qdisc => qdisc
             .WithCapacity(8)));
+
+factory.ScheduleAsync(1, flag => Log.WriteInfo("Hello from the root scheduler!")).ContinueWith(_ =>
+{
+    Log.WriteInfo("Hello from the root scheduler again!");
+});
 
 List<int> myData = Enumerable.Range(0, 10000).ToList();
 int sum = myData.Sum();
@@ -393,3 +394,25 @@ class MyService : IMyService
     public int GetNext() => Interlocked.Increment(ref _counter);
 }
 
+enum SensorToS
+{
+    Root,
+    Critical,
+    Normal,
+    OperatorInput,
+    Telemetry,
+    SensorGroups,
+    SensorGroup1,
+    SensorGroup2,
+    SensorGroup3,
+    Volatile,
+    ProcessOnIdle
+}
+
+record EmergencyStopRequest();
+record HeartbeatRequest();
+record MotorRpmReading(int MotorId, int Rpm)
+{
+    public static int CRITICAL_RPM = 1000;
+}
+record GyroReading(float X, float Y, float Z);

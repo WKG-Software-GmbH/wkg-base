@@ -10,6 +10,7 @@ using Wkg.Threading.Workloads.Queuing.Classless.Fifo;
 namespace ConsoleApp1;
 
 [RPlotExporter]
+[MaxRelativeError(0.01)]
 [CsvMeasurementsExporter]
 public class Tests
 {
@@ -28,7 +29,7 @@ public class Tests
     public int BranchingFactor => 4;
 
     //[Params(100000)]
-    public int Spins => 10000;
+    public int Spins => 16384;
 
     private static readonly Random _bitmapRandom = new(42);
     private static readonly ManualResetEventSlim _bitmapMres = new(false);
@@ -160,9 +161,9 @@ public class Tests
         {
             bitmap.Schedule(_bitmapMres.Wait);
         }
-        int handle = _bitmapRandom.Next(1, totalNodes + 1);
         for (int i = 0; i < workloads.Length; i++)
         {
+            int handle = _bitmapRandom.Next(1, totalNodes + 1);
             workloads.Array[i] = bitmap.ScheduleAsync(handle, Work);
         }
         _bitmapMres.Set();
@@ -181,9 +182,9 @@ public class Tests
         {
             locking.Schedule(_lockingMres.Wait);
         }
-        int handle = _lockingRandom.Next(1, totalNodes + 1);
         for (int i = 0; i < workloads.Length; i++)
         {
+            int handle = _lockingRandom.Next(1, totalNodes + 1);
             workloads.Array[i] = locking.ScheduleAsync(handle, Work);
         }
         _lockingMres.Set();
@@ -202,9 +203,9 @@ public class Tests
         {
             lockingBitmap.Schedule(_lockingBitmapMres.Wait);
         }
-        int handle = _lockingBitmapRandom.Next(1, totalNodes + 1);
         for (int i = 0; i < workloads.Length; i++)
         {
+            int handle = _lockingBitmapRandom.Next(1, totalNodes + 1);
             workloads.Array[i] = lockingBitmap.ScheduleAsync(handle, Work);
         }
         _lockingBitmapMres.Set();
@@ -212,14 +213,10 @@ public class Tests
         ArrayPool.Return(workloads);
     }
 
-    private void Work(CancellationFlag flag)
-    {
-        flag.ThrowIfCancellationRequested();
-        Thread.SpinWait(Spins);
-    }
+    private int Work(CancellationFlag flag) => ReliableSpinner.Spin(Spins);
+}
 
-    private class HandleCounter(int handle)
-    {
-        public int Handle = handle;
-    }
+internal class HandleCounter(int handle)
+{
+    public int Handle = handle;
 }

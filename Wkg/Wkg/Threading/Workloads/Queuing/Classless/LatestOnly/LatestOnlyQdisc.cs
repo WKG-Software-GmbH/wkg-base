@@ -18,7 +18,7 @@ internal class LatestOnlyQdisc<THandle>(THandle handle, Predicate<object?>? pred
     protected override void EnqueueDirect(AbstractWorkloadBase workload)
     {
         // TODO: parent qdiscs may buffer workloads. That is not within our control.
-        // TODO: they honestly shouldn't, but we can't guarantee that they won't (e.g., WfqQdisc)
+        // TODO: they honestly shouldn't, but we can't guarantee that they won't (e.g., GfqQdisc)
         if (TryBindWorkload(workload))
         {
             AbstractWorkloadBase? old = Interlocked.Exchange(ref _singleWorkload, workload);

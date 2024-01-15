@@ -64,7 +64,7 @@ internal sealed class PrioFastLockingQdisc<THandle> : ClassfulQdisc<THandle>, IC
     {
         // if we have to backtrack, we can do so by dequeuing from the last child qdisc
         // that was dequeued from. If the last child qdisc is empty, we can't backtrack and continue
-        // with the next child qdisc.
+        // with the next child qdisc. Backtracking allows us to ignore "soft-deleted" or "phantom" workloads.
         if (backTrack && _localLasts[workerId]?.TryDequeueInternal(workerId, backTrack, out workload) is true)
         {
             DebugLog.WriteDiagnostic($"{this} Backtracking to last child qdisc {_localLasts[workerId]!.GetType().Name} ({_localLasts[workerId]}).", LogWriter.Blocking);

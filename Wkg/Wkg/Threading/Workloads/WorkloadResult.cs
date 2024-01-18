@@ -14,12 +14,12 @@ public readonly struct WorkloadResult
         CompletionStatus = completionStatus;
     }
 
-    public readonly bool IsSuccess => CompletionStatus == WorkloadStatus.RanToCompletion;
+    public readonly bool IsSuccess => CompletionStatus.IsOneOf(WorkloadStatus.RanToCompletion);
 
     [MemberNotNullWhen(true, nameof(Exception))]
-    public readonly bool IsFaulted => CompletionStatus == WorkloadStatus.Faulted;
+    public readonly bool IsFaulted => CompletionStatus.IsOneOf(WorkloadStatus.Faulted);
 
-    public readonly bool IsCanceled => CompletionStatus == WorkloadStatus.Canceled;
+    public readonly bool IsCanceled => CompletionStatus.IsOneOf(WorkloadStatus.Canceled);
 
     public readonly void ThrowOnNonSuccess()
     {

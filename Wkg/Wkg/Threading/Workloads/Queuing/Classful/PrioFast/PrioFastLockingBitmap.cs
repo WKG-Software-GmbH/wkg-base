@@ -10,7 +10,7 @@ using Wkg.Threading.Workloads.Queuing.Classless.Fifo;
 namespace Wkg.Threading.Workloads.Queuing.Classful.PrioFast;
 
 /// <summary>
-/// A classful qdisc that implements the Round Robin scheduling algorithm to dequeue workloads from its children.
+/// A classful qdisc that implements a simple priority scheduling algorithm to dequeue workloads from its children.
 /// </summary>
 public sealed class PrioFastLockingBitmap<THandle> : CustomClassfulQdiscBuilder<THandle, PrioFastLockingBitmap<THandle>>, ICustomClassfulQdiscBuilder<THandle, PrioFastLockingBitmap<THandle>>
     where THandle : unmanaged

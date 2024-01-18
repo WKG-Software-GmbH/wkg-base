@@ -6,7 +6,9 @@ using Wkg.Threading.Workloads.Queuing.Routing;
 
 namespace Wkg.Threading.Workloads.Queuing.Classless.Random;
 
-internal class WorkStealingQdisc<THandle>(THandle handle, Predicate<object?>? predicate) : ClasslessQdisc<THandle>(handle, predicate), IClassifyingQdisc<THandle> where THandle : unmanaged
+internal class WorkStealingQdisc<THandle>(THandle handle, Predicate<object?>? predicate) 
+    : ClasslessQdisc<THandle>(handle, predicate), IClassifyingQdisc<THandle> 
+    where THandle : unmanaged
 {
     private readonly ConcurrentBag<AbstractWorkloadBase> _queue = [];
 

@@ -6,6 +6,7 @@ using Wkg.Common.Extensions;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
 using Wkg.Threading.Workloads.Configuration.Classless;
+using Wkg.Threading.Workloads.Queuing.Classful.PrioFast;
 using Wkg.Threading.Workloads.Queuing.Classless;
 using Wkg.Threading.Workloads.Queuing.Routing;
 using Wkg.Threading.Workloads.Scheduling;
@@ -13,9 +14,10 @@ using Wkg.Threading.Workloads.Scheduling;
 namespace Wkg.Threading.Workloads.Queuing.Classful.RoundRobin;
 
 /// <summary>
-/// A classful qdisc that implements the Round Robin scheduling algorithm to dequeue workloads from its children.
+/// A classful qdisc that implements a simple priority scheduling algorithm to dequeue workloads from its children.
 /// </summary>
 /// <typeparam name="THandle">The type of the handle.</typeparam>
+[Obsolete($"This qdisc is not scalable and will be removed in a future release. Please use the {nameof(PrioFastBitmapQdisc<THandle>)} instead.")]
 internal sealed class PrioFastBitmap56Qdisc<THandle> : ClassfulQdisc<THandle>, IClassfulQdisc<THandle>
     where THandle : unmanaged
 {
@@ -67,9 +69,8 @@ internal sealed class PrioFastBitmap56Qdisc<THandle> : ClassfulQdisc<THandle>, I
         }
     }
 
-    // not supported.
-    // would only need to consider the local queue, since this
-    // method is only called on the direct parent of a workload.
+    // not supported. this is a classful qdisc that never contains workloads directly.
+    // workloads are always contained in leaf qdiscs. classful qdiscs always have at least one child qdisc by default.
     protected override bool TryRemoveInternal(AwaitableWorkload workload) => false;
 
     protected override bool TryDequeueInternal(int workerId, bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload)

@@ -4,6 +4,10 @@ using Wkg.Logging.Writers;
 
 namespace Wkg.Threading.Workloads.Queuing.Classful.RoundRobin;
 
+/// <summary>
+/// Counts the number of consecutive empty queues in a round robin configuration.
+/// When the number of empty queues reaches the number of queues, all children are empty.
+/// </summary>
 internal class EmptyCounter
 {
     // the emptiness counter is a 64 bit value that is split into two parts:

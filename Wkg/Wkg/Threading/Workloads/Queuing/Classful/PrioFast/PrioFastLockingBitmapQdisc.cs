@@ -11,7 +11,7 @@ using Wkg.Threading.Workloads.Queuing.Routing;
 namespace Wkg.Threading.Workloads.Queuing.Classful.RoundRobin;
 
 /// <summary>
-/// A classful qdisc that implements the Round Robin scheduling algorithm to dequeue workloads from its children.
+/// A classful qdisc that implements a simple priority scheduling algorithm to dequeue workloads from its children.
 /// </summary>
 /// <typeparam name="THandle">The type of the handle.</typeparam>
 internal sealed class PrioFastLockingBitmapQdisc<THandle> : ClassfulQdisc<THandle>, IClassfulQdisc<THandle>

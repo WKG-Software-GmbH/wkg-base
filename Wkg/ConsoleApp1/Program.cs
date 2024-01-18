@@ -1,4 +1,11 @@
-﻿using BenchmarkDotNet.Running;
+﻿/* ==================================================================================================
+ * 
+ * My beautiful test-playground-thingy for API design and testing. 
+ * This is probably not what you're looking for :)
+ * 
+ * ================================================================================================== */
+
+using BenchmarkDotNet.Running;
 using ConsoleApp1;
 using System.Diagnostics;
 using Wkg.Logging;

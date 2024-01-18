@@ -66,7 +66,7 @@ internal sealed class RoundRobinBitmapQdisc<THandle> : ClassfulQdisc<THandle>, I
             {
                 return 0;
             }
-            // get a local snapshot of the children array, other threads may still add new children which we don't care about here
+            // get a local snapshot of the children array reference, other threads may still add new children which we don't care about here
             IClassifyingQdisc<THandle>[] children = _children;
             int count = 0;
             for (int i = 0; i < children.Length; i++)
@@ -77,9 +77,8 @@ internal sealed class RoundRobinBitmapQdisc<THandle> : ClassfulQdisc<THandle>, I
         }
     }
 
-    // not supported.
-    // would only need to consider the local queue, since this
-    // method is only called on the direct parent of a workload.
+    // not supported. this is a classful qdisc that never contains workloads directly.
+    // workloads are always contained in leaf qdiscs. classful qdiscs always have at least one child qdisc by default.
     protected override bool TryRemoveInternal(AwaitableWorkload workload) => false;
 
     protected override bool TryDequeueInternal(int workerId, bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload)

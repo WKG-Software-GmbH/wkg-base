@@ -18,6 +18,7 @@ namespace Wkg.Threading.Workloads.Queuing.Classful.RoundRobin;
 /// A classful qdisc that implements the Round Robin scheduling algorithm to dequeue workloads from its children.
 /// </summary>
 /// <typeparam name="THandle">The type of the handle.</typeparam>
+[Obsolete($"This qdisc is not scalable and will be removed in a future release to reduce maintenance costs. Please use the {nameof(RoundRobinBitmapQdisc<THandle>)} instead.")]
 internal sealed class RoundRobinBitmap56Qdisc<THandle> : ClassfulQdisc<THandle>, IClassfulQdisc<THandle>
     where THandle : unmanaged
 {
@@ -78,9 +79,8 @@ internal sealed class RoundRobinBitmap56Qdisc<THandle> : ClassfulQdisc<THandle>,
         }
     }
 
-    // not supported.
-    // would only need to consider the local queue, since this
-    // method is only called on the direct parent of a workload.
+    // not supported. this is a classful qdisc that never contains workloads directly.
+    // workloads are always contained in leaf qdiscs. classful qdiscs always have at least one child qdisc by default.
     protected override bool TryRemoveInternal(AwaitableWorkload workload) => false;
 
     protected override bool TryDequeueInternal(int workerId, bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload)

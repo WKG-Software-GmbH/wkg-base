@@ -762,6 +762,8 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         return false;
     }
 
+    // not supported. this is a classful qdisc that never contains workloads directly.
+    // workloads are always contained in leaf qdiscs. classful qdiscs always have at least one child qdisc by default.
     protected override bool TryRemoveInternal(AwaitableWorkload workload) => false;
 
     protected override void OnWorkerTerminated(int workerId)

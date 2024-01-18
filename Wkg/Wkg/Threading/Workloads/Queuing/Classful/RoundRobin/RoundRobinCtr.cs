@@ -8,6 +8,7 @@ namespace Wkg.Threading.Workloads.Queuing.Classful.RoundRobin;
 /// <summary>
 /// A classful qdisc that implements the Round Robin scheduling algorithm to dequeue workloads from its children.
 /// </summary>
+[Obsolete($"This qdisc exhibits less performance than {nameof(RoundRobinBitmap)} and should not be used. It's also overly complex and difficult to maintain.")]
 public sealed class RoundRobinCtr : ClassfulQdiscBuilder<RoundRobinCtr>, IClassfulQdiscBuilder<RoundRobinCtr>
 {
     private readonly IQdiscBuilderContext _context;

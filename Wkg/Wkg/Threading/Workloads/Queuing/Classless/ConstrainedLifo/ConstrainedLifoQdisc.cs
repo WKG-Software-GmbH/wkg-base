@@ -8,6 +8,11 @@ namespace Wkg.Threading.Workloads.Queuing.Classless.ConstrainedLifo;
 internal sealed class ConstrainedLifoQdisc<THandle>(THandle handle, Predicate<object?>? predicate, int maxCount) 
     : ConstrainedFifoQdisc<THandle>(handle, predicate, maxCount), IClassifyingQdisc<THandle> where THandle : unmanaged
 {
+    // TODO: verify that this is correct! This might be running into the same issue as the WeakPool implementation
+    // where concurrent peek and pop operations can cause problems due to the delay between stack pointer updates and the underlying writes
+    // Specifically push-pop-push flickering can cause the pop to access an element that has not yet been written to
+    // --> confirm that this is not an issue here
+    // --> if it is, we need to reevaluate the implementation and come up with a better solution (that may also apply to the WeakPool implementation)
     protected override bool TryDequeueInternal(int workerId, bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload)
     {
         // the only between this stack and the queue is that we dequeue from the end of the array

@@ -406,4 +406,4 @@ FodyWeavers.xsd
 *.un~
 
 # rider
-.idea/*
+.idea/

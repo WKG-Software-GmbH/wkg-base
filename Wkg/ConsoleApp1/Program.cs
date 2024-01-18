@@ -130,9 +130,9 @@ using ClassfulWorkloadFactoryWithDI<int> factory = WorkloadFactoryBuilder.Create
                 .WithDefaultBand(3)
                 .WithBandSelector(state => state switch
                 {
-                    long i when i < 0 => 0,
-                    long i when i < 100 => 1,
-                    long i when i < 1000 => 2,
+                    long and < 0 => 0,
+                    long and < 100 => 1,
+                    long and < 1000 => 2,
                     _ => -1
                 }))
         .AddClasslessChild<Fifo>(2, workloadSchedulingWeight: 2d, executionPunishmentFactor: 2d, classifier => classifier

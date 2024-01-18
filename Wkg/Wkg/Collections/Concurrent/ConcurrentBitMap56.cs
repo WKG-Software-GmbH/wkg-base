@@ -19,7 +19,13 @@ using static ConcurrentBoolean;
 /// To access the state of a <see cref="ConcurrentBitmap56"/>, use the static methods provided by <see cref="ConcurrentBitmap56"/>.
 /// </remarks>
 [StructLayout(LayoutKind.Explicit, Size = sizeof(ulong))]
-public readonly struct ConcurrentBitmap56State;
+public readonly struct ConcurrentBitmap56State
+{
+    // on macos, there seems to be a bug in the JIT that causes the struct to be misaligned.
+    // adding this dummy field fixes the issue.
+    [FieldOffset(0)]
+    private readonly ulong _;
+}
 
 /// <summary>
 /// A 56-bit bitmap that can be updated atomically.

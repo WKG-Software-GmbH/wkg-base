@@ -16,9 +16,9 @@ public class FifoBackgroundLogWriter : ILogWriter
     /// </summary>
     protected readonly ClasslessWorkloadFactory<SingleQdiscHandle> _loggingQueue = WorkloadFactoryBuilder.Create<SingleQdiscHandle>()
         .UseMaximumConcurrency(1)
-        .FlowExecutionContextToContinuations(false)
-        .RunContinuationsOnCapturedContext(false)
-        .UseAnonymousWorkloadPooling(8)
+        .FlowExecutionContextToContinuations(flowExecutionContext: false)
+        .RunContinuationsOnCapturedContext(continueOnCapturedContext: false)
+        .UseAnonymousWorkloadPooling(poolSize: 8)
         .UseClasslessRoot<Fifo>(SingleQdiscHandle.Root);
 
     /// <inheritdoc/>

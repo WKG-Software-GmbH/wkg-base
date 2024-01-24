@@ -18,7 +18,6 @@ namespace Wkg.Threading.Workloads.Queuing.Classful.RoundRobin;
 /// A classful qdisc that implements the Round Robin scheduling algorithm to dequeue workloads from its children.
 /// </summary>
 /// <typeparam name="THandle">The type of the handle.</typeparam>
-[Obsolete($"This qdisc is not scalable and will be removed in a future release to reduce maintenance costs. Please use the {nameof(RoundRobinBitmapQdisc<THandle>)} instead.")]
 internal sealed class RoundRobinBitmap56Qdisc<THandle> : ClassfulQdisc<THandle>, IClassfulQdisc<THandle>
     where THandle : unmanaged
 {

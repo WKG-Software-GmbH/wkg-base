@@ -23,6 +23,8 @@ build:
 
 test:
     extends: .test
+    variables:
+        TEST_PROJECT_FILE_PATH: "Wkg/Wkg.Tests/Wkg.Tests.csproj"
 
 increase-version:
     extends: .increase-version

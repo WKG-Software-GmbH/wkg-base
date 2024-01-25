@@ -330,7 +330,7 @@ public class AwaitableWorkloadTests
         mres.Set();
         WorkloadResult<int> result = await workload;
         // workload did not honor cancellation and returned a result
-        Assert.AreEqual(WorkloadStatus.RanToCompletion, workload.Status);
+        Assert.AreEqual<WorkloadStatus>(WorkloadStatus.RanToCompletion | WorkloadStatus.ContinuationsInvoked, workload.Status);
         Assert.IsTrue(result.IsSuccess);
         Assert.AreEqual(1, result.Result);
     }
@@ -382,7 +382,7 @@ public class AwaitableWorkloadTests
         cts.Cancel();
         Workload workload = factory.ScheduleAsync(_ => { }, cts.Token);
         Assert.IsTrue(workload.IsCompleted);
-        Assert.AreEqual(WorkloadStatus.Canceled, workload.Status);
+        Assert.AreEqual<WorkloadStatus>(WorkloadStatus.Canceled | WorkloadStatus.ContinuationsInvoked, workload.Status);
         WorkloadResult result = await workload;
         Assert.IsTrue(result.IsCanceled);
     }
@@ -441,7 +441,7 @@ public class AwaitableWorkloadTests
         mres.Set();
         WorkloadResult<int> result = await workload;
         // workload did not honor cancellation and returned a result
-        Assert.AreEqual(WorkloadStatus.RanToCompletion, workload.Status);
+        Assert.AreEqual<WorkloadStatus>(WorkloadStatus.RanToCompletion | WorkloadStatus.ContinuationsInvoked, workload.Status);
         Assert.IsTrue(result.IsSuccess);
         Assert.AreEqual(1, result.Result);
     }
@@ -493,7 +493,7 @@ public class AwaitableWorkloadTests
         mres.Set();
         WorkloadResult<int> result = await workload;
         // workload honored cancellation and returned a result
-        Assert.AreEqual(WorkloadStatus.Canceled, workload.Status);
+        Assert.AreEqual<WorkloadStatus>(WorkloadStatus.Canceled | WorkloadStatus.ContinuationsInvoked, workload.Status);
         Assert.IsTrue(result.IsCanceled);
     }
 
@@ -514,7 +514,7 @@ public class AwaitableWorkloadTests
         const string message = "Test exception.";
         Workload<int> workload = factory.ScheduleAsync<int>(_ => throw new Exception(message));
         WorkloadResult<int> result = await workload;
-        Assert.AreEqual(WorkloadStatus.Faulted, workload.Status);
+        Assert.AreEqual<WorkloadStatus>(WorkloadStatus.Faulted | WorkloadStatus.ContinuationsInvoked, workload.Status);
         Assert.IsTrue(result.IsFaulted);
         Assert.IsFalse(result.TryGetResult(out _));
         Assert.IsNotNull(result.Exception);
@@ -528,7 +528,7 @@ public class AwaitableWorkloadTests
         const string message = "Test exception.";
         Workload workload = factory.ScheduleAsync(_ => throw new Exception(message));
         WorkloadResult result = await workload;
-        Assert.AreEqual(WorkloadStatus.Faulted, workload.Status);
+        Assert.AreEqual<WorkloadStatus>(WorkloadStatus.Faulted | WorkloadStatus.ContinuationsInvoked, workload.Status);
         Assert.IsTrue(result.IsFaulted);
         Assert.IsNotNull(result.Exception);
         Assert.AreEqual(message, result.Exception!.Message);

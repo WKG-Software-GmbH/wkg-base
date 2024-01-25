@@ -92,7 +92,7 @@ public class WorkloadServiceProviderTests
             string service = services.GetRequiredService<string>();
             return 42;
         });
-        Assert.AreEqual(WorkloadStatus.Faulted, result1.CompletionStatus);
+        Assert.AreEqual<WorkloadStatus>(WorkloadStatus.Faulted | WorkloadStatus.ContinuationsInvoked, result1.CompletionStatus);
         Assert.AreEqual(typeof(InvalidOperationException), result1.Exception?.GetType());
     }
 
@@ -109,7 +109,7 @@ public class WorkloadServiceProviderTests
             }
             throw new InvalidOperationException("nope");
         });
-        Assert.AreEqual(WorkloadStatus.Faulted, result1.CompletionStatus);
+        Assert.AreEqual<WorkloadStatus>(WorkloadStatus.Faulted | WorkloadStatus.ContinuationsInvoked, result1.CompletionStatus);
         Assert.AreEqual(typeof(InvalidOperationException), result1.Exception?.GetType());
         Assert.AreEqual("nope", result1.Exception?.Message);
     }
@@ -188,7 +188,7 @@ public class WorkloadServiceProviderTests
             string service = services.GetRequiredService<string>();
             return 42;
         });
-        Assert.AreEqual(WorkloadStatus.Faulted, result1.CompletionStatus);
+        Assert.AreEqual<WorkloadStatus>(WorkloadStatus.Faulted | WorkloadStatus.ContinuationsInvoked, result1.CompletionStatus);
         Assert.AreEqual(typeof(InvalidOperationException), result1.Exception?.GetType());
     }
 
@@ -205,7 +205,7 @@ public class WorkloadServiceProviderTests
             }
             throw new InvalidOperationException("nope");
         });
-        Assert.AreEqual(WorkloadStatus.Faulted, result1.CompletionStatus);
+        Assert.AreEqual<WorkloadStatus>(WorkloadStatus.Faulted | WorkloadStatus.ContinuationsInvoked, result1.CompletionStatus);
         Assert.AreEqual(typeof(InvalidOperationException), result1.Exception?.GetType());
         Assert.AreEqual("nope", result1.Exception?.Message);
     }

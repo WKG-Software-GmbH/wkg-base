@@ -1,5 +1,5 @@
-﻿using Wkg.Extensions.Common;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Wkg.Common.Extensions;
 
 namespace Wkg.Extensions.Common.Tests;
 

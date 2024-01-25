@@ -8,6 +8,9 @@ namespace Wkg.Logging.Writers;
 public class BackgroundLogWriter : ILogWriter
 {
     /// <inheritdoc/>
-    public void Write(string logEntry, ILogSink sink, LogLevel logLevel) =>
-        ThreadPool.QueueUserWorkItem(_ => sink.Log(logEntry, logLevel));
+    public void Write(ref LogEntry logEntry, ILogSink sink)
+    {
+        LogEntryBox box = new(sink, ref logEntry);
+        ThreadPool.QueueUserWorkItem(LogEntryBox.WriteToSink, box);
+    }
 }

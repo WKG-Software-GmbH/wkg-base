@@ -65,12 +65,12 @@ public static class ExpressionExtensions
         return memberInfos?.Count == 1 ? memberInfos[0] : null;
     }
 
-    private static IReadOnlyList<TMemberInfo>? MatchMemberAccess<TMemberInfo>(
+    private static List<TMemberInfo>? MatchMemberAccess<TMemberInfo>(
         this Expression parameterExpression,
         Expression memberAccessExpression)
         where TMemberInfo : MemberInfo
     {
-        List<TMemberInfo> memberInfos = new();
+        List<TMemberInfo> memberInfos = [];
 
         Expression? unwrappedExpression = RemoveTypeAs(RemoveConvert(memberAccessExpression));
         do

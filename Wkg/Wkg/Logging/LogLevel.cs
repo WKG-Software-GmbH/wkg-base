@@ -3,7 +3,7 @@
 /// <summary>
 /// Specifies the meaning and relative importance of a log event.
 /// </summary>
-public enum LogLevel
+public enum LogLevel : uint
 {
     /// <summary>
     /// Internal system events that may be useful for debugging of application intrinsics.

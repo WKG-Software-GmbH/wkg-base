@@ -96,6 +96,7 @@ public class Log : ILog
 
     /// <inheritdoc/>
     [StackTraceHidden]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void WriteFatal(string message, ILogWriter logWriter) => 
         CurrentLogger.Log(message, logWriter, LogLevel.Fatal);
 

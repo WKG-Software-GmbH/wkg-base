@@ -6,23 +6,25 @@ stages:
 
 variables:
     PROJECT_FILE_PATH: "Wkg/Wkg/Wkg.csproj"
-    MAJOR_VERSION: "7"
-    MINOR_VERSION: "3"
+    MAJOR_VERSION: "8"
+    MINOR_VERSION: "0"
 
 include:
     - project: 'wkg/gitlab-templates'
-      ref: 'v1.1.0'
+      ref: 'net8.0-ios'
       file:
-          - '/jobs/build_dotnet_7.yml'
-          - '/jobs/test_dotnet_7.yml'
+          - '/jobs/build_dotnet_8.yml'
+          - '/jobs/test_dotnet_8.yml'
           - '/jobs/increase_version.yml'
-          - '/jobs/deploy_baget_dotnet_7.yml'
+          - '/jobs/deploy_baget_dotnet_8.yml'
 
 build:
     extends: .build
 
 test:
     extends: .test
+    variables:
+        TEST_PROJECT_FILE_PATH: "Wkg/Wkg.Tests/Wkg.Tests.csproj"
 
 increase-version:
     extends: .increase-version

@@ -1,6 +1,8 @@
-﻿using System.Runtime.CompilerServices;
+﻿using Wkg.Common;
 
 namespace Wkg.Collections;
+
+using static MathExtensions;
 
 /// <summary>
 /// A pointer to a position in a ring buffer.
@@ -31,20 +33,8 @@ internal readonly struct RingBufferPointer<T>
     /// <param name="buffer">The ring buffer.</param>
     public RingBufferPointer(T?[] buffer) : this(buffer, 0)
     {
-        if (buffer.Length < 1)
-        {
-            throw new ArgumentOutOfRangeException(nameof(buffer), $"{nameof(buffer)} must not be empty.");
-        }
+        ArgumentOutOfRangeException.ThrowIfLessThan(buffer.Length, 1, nameof(buffer.Length));
     }
-
-    /// <summary>
-    /// Calculates the modulo of two integers.
-    /// </summary>
-    /// <param name="a">The dividend.</param>
-    /// <param name="b">The divisor.</param>
-    /// <returns>The modulo of <paramref name="a"/> and <paramref name="b"/>.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int Modulo(int a, int b) => (a % b + b) % b;
 
     /// <summary>
     /// Implicitly converts a <see cref="RingBufferPointer{T}"/> to an <see cref="int"/>.

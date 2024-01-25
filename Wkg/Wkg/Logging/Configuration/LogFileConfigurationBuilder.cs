@@ -26,10 +26,7 @@ public class LogFileConfigurationBuilder
     /// <exception cref="ArgumentException"></exception>
     public LogFileConfigurationBuilder WithMaxFileSize(long maxByteCount)
     {
-        if (maxByteCount <= 0)
-        {
-            throw new ArgumentException("Maximum byte count cannot be 0 or negative!", nameof(maxByteCount));
-        }
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(maxByteCount, 0, nameof(maxByteCount));
 
         _maxLogFileSize = maxByteCount;
         return this;

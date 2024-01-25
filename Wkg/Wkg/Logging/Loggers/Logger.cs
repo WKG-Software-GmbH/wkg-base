@@ -16,11 +16,21 @@ public class Logger : ILogger
     private readonly ConcurrentSinkCollection _sinks;
     private readonly CompiledLoggerConfiguration _config;
 
+    private uint _minimumLevel;
+
     private Logger(CompiledLoggerConfiguration config)
     {
         _config = config;
         _sinks = config.LoggingSinks;
         _logEntryGenerator = config.GeneratorFactory(config);
+        _minimumLevel = (uint)config.MinimumLogLevel;
+    }
+
+    /// <inheritdoc/>
+    public LogLevel MinimumLogLevel
+    {
+        get => (LogLevel)Volatile.Read(ref _minimumLevel);
+        set => Volatile.Write(ref _minimumLevel, (uint)value);
     }
 
     /// <summary>
@@ -43,8 +53,14 @@ public class Logger : ILogger
     [StackTraceHidden]
     public void Log(string message, ILogWriter logWriter, LogLevel logLevel = LogLevel.Debug)
     {
-        string entry = _logEntryGenerator.Generate("Output", message, logLevel);
-        logWriter.Write(entry, _sinks, logLevel);
+        if (logLevel >= MinimumLogLevel)
+        {
+            LogEntry entry = default;
+            entry.LogLevel = logLevel;
+            entry.Type = LogEntryType.Message;
+            _logEntryGenerator.Generate(ref entry, "Output", message);
+            logWriter.Write(ref entry, _sinks);
+        }
     }
 
     /// <inheritdoc/>
@@ -57,8 +73,14 @@ public class Logger : ILogger
     [StackTraceHidden]
     public void Log(Exception exception, ILogWriter logWriter, LogLevel logLevel = LogLevel.Error)
     {
-        string entry = _logEntryGenerator.Generate(exception, null, logLevel);
-        logWriter.Write(entry, _sinks, logLevel);
+        if (logLevel >= MinimumLogLevel)
+        {
+            LogEntry entry = default;
+            entry.LogLevel = logLevel;
+            entry.Type = LogEntryType.Exception;
+            _logEntryGenerator.Generate(ref entry, exception, null);
+            logWriter.Write(ref entry, _sinks);
+        }
     }
 
     /// <inheritdoc/>
@@ -71,8 +93,14 @@ public class Logger : ILogger
     [StackTraceHidden]
     public void Log(Exception exception, string additionalInfo, ILogWriter logWriter, LogLevel logLevel = LogLevel.Error)
     {
-        string entry = _logEntryGenerator.Generate(exception, additionalInfo, logLevel);
-        logWriter.Write(entry, _sinks, logLevel);
+        if (logLevel >= MinimumLogLevel)
+        {
+            LogEntry entry = default;
+            entry.LogLevel = logLevel;
+            entry.Type = LogEntryType.Exception;
+            _logEntryGenerator.Generate(ref entry, exception, additionalInfo);
+            logWriter.Write(ref entry, _sinks);
+        }
     }
 
     /// <inheritdoc/>
@@ -85,7 +113,13 @@ public class Logger : ILogger
     [StackTraceHidden]
     public void Log<TEventArgs>(string instanceName, string eventName, TEventArgs eventArgs, ILogWriter logWriter, string? assemblyName = null, string? className = null)
     {
-        string entry = _logEntryGenerator.Generate(assemblyName, className, instanceName, eventName, eventArgs);
-        logWriter.Write(entry, _sinks, LogLevel.Event);
+        if (LogLevel.Event >= MinimumLogLevel)
+        {
+            LogEntry entry = default;
+            entry.LogLevel = LogLevel.Event;
+            entry.Type = LogEntryType.Event;
+            _logEntryGenerator.Generate(ref entry, assemblyName, className, instanceName, eventName, eventArgs);
+            logWriter.Write(ref entry, _sinks);
+        }
     }
 }

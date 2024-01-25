@@ -39,10 +39,7 @@ public unsafe struct ResizableBuffer<T> : IDisposable where T : unmanaged
     /// <exception cref="OutOfMemoryException"/>
     public ResizableBuffer(int initialCapacity = 16)
     {
-        if (initialCapacity <= 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(initialCapacity), "Capacity cannot be 0 or negative.");
-        }
+        ArgumentOutOfRangeException.ThrowIfLessThan(initialCapacity, 1, nameof(initialCapacity));
 
         ELEMENT_SIZE = sizeof(T);
 
@@ -147,24 +144,11 @@ public unsafe struct ResizableBuffer<T> : IDisposable where T : unmanaged
     private readonly void ValidateIndex(int index)
     {
         ValidateState();
-        if (index < 0)
-        {
-            throw new IndexOutOfRangeException($"{index} is not a valid index. (Must be > 0).");
-        }
-
-        if (index >= Length)
-        {
-            throw new IndexOutOfRangeException($"{index} was out of range (Must be < {Length}).");
-        }
+        ArgumentOutOfRangeException.ThrowIfNegative(index, nameof(index));
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, Length, nameof(index));
     }
 
     /// <exception cref="ObjectDisposedException"/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private readonly void ValidateState()
-    {
-        if (_basePointer == null)
-        {
-            throw new ObjectDisposedException(nameof(ResizableBuffer<T>));
-        }
-    }
+    private readonly void ValidateState() => ObjectDisposedException.ThrowIf(_basePointer == null, nameof(ResizableBuffer<T>));
 }

@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using Wkg.Text;
 
 namespace Wkg.Unmanaged.MemoryManagement.Implementations.AllocationTracking;
 
@@ -32,15 +33,20 @@ public record AllocationSnapshot
     /// </summary>
     public override string ToString()
     {
-        StringBuilder builder = new($"{TotalByteCount} bytes currently allocated.{Environment.NewLine}Allocations:{Environment.NewLine}");
+        // rent a string builder big enough to hold the entire snapshot
+        StringBuilder builder = StringBuilderPool.Shared.Rent(4096);
+
+        builder.Append(TotalByteCount).AppendLine($" bytes currently allocated.")
+            .AppendLine("Allocations:");
         for (int i = 0; i < Allocations.Length; i++)
         {
             ref Allocation allocation = ref Allocations[i];
             builder
                 .Append("  ")
-                .Append(allocation.ToString())
-                .Append(Environment.NewLine);
+                .AppendLine(allocation.ToString());
         }
-        return builder.ToString();
+        string result = builder.ToString();
+        StringBuilderPool.Shared.Return(builder);
+        return result;
     }
 }

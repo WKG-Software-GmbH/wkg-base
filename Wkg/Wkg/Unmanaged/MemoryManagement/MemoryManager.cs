@@ -50,25 +50,6 @@ public static unsafe partial class MemoryManager
     }
 
     /// <summary>
-    /// Overrides a block of memory with zeros.
-    /// </summary>
-    /// <typeparam name="T">The type of the elements to zero.</typeparam>
-    /// <param name="ptr">The pointer to the first element to zero.</param>
-    /// <param name="elementCount">The number of elements to zero.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void ZeroMemory<T>(T* ptr, uint elementCount) where T : unmanaged =>
-        ZeroMemory((void*)ptr, elementCount * (uint)sizeof(T));
-
-    /// <summary>
-    /// Overrides a block of memory with zeros.
-    /// </summary>
-    /// <param name="ptr">The base address of the block of memory to zero.</param>
-    /// <param name="byteSize">The size of the block of memory to zero, in bytes.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void ZeroMemory(void* ptr, uint byteSize) =>
-        Unsafe.InitBlockUnaligned(ptr, 0x0, byteSize);
-
-    /// <summary>
     /// Copies a block of memory from one location to another.
     /// </summary>
     /// <param name="destination">The base address of the destination.</param>

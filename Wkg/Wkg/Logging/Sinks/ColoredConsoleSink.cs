@@ -3,16 +3,19 @@
 /// <summary>
 /// An <see cref="ILogSink"/> that writes log entries to the console using colors to indicate the <see cref="LogLevel"/>.
 /// </summary>
+/// <remarks>
+/// <see langword="WARNING"/>: This sink is incompatible with other sinks that log to the console.
+/// </remarks>
 public class ColoredConsoleSink : ILogSink
 {
     private static readonly object _lock = new();
 
     /// <inheritdoc/>
-    public void Log(string logEntry, LogLevel logLevel)
+    public void Log(ref LogEntry logEntry)
     {
         lock (_lock)
         {
-            Console.ForegroundColor = ColorFor(logLevel);
+            Console.ForegroundColor = ColorFor(logEntry.LogLevel);
             Console.WriteLine(logEntry);
             Console.ResetColor();
         }

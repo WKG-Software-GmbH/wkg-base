@@ -42,14 +42,13 @@ internal class LogFileSink : ILogSink
     /// <summary>
     /// Logs a message to the file.
     /// </summary>
-    /// <param name="entry">Message to log.</param>
-    /// <param name="logLevel">The <see cref="LogLevel"/> of the message.</param>
-    public void Log(string entry, LogLevel logLevel)
+    /// <param name="logEntry">Message to log.</param>
+    public void Log(ref LogEntry logEntry)
     {
         lock (_fileLock)
         {
             TruncateFile__UNSAFE();
-            _writeLineWrapper[0] = entry;
+            _writeLineWrapper[0] = logEntry.LogMessage;
             File.AppendAllLines(FileName, _writeLineWrapper, Encoding.UTF8);
         }
     }

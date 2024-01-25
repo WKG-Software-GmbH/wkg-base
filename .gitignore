@@ -404,3 +404,6 @@ FodyWeavers.xsd
 # vim
 *.swp
 *.un~
+
+# rider
+.idea/

@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Wkg.Threading;
+﻿namespace Wkg.Threading;
 
 /// <summary>
 /// Common timeout tracker.
@@ -29,7 +23,7 @@ internal readonly struct TimeoutTracker
 
     public TimeoutTracker(int millisecondsTimeout)
     {
-        ArgumentOutOfRangeException.ThrowIfLessThan(millisecondsTimeout, -1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(millisecondsTimeout, -1, nameof(millisecondsTimeout));
         _total = millisecondsTimeout;
         if (!IsZeroOrInfinite)
         {

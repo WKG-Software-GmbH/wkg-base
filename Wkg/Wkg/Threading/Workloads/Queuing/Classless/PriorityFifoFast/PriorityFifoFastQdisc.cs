@@ -13,7 +13,7 @@ internal class PriorityFifoFastQdisc<THandle> : ClasslessQdisc<THandle>, INotify
     where THandle : unmanaged
 {
     // it is impossible to have a hierachy of PriorityFifoFastQdiscs (classless)
-    // an the life-time of values in this field is limited to a single enqueue operation
+    // and the life-time of values in this field is limited to a single enqueue operation
     // so static is fine here because this won't be set for multiple instances at the same time
     // => (no ThreadLocal required)
     [ThreadStatic]

@@ -1,22 +1,20 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices.Marshalling;
-using System.Text;
-using System.Threading.Tasks;
-using Wkg.Threading.Workloads.Queuing.Classful.PrioFast;
 
 namespace Wkg.Threading;
 
 /// <summary>
-/// Remeniscent of <see cref="ReaderWriterLockSlim"/> that supports multiple readers and multiple writers concurrently,
+/// A variant of <see cref="ReaderWriterLockSlim"/> that supports multiple readers and multiple writers concurrently,
 /// but does not allow simultaneous access by members of different groups, and does not allow upgrading from one group
 /// to another. The semantics of the groups are application-defined, but typically a group represents a common type of
 /// operation that is compatible with other operations in the same group but not with operations in other groups.
 /// </summary>
+/// <remarks>
+/// Alpha locks take precedence over beta locks. If a thread holds an alpha lock, it will block any threads attempting
+/// to acquire a beta lock. Similarly, newly requested beta locks will block if there are alphas waiting to acquire the
+/// lock, even if the lock is currently held by a beta.
+/// </remarks>
 internal class AlphaBetaLockSlim : IDisposable
 {
     // Lock specification for _spinLock:  This lock protects exactly the local fields associated with this
@@ -42,11 +40,9 @@ internal class AlphaBetaLockSlim : IDisposable
 
     private const int MAX_SPIN_COUNT = 20;
 
-    private AlphaBetaOwner _ownerGroup;
-
     // The ulong, that contains info about the lock, is divided as follows:
     //
-    // Waiting-Alphas Num-Alphas  Waiting-Betas  Num-Betas
+    // Waiting-Alphas Num-Alphas    RESERVED     Num-Betas
     //    63            62.....32      31        30.......0
     //
     // Dividing the ulong, allows to vastly simplify logic for checking if an
@@ -58,8 +54,6 @@ internal class AlphaBetaLockSlim : IDisposable
 
     private const ulong WAITING_ALPHAS =    0x8000000000000000;
     private const ulong ALPHA_COUNT_MASK =  0x7FFFFFFF00000000;
-
-    private const ulong WAITING_BETAS =     0x0000000080000000;
     private const ulong BETA_COUNT_MASK =   0x000000007FFFFFFF;
 
     // The max numbers in each group are actually one less then their theoretical max.
@@ -72,16 +66,27 @@ internal class AlphaBetaLockSlim : IDisposable
 
     public AlphaBetaLockSlim()
     {
-        _ownerGroup = AlphaBetaOwner.None;
         _lockId = Interlocked.Increment(ref _globalNextLockId);
     }
 
-    private bool HasNoWaiters
+    private AlphaBetaOwner OwnerGroup
     {
         get
         {
-            Debug.Assert(_spinLock.IsHeld);
-            return _numAlphaWaiters == 0 && _numBetaWaiters == 0;
+            // atomic 64-bit read (no tearing)
+            ulong owners = Volatile.Read(ref _owners);
+            uint alphas = (uint)((owners & ALPHA_COUNT_MASK) >>> 32);
+            uint betas = (uint)(owners & BETA_COUNT_MASK);
+            Debug.Assert(alphas == 0 || betas == 0, "alphas and betas cannot be non-zero at the same time");
+            if (alphas > 0)
+            {
+                return AlphaBetaOwner.Alpha;
+            }
+            if (betas > 0)
+            {
+                return AlphaBetaOwner.Beta;
+            }
+            return AlphaBetaOwner.None;
         }
     }
 
@@ -146,19 +151,13 @@ internal class AlphaBetaLockSlim : IDisposable
         ObjectDisposedException.ThrowIf(_disposedValue, this);
         
         AlphaBetaCount abc = GetThreadABCount(dontAllocate: false)!;
-        if (abc.ownership == AlphaBetaOwner.Alpha)
+        // Can't acquire beta lock with alpha lock held.
+        _ = abc.ownership switch
         {
-            throw new InvalidOperationException("Beta lock cannot be acquired while holding an alpha lock.");
-        }
-
-        // Check if the beta lock is already acquired. Note, we could
-        // check the presence of a reader by not allocating abc (But that
-        // would lead to two lookups in the common case. It's better to keep
-        // a count in the structure).
-        if (abc.ownership == AlphaBetaOwner.Beta)
-        {
-            throw new LockRecursionException($"Lock recursion detected while trying to enter the beta lock. {nameof(AlphaBetaLockSlim)} does not support lock recursion.");
-        }
+            AlphaBetaOwner.Alpha => throw new InvalidOperationException("Beta lock cannot be acquired while holding an alpha lock."),
+            AlphaBetaOwner.Beta => throw new LockRecursionException($"Lock recursion detected while trying to enter the beta lock. {nameof(AlphaBetaLockSlim)} does not support lock recursion."),
+            _ => __
+        };
         bool retVal = true;
         int spinCount = 0;
         _spinLock.Enter(EnterSpinLockReason.EnterBeta);
@@ -169,9 +168,8 @@ internal class AlphaBetaLockSlim : IDisposable
             if (_owners < MAX_BETAS)
             {
                 // Good case, there is no contention, we are basically done
-                _owners++;       // Indicate we have another reader
+                SignalBetaLockAcquisition();
                 abc.ownership = AlphaBetaOwner.Beta;
-                _ownerGroup = AlphaBetaOwner.Beta;
                 break;
             }
             if (timeout.IsExpired)
@@ -232,17 +230,14 @@ internal class AlphaBetaLockSlim : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposedValue, this);
 
-        AlphaBetaCount? abc = GetThreadABCount(dontAllocate: true);
+        AlphaBetaCount abc = GetThreadABCount(dontAllocate: false)!;
         // Can't acquire alpha lock with beta lock held.
-        if (abc != null)
+        _ = abc.ownership switch
         {
-            _ = __ switch
-            {
-                AlphaBetaOwner.Beta => throw new InvalidOperationException("Alpha lock cannot be acquired while holding a beta lock."),
-                AlphaBetaOwner.Alpha => throw new LockRecursionException($"Lock recursion detected while trying to enter the alpha lock. {nameof(AlphaBetaLockSlim)} does not support lock recursion."),
-                _ => __
-            };
-        }
+            AlphaBetaOwner.Alpha => throw new LockRecursionException($"Lock recursion detected while trying to enter the alpha lock. {nameof(AlphaBetaLockSlim)} does not support lock recursion."),
+            AlphaBetaOwner.Beta => throw new InvalidOperationException("Alpha lock cannot be acquired while holding a beta lock."),
+            _ => __
+        };
 
         _spinLock.Enter(EnterSpinLockReason.EnterAlpha);
         bool retVal;
@@ -250,7 +245,8 @@ internal class AlphaBetaLockSlim : IDisposable
 
         while (true)
         {
-            if (GetNumBetas() == 0)
+            // check if the lock is available and if we fit in the max number of alphas.
+            if (GetNumBetas() == 0 && GetNumAlphas() < MAX_ALPHAS)
             {
                 // Good case, there is no contention, we are basically done
                 break;
@@ -286,49 +282,81 @@ internal class AlphaBetaLockSlim : IDisposable
             }
         }
         // need to increment the number of alphas out there. (before releasing the lock)
+        abc.ownership = AlphaBetaOwner.Alpha;
         SignalAlphaLockAcquisition();
-        _ownerGroup = AlphaBetaOwner.Alpha;
         _spinLock.Exit();
 
         return true;
     }
 
-    public void ExitBetaLock()
+    public void ExitBetaLock() => ExitLockCore(AlphaBetaOwner.Beta);
+
+    public void ExitAlphaLock() => ExitLockCore(AlphaBetaOwner.Alpha);
+
+    private void ExitLockCore(AlphaBetaOwner lockType)
     {
         ObjectDisposedException.ThrowIf(_disposedValue, this);
 
         AlphaBetaCount? abc = GetThreadABCount(dontAllocate: true);
-        if (abc == null || abc.ownership != AlphaBetaOwner.Beta || _ownerGroup != AlphaBetaOwner.Beta)
+        if (abc == null || abc.ownership != lockType || OwnerGroup != lockType)
         {
-            Debug.Assert(_ownerGroup == AlphaBetaOwner.Beta, "Internal inconsistency, exiting beta lock when not holding it");
-            // You have to be holding the beta lock to make this call.
-            throw new SynchronizationLockException("Beta lock cannot be released while not holding it.");
+            Debug.Assert(abc == null || OwnerGroup == abc.ownership, $"Internal inconsistency, exiting {lockType} lock when not holding it");
+            // You have to be holding the alpha lock to make this call.
+            throw new SynchronizationLockException($"{lockType} lock cannot be released while not holding it.");
         }
-        Debug.Assert(GetNumBetas() > 0, "ReleasingBetaLock: releasing lock and no beta lock taken");
-
-        _spinLock.Enter(EnterSpinLockReason.ExitBeta);
-        SignalBetaLockRelease();
-        abc.ownership = AlphaBetaOwner.None;
+        // this should get constant-folded away.
+        if (lockType == AlphaBetaOwner.Alpha)
+        {
+            Debug.Assert(GetNumAlphas() > 0, "Calling ReleaseAlphaLock when no alpha lock is held");
+            _spinLock.Enter(EnterSpinLockReason.ExitAlpha);
+            SignalAlphaLockRelease();
+        }
+        else
+        {
+            Debug.Assert(GetNumBetas() > 0, "Calling ReleasingBetaLock when no beta lock is held");
+            _spinLock.Enter(EnterSpinLockReason.ExitBeta);
+            SignalBetaLockRelease();
+        }
+        // we need to check if we need to wake up any waiters.
+        // we need to check all waiter types, since we could simply have reached the max number of
+        // concurrent access (MAX_ALPHAS or MAX_BETAS), so we might end up releasing a waiter of
+        // the same type as the lock we are releasing.
         ExitAndWakeUpAppropriateWaiters();
+        // can set the thread local variable outside the lock.
+        abc.ownership = AlphaBetaOwner.None;
     }
 
-    public void ExitAlphaLock()
+    /// <summary>
+    /// Determines the appropriate events to set, leaves the locks, and sets the events.
+    /// </summary>
+    private void ExitAndWakeUpAppropriateWaiters()
     {
-        ObjectDisposedException.ThrowIf(_disposedValue, this);
-
-        AlphaBetaCount? abc = GetThreadABCount(dontAllocate: true);
-        if (abc == null || abc.ownership != AlphaBetaOwner.Alpha || _ownerGroup != AlphaBetaOwner.Alpha)
+#if DEBUG
+        Debug.Assert(_spinLock.IsHeld);
+#endif
+        if (_numAlphaWaiters == 0 && _numBetaWaiters == 0)
         {
-            Debug.Assert(_ownerGroup == AlphaBetaOwner.Alpha, "Internal inconsistency, exiting alpha lock when not holding it");
-            // You have to be holding the alpha lock to make this call.
-            throw new SynchronizationLockException("Alpha lock cannot be released while not holding it.");
+            _spinLock.Exit();
+            return;
         }
-        Debug.Assert(GetNumAlphas() > 0, "Calling ReleaseAlphaLock when no alpha lock is held");
 
-        _spinLock.Enter(EnterSpinLockReason.ExitAlpha);
-        SignalAlphaLockRelease();
-        abc.ownership = AlphaBetaOwner.None;
-        ExitAndWakeUpAppropriateWaiters();
+        ExitAndWakeUpAppropriateWaitersPreferringAlphas();
+    }
+
+    private void ExitAndWakeUpAppropriateWaitersPreferringAlphas()
+    {
+        uint betaCount = GetNumBetas();
+
+        if (betaCount == 0 && _numAlphaWaiters > 0)
+        {
+            _spinLock.Exit();
+            // release the alphas.  Known non-null because _numAlphaWaiters > 0.
+            _alphaEvent!.Set();
+        }
+        else
+        {
+            ExitAndWakeUpAppropriateBetaWaiters();
+        }
     }
 
     /// <summary>
@@ -384,11 +412,6 @@ internal class AlphaBetaLockSlim : IDisposable
         {
             SetAlphasWaiting();
         }
-        // TODO: maybe we can remove this
-        if (_numBetaWaiters == 1)
-        {
-            SetBetasWaiting();
-        }
         bool waitSuccessful = false;
         // Do the wait outside of any lock
         _spinLock.Exit();
@@ -406,18 +429,16 @@ internal class AlphaBetaLockSlim : IDisposable
             {
                 ClearAlphasWaiting();
             }
-            // TODO: maybe we can remove this
-            if (_numBetaWaiters == 0)
-            {
-                ClearBetasWaiting();
-            }
             // We may also be about to throw for some reason.  Exit myLock.
             if (!waitSuccessful)
             {
-                if (!isAcquiringBetaLock)
+                // it is possible that another alpha has acquired the lock for our group while we were waiting.
+                // in that case, we should not wake up any betas.
+                if (!isAcquiringBetaLock && OwnerGroup != AlphaBetaOwner.Alpha)
                 {
-                    // Alpha waiters block beta waiters from acquiring the lock. Since this was the last alpha waiter, try
-                    // to wake up the appropriate beta waiters.
+                    // Alpha waiters block beta waiters from acquiring the lock. Since no other alpha is currently holding
+                    // the lock, this thread can safely attempt to wake up betas. ExitAndWakeUpAppropriateBetaWaiters will
+                    // check if there are any betas waiting, and if so, will wake them up.
                     ExitAndWakeUpAppropriateBetaWaiters();
                 }
                 else
@@ -435,6 +456,8 @@ internal class AlphaBetaLockSlim : IDisposable
         Debug.Assert(_spinLock.IsHeld);
 #endif
         // if there are other alphas waiting or there are no betas waiting, we are done.
+        // there can be alphas waiting without blocking on the event because they just need
+        // to acquire the spinlock.
         if (_numAlphaWaiters != 0 || _numBetaWaiters == 0)
         {
             _spinLock.Exit();
@@ -456,10 +479,6 @@ internal class AlphaBetaLockSlim : IDisposable
     private void SetAlphasWaiting() => _owners |= WAITING_ALPHAS;
 
     private void ClearAlphasWaiting() => _owners &= ~WAITING_ALPHAS;
-
-    private void SetBetasWaiting() => _owners |= WAITING_BETAS;
-
-    private void ClearBetasWaiting() => _owners &= ~WAITING_BETAS;
 
     private uint GetNumBetas() => (uint)(_owners & BETA_COUNT_MASK);
 
@@ -500,24 +519,52 @@ internal class AlphaBetaLockSlim : IDisposable
         //     anyway, so it's preferable to put the thread into the proper wait state
     }
 
+    public int WaitingAlphaCount => (int)_numAlphaWaiters;
+
+    public int WaitingBetaCount => (int)_numBetaWaiters;
+
+    public bool IsAlphaLockHeld
+    {
+        get
+        {
+            AlphaBetaCount? abc = GetThreadABCount(dontAllocate: true);
+            return abc != null && abc.ownership == AlphaBetaOwner.Alpha;
+        }
+    }
+
+    public bool IsBetaLockHeld
+    {
+        get
+        {
+            AlphaBetaCount? abc = GetThreadABCount(dontAllocate: true);
+            return abc != null && abc.ownership == AlphaBetaOwner.Beta;
+        }
+    }
+
     protected virtual void Dispose(bool disposing)
     {
-        if (!_disposedValue)
+        if (disposing && !_disposedValue)
         {
-            if (disposing)
+            if (WaitingAlphaCount > 0 || WaitingBetaCount > 0)
             {
-                // TODO: dispose managed state (managed objects)
+                throw new SynchronizationLockException("Cannot dispose of a lock that has waiters.");
+            }
+            if (IsAlphaLockHeld || IsBetaLockHeld)
+            {
+                throw new SynchronizationLockException("Cannot dispose of a lock that is held.");
             }
 
-            // TODO: free unmanaged resources (unmanaged objects) and override finalizer
-            // TODO: set large fields to null
+            _alphaEvent?.Dispose();
+            _betaEvent?.Dispose();
+            _alphaEvent = null;
+            _betaEvent = null;
+
             _disposedValue = true;
         }
     }
 
     public void Dispose()
     {
-        // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }
@@ -535,8 +582,8 @@ internal class AlphaBetaLockSlim : IDisposable
         /// was called is deprioritized.
         ///
         /// Layout:
-        /// - Low 16 bits: Number of threads that have deprioritized an enter-any-alpha operation
-        /// - High 16 bits: Number of threads that have deprioritized an enter-any-beta operation
+        /// - Low 16 bits: Number of threads that have deprioritized an enter-alpha operation
+        /// - High 16 bits: Number of threads that have deprioritized an enter-beta operation
         /// </summary>
         private int _enterDeprioritizationState;
 
@@ -705,12 +752,6 @@ internal class AlphaBetaLockSlim : IDisposable
 #endif
     }
 
-    private enum EnterLockType
-    {
-        Beta,
-        Alpha,
-    }
-
     private enum EnterSpinLockReason
     {
         EnterBeta = 0,
@@ -721,13 +762,6 @@ internal class AlphaBetaLockSlim : IDisposable
         OperationMask = 0x7,
 
         Wait = 0x8
-    }
-
-    [Flags]
-    private enum WaiterStates : byte
-    {
-        None = 0x0,
-        NoWaiters = 0x1
     }
 }
 

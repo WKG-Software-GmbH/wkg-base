@@ -5,8 +5,6 @@
  * 
  * ================================================================================================== */
 
-using BenchmarkDotNet.Running;
-using ConsoleApp1;
 using System.Diagnostics;
 using Wkg.Logging;
 using Wkg.Logging.Configuration;
@@ -70,7 +68,7 @@ Log.UseLogger(Logger.Create(LoggerConfiguration.Create()
 
 using (ClassfulWorkloadFactory<QdiscType> clubmappFactory = WorkloadFactoryBuilder.Create<QdiscType>()
     // the root scheduler is allowed to run up to 4 workers at the same time
-    .UseMaximumConcurrency(4)
+    .UseMaximumConcurrency(8)
     // async/await continuations will run in the same async context as the scheduling thread
     .FlowExecutionContextToContinuations()
     // async/await continuations will run with the same synchronization context (e.g, UI thread)
@@ -90,8 +88,32 @@ using (ClassfulWorkloadFactory<QdiscType> clubmappFactory = WorkloadFactoryBuild
         .AddClasslessChild<Fifo>(QdiscType.Fifo)
         // the other child scheduler will dequeue workloads in a Last In First Out manner
         .AddClasslessChild<ConstrainedLifo>(QdiscType.Lifo, qdisc => qdisc
+            .WithConstrainedPrioritizationOptions(ConstrainedPrioritizationOptions.MinimizeWorkloadCancellation)
             .WithCapacity(16))))
 {
+    const int loops = 10_000_000;
+    SharedInt sharedInt = new()
+    {
+        Value = loops
+    };
+    ManualResetEventSlim mres = new(false);
+    for (int i = 0; i < loops; i++)
+    {
+        clubmappFactory.Schedule(() =>
+        {
+            int result = Interlocked.Decrement(ref sharedInt.Value);
+            if (result % 100000 == 0)
+            {
+                Log.WriteInfo($"Remaining: {result}");
+            }
+            if (result == 0)
+            {
+                Log.WriteInfo("All workloads have completed.");
+                mres.Set();
+            }
+        });
+    }
+    mres.Wait();
     await clubmappFactory.ScheduleAsync(QdiscType.Fifo, flag =>
     {
         Log.WriteInfo("Starting background work...");
@@ -368,6 +390,11 @@ enum QdiscType : int
     Fifo,
     Lifo,
     RoundRobin
+}
+
+class SharedInt
+{
+    public int Value;
 }
 
 record Wrapper(int Value);

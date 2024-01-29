@@ -130,7 +130,6 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
 
     internal override int NodeLength => _children.Length;
 
-    // TODO: we can probably optimize these modulo operations as we know that the values are always of a certain step size
     public override byte GetToken(int index) => _children.Array[index / _childMaxBitSize].GetToken(index % _childMaxBitSize);
 
     public override bool IsBitSet(int index) => _children.Array[index / _childMaxBitSize].IsBitSet(index % _childMaxBitSize);

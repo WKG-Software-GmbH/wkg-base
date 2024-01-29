@@ -11,7 +11,7 @@ internal abstract class VirtualTimeTableBase : IVirtualTimeTable
 {
     private protected readonly ConcurrentDictionary<nint, EventuallyConsistentVirtualTimeTableEntry> _table;
     private protected readonly int _measurementCount;
-    private protected readonly WeakPool<TimeMetricsContinuation> _pool;
+    private protected readonly ObjectPool<TimeMetricsContinuation> _pool;
 
     private protected VirtualTimeTableBase(int expectedConcurrencyLevel, int capacity, int measurementCount = -1)
     {
@@ -19,7 +19,7 @@ internal abstract class VirtualTimeTableBase : IVirtualTimeTable
         Debug.Assert(capacity > 0);
         Debug.Assert(measurementCount is -1 or > 0);
         _table = new ConcurrentDictionary<nint, EventuallyConsistentVirtualTimeTableEntry>(expectedConcurrencyLevel, capacity);
-        _pool = new WeakPool<TimeMetricsContinuation>(expectedConcurrencyLevel, suppressContentionWarnings: true);
+        _pool = new ObjectPool<TimeMetricsContinuation>(expectedConcurrencyLevel);
         _measurementCount = measurementCount;
     }
 

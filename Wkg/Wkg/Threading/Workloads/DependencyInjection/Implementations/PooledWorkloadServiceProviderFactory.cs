@@ -13,7 +13,6 @@ public class PooledWorkloadServiceProviderFactory : WorkloadServiceProviderFacto
 {
     private readonly Dictionary<Type, Func<object>> _serviceFactories = [];
     private readonly ReaderWriterLockSlim _poolLock = new(LockRecursionPolicy.NoRecursion);
-    // TODO: make size configurable
     private volatile PooledWorkloadServiceProvider?[] _pool = new PooledWorkloadServiceProvider[8];
 
     /// <summary>

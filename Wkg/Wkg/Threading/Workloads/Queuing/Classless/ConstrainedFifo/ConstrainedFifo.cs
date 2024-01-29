@@ -3,9 +3,13 @@ using Wkg.Threading.Workloads.Configuration.Classless;
 
 namespace Wkg.Threading.Workloads.Queuing.Classless.ConstrainedFifo;
 
+/// <summary>
+/// Represents a constrained FIFO queueing discipline.
+/// </summary>
 public sealed class ConstrainedFifo : ClasslessQdiscBuilder<ConstrainedFifo>, IClasslessQdiscBuilder<ConstrainedFifo>
 {
     private int _capacity = -1;
+    private ConstrainedPrioritizationOptions _constrainedOptions = ConstrainedPrioritizationOptions.MinimizeWorkloadCancellation;
 
     public static ConstrainedFifo CreateBuilder(IQdiscBuilderContext context) => new();
 
@@ -22,6 +26,12 @@ public sealed class ConstrainedFifo : ClasslessQdiscBuilder<ConstrainedFifo>, IC
         return this;
     }
 
+    public ConstrainedFifo WithConstrainedPrioritizationOptions(ConstrainedPrioritizationOptions options)
+    {
+        _constrainedOptions = options;
+        return this;
+    }
+
     protected override IClassifyingQdisc<THandle> BuildInternal<THandle>(THandle handle, Predicate<object?>? predicate)
     {
         if (_capacity == -1)
@@ -29,6 +39,6 @@ public sealed class ConstrainedFifo : ClasslessQdiscBuilder<ConstrainedFifo>, IC
             throw new InvalidOperationException("No capacity was specified.");
         }
 
-        return new ConstrainedFifoQdisc<THandle>(handle, predicate, _capacity);
+        return new ConstrainedFifoQdisc<THandle>(handle, predicate, _capacity, _constrainedOptions);
     }
 }

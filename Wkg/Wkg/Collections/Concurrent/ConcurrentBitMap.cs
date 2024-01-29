@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using Wkg.Collections.Concurrent.BitmapInternals;
 using Wkg.Common.ThrowHelpers;
+using Wkg.Threading;
 using Wkg.Threading.Extensions;
 
 namespace Wkg.Collections.Concurrent;

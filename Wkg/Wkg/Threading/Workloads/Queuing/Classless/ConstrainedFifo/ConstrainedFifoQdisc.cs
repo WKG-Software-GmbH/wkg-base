@@ -12,9 +12,14 @@ internal class ConstrainedFifoQdisc<THandle> : ClasslessQdisc<THandle>, IClassif
 {
     private protected readonly AbstractWorkloadBase?[] _workloads;
 
+    // enqueuing and dequeuing are thread-safe by themselves, but we need to ensure that they are not interleaved
+    // this is especially important for the constrained stack, because we need to ensure that the tail isn't incremented and decremented at the same time
+    private protected readonly AlphaBetaLockSlim _abls;
+    private protected readonly ConstrainedPrioritizationOptions _constrainedOptions;
+
     private protected ulong _state;
 
-    public ConstrainedFifoQdisc(THandle handle, Predicate<object?>? predicate, int maxCount) : base(handle, predicate)
+    public ConstrainedFifoQdisc(THandle handle, Predicate<object?>? predicate, int maxCount, ConstrainedPrioritizationOptions options) : base(handle, predicate)
     {
         Debug.Assert(maxCount > 0);
         Debug.Assert(maxCount <= ushort.MaxValue);
@@ -27,6 +32,8 @@ internal class ConstrainedFifoQdisc<THandle> : ClasslessQdisc<THandle>, IClassif
         };
         Volatile.Write(ref _state, initialState.__State);
         _workloads = new AbstractWorkloadBase[maxCount];
+        _abls = new AlphaBetaLockSlim();
+        _constrainedOptions = options;
     }
 
     public override bool IsEmpty
@@ -67,6 +74,12 @@ internal class ConstrainedFifoQdisc<THandle> : ClasslessQdisc<THandle>, IClassif
 
     private protected virtual void EnqueueInternal(AbstractWorkloadBase workload)
     {
+        // prioritize enqueuing or dequeuing based on the specified constrained options
+        // use the alpha lock if we are minimizing scheduling delay (drop outdated workloads as soon as possible and increase responsiveness)
+        using ILockOwnership groupLock = _constrainedOptions == ConstrainedPrioritizationOptions.MinimizeSchedulingDelay
+            ? _abls.AcquireAlphaLock()
+            : _abls.AcquireBetaLock();
+
         ulong currentState, newState;
         AbstractWorkloadBase? overriddenWorkload = null;
         ushort tail;
@@ -84,6 +97,10 @@ internal class ConstrainedFifoQdisc<THandle> : ClasslessQdisc<THandle>, IClassif
                 // the new head is the same as the tail, because we overrode the oldest workload
                 state.Head = state.Tail;
             }
+            else
+            {
+                overriddenWorkload = null;
+            }
             state.IsEmpty = false;
             newState = state.__State;
         } while (Interlocked.CompareExchange(ref _state, newState, currentState) != currentState);
@@ -99,6 +116,11 @@ internal class ConstrainedFifoQdisc<THandle> : ClasslessQdisc<THandle>, IClassif
 
     protected override bool TryDequeueInternal(int workerId, bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload)
     {
+        // prioritize enqueuing or dequeuing based on the specified constrained options
+        // use the alpha lock if we are minimizing workload cancellation (execute as much as possible)
+        using ILockOwnership groupLock = _constrainedOptions == ConstrainedPrioritizationOptions.MinimizeWorkloadCancellation
+            ? _abls.AcquireAlphaLock()
+            : _abls.AcquireBetaLock();
         ulong currentState, newState;
         do
         {

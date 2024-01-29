@@ -13,13 +13,14 @@ namespace Wkg.Threading;
 /// <remarks>
 /// Alpha locks take precedence over beta locks. If a thread holds an alpha lock, it will block any threads attempting
 /// to acquire a beta lock. Similarly, newly requested beta locks will block if there are alphas waiting to acquire the
-/// lock, even if the lock is currently held by a beta.
+/// lock, even if the lock is currently held by the beta group.
 /// </remarks>
-internal class AlphaBetaLockSlim : IDisposable
+[DebuggerDisplay("Lock ID: {_lockId}, Owner: {OwnerGroup}")]
+public sealed class AlphaBetaLockSlim : IDisposable
 {
     // Lock specification for _spinLock:  This lock protects exactly the local fields associated with this
-    // instance of GroupLockSlim.  It does NOT protect the memory associated with
-    // the events that are raised by this lock (eg writeEvent, readEvent upgradeEvent).
+    // instance of AlphaBetaLockSlim.  It does NOT protect the memory associated with
+    // the events that are raised by this lock (eg _alphaEvent, _betaEvent).
     private SpinLock _spinLock;
 
     // These variables allow use to avoid Setting events (which is expensive) if we don't have to.
@@ -64,6 +65,9 @@ internal class AlphaBetaLockSlim : IDisposable
 
     private bool _disposedValue;
 
+    /// <summary>
+    /// Constructs a new instance of the <see cref="AlphaBetaLockSlim"/> class.
+    /// </summary>
     public AlphaBetaLockSlim()
     {
         _lockId = Interlocked.Increment(ref _globalNextLockId);
@@ -140,10 +144,75 @@ internal class AlphaBetaLockSlim : IDisposable
         return empty;
     }
 
+    /// <summary>
+    /// Acquires an <see cref="ILockOwnership"/> for the beta group lock, blocking the current thread until the lock is acquired.
+    /// </summary>
+    /// <remarks>
+    /// Alpha locks take precedence over beta locks. If other threads hold an alpha lock, or if there are threads waiting
+    /// to acquire an alpha lock, this method will only succeed once all alpha locks are released and no new alpha lock requests are pending.
+    /// As a result, alpha lock requests may starve beta lock requests.
+    /// </remarks>
+    /// <returns>An <see cref="ILockOwnership"/> that represents the acquired lock.</returns>
+    /// <exception cref="LockRecursionException">The current thread already holds the beta lock.</exception>
+    /// <exception cref="InvalidOperationException">The current thread holds the alpha lock.</exception>
+    /// <exception cref="ObjectDisposedException">The <see cref="AlphaBetaLockSlim"/> has been disposed.</exception>
+    public ILockOwnership AcquireBetaLock() => new BetaLockOwnership(this);
+
+    /// <summary>
+    /// Enters the lock for the beta group, blocking the current thread until the lock is acquired.
+    /// </summary>
+    /// <remarks>
+    /// Alpha locks take precedence over beta locks. If other threads hold an alpha lock, or if there are threads waiting
+    /// to acquire an alpha lock, this method will only succeed once all alpha locks are released and no new alpha lock requests are pending.
+    /// As a result, alpha lock requests may starve beta lock requests.
+    /// </remarks>
+    /// <exception cref="LockRecursionException">The current thread already holds the beta lock.</exception>
+    /// <exception cref="InvalidOperationException">The current thread holds the alpha lock.</exception>
+    /// <exception cref="ObjectDisposedException">The <see cref="AlphaBetaLockSlim"/> has been disposed.</exception>
     public void EnterBetaLock() => TryEnterBetaLock(Timeout.Infinite);
 
+    /// <summary>
+    /// Attempts to enter the lock for the beta group. If the lock is not available, this method will return immediately.
+    /// </summary>
+    /// <remarks>
+    /// Alpha locks take precedence over beta locks. If other threads hold an alpha lock, or if there are threads waiting
+    /// to acquire an alpha lock, this method will only succeed once all alpha locks are released and no new alpha lock requests are pending.
+    /// As a result, alpha lock requests may starve beta lock requests.
+    /// </remarks>
+    /// <returns><see langword="true"/> if the lock was acquired; otherwise, <see langword="false"/>.</returns>
+    /// <exception cref="LockRecursionException">The current thread already holds the beta lock.</exception>
+    /// <exception cref="InvalidOperationException">The current thread holds the alpha lock.</exception>
+    /// <exception cref="ObjectDisposedException">The <see cref="AlphaBetaLockSlim"/> has been disposed.</exception>
+    public bool TryEnterBetaLock() => TryEnterBetaLockCore(new TimeoutTracker(0));
+
+    /// <summary>
+    /// Attempts to enter the lock for the beta group. If the lock is not available, the thread will wait for the specified amount of time.
+    /// </summary>
+    /// <remarks>
+    /// Alpha locks take precedence over beta locks. If other threads hold an alpha lock, or if there are threads waiting
+    /// to acquire an alpha lock, this method will only succeed once all alpha locks are released and no new alpha lock requests are pending.
+    /// As a result, alpha lock requests may starve beta lock requests.
+    /// </remarks>
+    /// <param name="timeout">The maximum time to wait for the lock.</param>
+    /// <returns><see langword="true"/> if the lock was acquired; otherwise, <see langword="false"/> if the lock was not acquired before the specified timeout.</returns>
+    /// <exception cref="LockRecursionException">The current thread already holds the beta lock.</exception>
+    /// <exception cref="InvalidOperationException">The current thread holds the alpha lock.</exception>
+    /// <exception cref="ObjectDisposedException">The <see cref="AlphaBetaLockSlim"/> has been disposed.</exception>
     public bool TryEnterBetaLock(TimeSpan timeout) => TryEnterBetaLockCore(new TimeoutTracker(timeout));
 
+    /// <summary>
+    /// Attempts to enter the lock for the beta group. If the lock is not available, the thread will wait for the specified amount of time.
+    /// </summary>
+    /// <remarks>
+    /// Alpha locks take precedence over beta locks. If other threads hold an alpha lock, or if there are threads waiting
+    /// to acquire an alpha lock, this method will only succeed once all alpha locks are released and no new alpha lock requests are pending.
+    /// As a result, alpha lock requests may starve beta lock requests.
+    /// </remarks>
+    /// <param name="millisecondsTimeout">The maximum time to wait for the lock, in milliseconds, or <see cref="Timeout.Infinite"/> (-1) to wait indefinitely.</param>
+    /// <returns><see langword="true"/> if the lock was acquired; otherwise, <see langword="false"/> if the lock was not acquired before the specified timeout.</returns>
+    /// <exception cref="LockRecursionException">The current thread already holds the beta lock.</exception>
+    /// <exception cref="InvalidOperationException">The current thread holds the alpha lock.</exception>
+    /// <exception cref="ObjectDisposedException">The <see cref="AlphaBetaLockSlim"/> has been disposed.</exception>
     public bool TryEnterBetaLock(int millisecondsTimeout) => TryEnterBetaLockCore(new TimeoutTracker(millisecondsTimeout));
 
     private bool TryEnterBetaLockCore(TimeoutTracker timeout)
@@ -220,10 +289,75 @@ internal class AlphaBetaLockSlim : IDisposable
         return retVal;
     }
 
+    /// <summary>
+    /// Acquires an <see cref="ILockOwnership"/> for the alpha group lock, blocking the current thread until the lock is acquired.
+    /// </summary>
+    /// <remarks>
+    /// Alpha locks take precedence over beta locks. If other threads hold a beta lock, this method will wait until all beta locks are released.
+    /// New attempts to acquire a beta lock will be delayed until all alpha lock requests are satisfied and the alpha lock is released. As a result,
+    /// alpha lock requests may starve beta lock requests.
+    /// </remarks>
+    /// <returns>An <see cref="ILockOwnership"/> that represents the acquired lock.</returns>
+    /// <exception cref="LockRecursionException">The current thread already holds the alpha lock.</exception>
+    /// <exception cref="InvalidOperationException">The current thread holds the beta lock.</exception>
+    /// <exception cref="ObjectDisposedException">The <see cref="AlphaBetaLockSlim"/> has been disposed.</exception>
+    public ILockOwnership AcquireAlphaLock() => new AlphaLockOwnership(this);
+
+    /// <summary>
+    /// Enters the lock for the alpha group, blocking the current thread until the lock is acquired.
+    /// </summary>
+    /// <remarks>
+    /// Alpha locks take precedence over beta locks. If other threads hold a beta lock, this method will wait until all beta locks are released.
+    /// New attempts to acquire a beta lock will be delayed until all alpha lock requests are satisfied and the alpha lock is released. As a result,
+    /// alpha lock requests may starve beta lock requests.
+    /// </remarks>
+    /// <exception cref="LockRecursionException">The current thread already holds the alpha lock.</exception>
+    /// <exception cref="InvalidOperationException">The current thread holds the beta lock.</exception>
+    /// <exception cref="ObjectDisposedException">The <see cref="AlphaBetaLockSlim"/> has been disposed.</exception>
     public void EnterAlphaLock() => TryEnterAlphaLock(Timeout.Infinite);
 
+    /// <summary>
+    /// Attempts to enter the lock for the alpha group. If the lock is not available, this method will return immediately.
+    /// </summary>
+    /// <remarks>
+    /// Alpha locks take precedence over beta locks.
+    /// New attempts to acquire a beta lock will be delayed until all alpha lock requests are satisfied and the alpha lock is released. As a result,
+    /// alpha lock requests may starve beta lock requests.
+    /// </remarks>
+    /// <returns><see langword="true"/> if the lock was acquired; otherwise, <see langword="false"/>.</returns>
+    /// <exception cref="LockRecursionException">The current thread already holds the alpha lock.</exception>
+    /// <exception cref="InvalidOperationException">The current thread holds the beta lock.</exception>
+    /// <exception cref="ObjectDisposedException">The <see cref="AlphaBetaLockSlim"/> has been disposed.</exception>
+    public bool TryEnterAlphaLock() => TryEnterAlphaLockCore(new TimeoutTracker(0));
+
+    /// <summary>
+    /// Attempts to enter the lock for the alpha group. If the lock is not available, the thread will wait for the specified amount of time.
+    /// </summary>
+    /// <remarks>
+    /// Alpha locks take precedence over beta locks. If other threads hold a beta lock, this method will wait until all beta locks are released.
+    /// New attempts to acquire a beta lock will be delayed until all alpha lock requests are satisfied and the alpha lock is released. As a result,
+    /// alpha lock requests may starve beta lock requests.
+    /// </remarks>
+    /// <param name="timeout">The maximum time to wait for the lock.</param>
+    /// <returns><see langword="true"/> if the lock was acquired; otherwise, <see langword="false"/> if the lock was not acquired before the specified timeout.</returns>
+    /// <exception cref="LockRecursionException">The current thread already holds the alpha lock.</exception>
+    /// <exception cref="InvalidOperationException">The current thread holds the beta lock.</exception>
+    /// <exception cref="ObjectDisposedException">The <see cref="AlphaBetaLockSlim"/> has been disposed.</exception>
     public bool TryEnterAlphaLock(TimeSpan timeout) => TryEnterAlphaLockCore(new TimeoutTracker(timeout));
 
+    /// <summary>
+    /// Attempts to enter the lock for the alpha group. If the lock is not available, the thread will wait for the specified amount of time.
+    /// </summary>
+    /// <remarks>
+    /// Alpha locks take precedence over beta locks. If other threads hold a beta lock, this method will wait until all beta locks are released.
+    /// New attempts to acquire a beta lock will be delayed until all alpha lock requests are satisfied and the alpha lock is released. As a result,
+    /// alpha lock requests may starve beta lock requests.
+    /// </remarks>
+    /// <param name="millisecondsTimeout">The maximum time to wait for the lock, in milliseconds, or <see cref="Timeout.Infinite"/> (-1) to wait indefinitely.</param>
+    /// <returns><see langword="true"/> if the lock was acquired; otherwise, <see langword="false"/> if the lock was not acquired before the specified timeout.</returns>
+    /// <exception cref="LockRecursionException">The current thread already holds the alpha lock.</exception>
+    /// <exception cref="InvalidOperationException">The current thread holds the beta lock.</exception>
+    /// <exception cref="ObjectDisposedException">The <see cref="AlphaBetaLockSlim"/> has been disposed.</exception>
     public bool TryEnterAlphaLock(int millisecondsTimeout) => TryEnterAlphaLockCore(new TimeoutTracker(millisecondsTimeout));
 
     private bool TryEnterAlphaLockCore(TimeoutTracker timeout)
@@ -289,8 +423,18 @@ internal class AlphaBetaLockSlim : IDisposable
         return true;
     }
 
+    /// <summary>
+    /// Releases the currently held beta lock.
+    /// </summary>
+    /// <exception cref="ObjectDisposedException">The <see cref="AlphaBetaLockSlim"/> has been disposed.</exception>
+    /// <exception cref="SynchronizationLockException">The current thread does not hold the beta lock.</exception>
     public void ExitBetaLock() => ExitLockCore(AlphaBetaOwner.Beta);
 
+    /// <summary>
+    /// Releases the currently held alpha lock.
+    /// </summary>
+    /// <exception cref="ObjectDisposedException">The <see cref="AlphaBetaLockSlim"/> has been disposed.</exception>
+    /// <exception cref="SynchronizationLockException">The current thread does not hold the alpha lock.</exception>
     public void ExitAlphaLock() => ExitLockCore(AlphaBetaOwner.Alpha);
 
     private void ExitLockCore(AlphaBetaOwner lockType)
@@ -519,10 +663,19 @@ internal class AlphaBetaLockSlim : IDisposable
         //     anyway, so it's preferable to put the thread into the proper wait state
     }
 
+    /// <summary>
+    /// Gets the number of threads waiting to acquire the alpha lock.
+    /// </summary>
     public int WaitingAlphaCount => (int)_numAlphaWaiters;
 
+    /// <summary>
+    /// Gets the number of threads waiting to acquire the beta lock.
+    /// </summary>
     public int WaitingBetaCount => (int)_numBetaWaiters;
 
+    /// <summary>
+    /// Indicates whether the current thread holds the alpha lock.
+    /// </summary>
     public bool IsAlphaLockHeld
     {
         get
@@ -532,6 +685,9 @@ internal class AlphaBetaLockSlim : IDisposable
         }
     }
 
+    /// <summary>
+    /// Indicates whether the current thread holds the beta lock.
+    /// </summary>
     public bool IsBetaLockHeld
     {
         get
@@ -541,7 +697,7 @@ internal class AlphaBetaLockSlim : IDisposable
         }
     }
 
-    protected virtual void Dispose(bool disposing)
+    private void Dispose(bool disposing)
     {
         if (disposing && !_disposedValue)
         {
@@ -563,6 +719,7 @@ internal class AlphaBetaLockSlim : IDisposable
         }
     }
 
+    /// <inheritdoc/>
     public void Dispose()
     {
         Dispose(disposing: true);
@@ -779,6 +936,7 @@ internal enum AlphaBetaOwner
 // allocate N of these, where N is the maximum number of locks held simultaneously
 // by that thread.
 //
+[DebuggerDisplay("Ownership: {ownership}")]
 internal sealed class AlphaBetaCount
 {
     // Which lock does this object belong to?  This is a numeric ID for two reasons:
@@ -794,4 +952,30 @@ internal sealed class AlphaBetaCount
 
     // Next ABC in this thread's list.
     public AlphaBetaCount? next;
+}
+
+file readonly struct AlphaLockOwnership : ILockOwnership
+{
+    private readonly AlphaBetaLockSlim _abls;
+
+    public AlphaLockOwnership(AlphaBetaLockSlim abls)
+    {
+        _abls = abls;
+        abls.EnterAlphaLock();
+    }
+
+    public void Dispose() => _abls.ExitAlphaLock();
+}
+
+file readonly struct BetaLockOwnership : ILockOwnership
+{
+    private readonly AlphaBetaLockSlim _abls;
+
+    public BetaLockOwnership(AlphaBetaLockSlim abls)
+    {
+        _abls = abls;
+        abls.EnterBetaLock();
+    }
+
+    public void Dispose() => _abls.ExitBetaLock();
 }

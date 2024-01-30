@@ -1,11 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿namespace Wkg.Common.Extensions;
 
-namespace Wkg.Common.Extensions;
-
+/// <summary>
+/// Contains extension methods for instances of <see cref="ThreadLocal{T}"/>.
+/// </summary>
 public static class ThreadLocalValueTypeExtensions
 {
     /// <summary>

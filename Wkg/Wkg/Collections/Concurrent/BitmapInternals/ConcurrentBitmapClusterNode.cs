@@ -441,5 +441,10 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
 [InlineArray(SEGMENTS_PER_CLUSTER)]
 internal struct ConcurrentBitmap56StateCluster
 {
+#pragma warning disable IDE0044 // Add readonly modifier
+#pragma warning disable IDE0051 // Remove unused private members
+    // IntelliSense doesn't know about InlineArrayAttribute yet
     private ConcurrentBitmap56State _firstElement;
+#pragma warning restore IDE0051
+#pragma warning restore IDE0044
 }

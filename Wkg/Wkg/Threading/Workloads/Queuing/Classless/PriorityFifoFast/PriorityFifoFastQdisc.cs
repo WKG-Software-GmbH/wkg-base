@@ -205,7 +205,7 @@ internal class PriorityFifoFastQdisc<THandle> : ClasslessQdisc<THandle>, INotify
     void INotifyWorkScheduled.OnWorkScheduled()
     {
         Debug.Assert(__LAST_ENQUEUED_CHILD_INDEX is not null);
-        _dataMap.UpdateBit(__LAST_ENQUEUED_CHILD_INDEX.Value, isSet: true);
+        _dataMap.UpdateBit(__LAST_ENQUEUED_CHILD_INDEX.Value, value: true);
         ParentScheduler.OnWorkScheduled();
     }
 

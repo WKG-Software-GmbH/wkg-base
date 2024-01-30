@@ -49,7 +49,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         // by default we have one child, so the bit map is initialized with a single bit
         // if we have more children, the bit map will be resized automatically
         _hasDataMap = new ConcurrentBitmap(1);
-        _hasDataMap.UpdateBit(0, isSet: true);
+        _hasDataMap.UpdateBit(0, value: true);
     }
 
     /// <inheritdoc/>
@@ -365,7 +365,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
             // mark it as empty
             DebugLog.WriteDiagnostic($"{this}: child {child.Child} seems to be empty. Updating emptiness bit map.", LogWriter.Blocking);
             i++;
-        } while (!_hasDataMap.TryUpdateBit(childIndex, token, isSet: false));
+        } while (!_hasDataMap.TryUpdateBit(childIndex, token, value: false));
         DebugLog.WriteDebug($"{this}: failed to repopulate candidate buffer for child {child.Child}. Marked child as empty.", LogWriter.Blocking);
         return false;
     }
@@ -603,7 +603,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         // no token is required, as we just force the bit to be set
         // worker threads attempting to mark this child as empty will just fail to do so as their token will be invalidated by us
         // so no ABA problem here (not empty -> worker finds no workload -> we set it to not empty -> worker tries to set it to empty -> worker fails)
-        _hasDataMap.UpdateBit(index, isSet: true);
+        _hasDataMap.UpdateBit(index, value: true);
         // reset the last enqueued child index
         __LAST_ENQUEUED_CHILD_INDEX.Value = null;
         DebugLog.WriteDebug($"{this}: cleared empty flag for child {index}.", LogWriter.Blocking);
@@ -663,7 +663,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         {
             // we just moved workloads from the child to the local queue
             const int localQueueIndex = 0;
-            _hasDataMap.UpdateBit(localQueueIndex, isSet: true);
+            _hasDataMap.UpdateBit(localQueueIndex, value: true);
         }
 
         // remove the child and resize the buffers
@@ -727,7 +727,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         // and growing the bit map by one bit is a cheap operation if we don't hit any segment or cluster boundaries
         Debug.Assert(_hasDataMap.Length == newChildStates.Length - 1);
         _hasDataMap.Grow(additionalSize: 1);
-        _hasDataMap.UpdateBit(newChildStates.Length - 1, isSet: false);
+        _hasDataMap.UpdateBit(newChildStates.Length - 1, value: false);
 
         // done. write back the new child states
         _childClasses = newChildStates;

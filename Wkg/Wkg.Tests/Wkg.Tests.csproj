@@ -19,7 +19,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
   </ItemGroup>
-
+ q
   <ItemGroup>
     <ProjectReference Include="..\Wkg\Wkg.csproj" />
   </ItemGroup>

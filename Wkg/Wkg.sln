@@ -12,7 +12,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Wkg.Tests", "Wkg.Tests\Wkg.Tests.csproj", "{37968D39-5DC7-4EB3-B3CC-5EFF5A147E38}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleApp1", "ConsoleApp1\ConsoleApp1.csproj", "{9EE8A9BA-44F7-46ED-963E-54FFE572960D}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Samples", "Samples\Samples.csproj", "{9EE8A9BA-44F7-46ED-963E-54FFE572960D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

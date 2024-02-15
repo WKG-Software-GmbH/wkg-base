@@ -3,6 +3,9 @@ using Wkg.Threading.Workloads.Configuration;
 
 namespace Wkg.Threading.Workloads.Queuing;
 
+/// <summary>
+/// Represents any queuing discipline (qdisc) used to schedule workloads for execution.
+/// </summary>
 public interface IQdisc : IDisposable
 {
     /// <summary>

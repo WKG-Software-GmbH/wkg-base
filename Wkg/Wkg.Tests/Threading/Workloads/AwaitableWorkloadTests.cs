@@ -4,6 +4,7 @@ using Wkg.Threading.Workloads.Configuration;
 using Wkg.Threading.Workloads.Queuing.Classless.Fifo;
 using System.Diagnostics;
 using Wkg.Threading.Workloads.Scheduling;
+using Wkg.Threading.Workloads.Exceptions;
 
 namespace Wkg.Threading.Workloads.Tests;
 
@@ -501,7 +502,7 @@ public class AwaitableWorkloadTests
     public async Task TestSelfCancellationWithException()
     {
         ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
-        Workload<int> workload = factory.ScheduleAsync<int>(_ => throw new OperationCanceledException());
+        Workload<int> workload = factory.ScheduleAsync<int>(_ => throw new WorkloadCanceledException());
         WorkloadResult<int> result = await workload;
         Assert.IsTrue(result.IsCanceled);
         Assert.IsFalse(result.TryGetResult(out _));

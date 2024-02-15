@@ -497,7 +497,7 @@ public class ConcurrentHashSet<T> : IReadOnlyCollection<T>, ICollection<T>
                         _state = StateInnerLoop;
                         goto case StateInnerLoop;
                     }
-                    goto default;
+                    goto DEFAULT;
 
                 case StateInnerLoop:
                     Node? node = _node;
@@ -509,7 +509,7 @@ public class ConcurrentHashSet<T> : IReadOnlyCollection<T>, ICollection<T>
                     }
                     goto case StateOuterloop;
 
-                default:
+                DEFAULT:
                     _state = StateDone;
                     return false;
             }

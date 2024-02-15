@@ -3,6 +3,7 @@ using System.Diagnostics;
 using Wkg.Data.Pooling;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
+using Wkg.Threading.Workloads.Exceptions;
 using Wkg.Threading.Workloads.Scheduling;
 
 namespace Wkg.Threading.Workloads.Queuing.VirtualTime;
@@ -49,7 +50,7 @@ internal abstract class VirtualTimeTableBase : IVirtualTimeTable
             continuation.Initialize(this);
             if (!workload.TryAddContinuation(continuation, scheduleBeforeOthers: true))
             {
-                WorkloadSchedulingException exception = WorkloadSchedulingException.CreateVirtual($"Failed to add {nameof(TimeMetricsContinuation)} to workload: {workload}.");
+                WorkloadSchedulingException exception = WorkloadSchedulingException.CreateVirtual($"Failed to add {nameof(TimeMetricsContinuation)} to workload: {workload}. This should never happen! Please report this bug.");
                 DebugLog.WriteException(exception, LogWriter.Blocking);
             }
         }

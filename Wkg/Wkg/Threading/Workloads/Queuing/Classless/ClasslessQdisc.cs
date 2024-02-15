@@ -4,6 +4,7 @@ using System.Text;
 using Wkg.Common.Extensions;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
+using Wkg.Threading.Workloads.Exceptions;
 using Wkg.Threading.Workloads.Queuing.Routing;
 using Wkg.Threading.Workloads.Scheduling;
 
@@ -19,6 +20,11 @@ public abstract class ClasslessQdisc<THandle> : IClassifyingQdisc<THandle> where
     private INotifyWorkScheduled _parentScheduler;
     private protected bool _disposedValue;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ClasslessQdisc{THandle}"/> class.
+    /// </summary>
+    /// <param name="handle">The handle uniquely identifying this qdisc in this scheduling hierarchy.</param>
+    /// <param name="predicate">The predicate that determines whether a workload with a given state can be enqueued into this qdisc, or <see langword="null"/> to match nothing by default.</param>
     protected ClasslessQdisc(THandle handle, Predicate<object?>? predicate)
     {
         _handle = handle;
@@ -75,7 +81,7 @@ public abstract class ClasslessQdisc<THandle> : IClassifyingQdisc<THandle> where
         DebugLog.WriteDiagnostic($"Initializing qdisc {GetType().Name} ({Handle}) with parent scheduler {parentScheduler.GetType().Name} ({parentScheduler.As<IQdisc<THandle>>()?.Handle.ToString().Coalesce("<unknown>")}).", LogWriter.Blocking);
         if (!ReferenceEquals(Interlocked.CompareExchange(ref _parentScheduler, parentScheduler, NotifyWorkScheduledSentinel.Uninitialized), NotifyWorkScheduledSentinel.Uninitialized))
         {
-            WorkloadSchedulingException exception = WorkloadSchedulingException.CreateVirtual("A workload scheduler was already set for this qdisc. This is a bug in the qdisc implementation.");
+            WorkloadSchedulingException exception = WorkloadSchedulingException.CreateVirtual(SR.ThreadingWorkloads_QdiscInitializationFailed_AlreadyBound);
             DebugLog.WriteException(exception, LogWriter.Blocking);
             throw exception;
         }
@@ -224,6 +230,14 @@ public abstract class ClasslessQdisc<THandle> : IClassifyingQdisc<THandle> where
         GC.SuppressFinalize(this);
     }
 
+    /// <summary>
+    /// Appends a string representation of the children of this qdisc to the specified <see cref="StringBuilder"/>
+    /// </summary>
+    /// <remarks>
+    /// Overriding types should only append the single-line context (index, priority, etc.) of their *direct* children on a partial line, and then call <see cref="ChildToTreeString(IClassifyingQdisc{THandle}, StringBuilder, int)"/> immediately after to append the child's string representation and recurse into the child's children.
+    /// </remarks>
+    /// <param name="builder">The <see cref="StringBuilder"/> to append the string representation to.</param>
+    /// <param name="indent">The current indentation level, to be used with <see cref="StringBuilderExtensions.AppendIndent(StringBuilder, int)"/>.</param>
     protected virtual void ChildrenToTreeString(StringBuilder builder, int indent) => Pass();
 
     /// <inheritdoc/>

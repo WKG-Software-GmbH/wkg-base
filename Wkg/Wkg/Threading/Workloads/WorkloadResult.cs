@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using Wkg.Threading.Workloads.Exceptions;
 
 namespace Wkg.Threading.Workloads;
 
@@ -29,7 +30,7 @@ public readonly struct WorkloadResult
         }
         else if (IsCanceled)
         {
-            throw new OperationCanceledException();
+            throw new WorkloadCanceledException();
         }
     }
 

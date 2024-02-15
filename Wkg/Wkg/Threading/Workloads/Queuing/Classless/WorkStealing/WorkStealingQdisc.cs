@@ -2,6 +2,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
+using Wkg.Threading.Workloads.Exceptions;
 using Wkg.Threading.Workloads.Queuing.Routing;
 
 namespace Wkg.Threading.Workloads.Queuing.Classless.Random;
@@ -29,11 +30,11 @@ internal class WorkStealingQdisc<THandle>(THandle handle, Predicate<object?>? pr
         }
         else if (workload.IsCompleted)
         {
-            DebugLog.WriteWarning($"A workload was scheduled, but it was already completed. What are you doing?", LogWriter.Blocking);
+            throw new WorkloadSchedulingException(SR.ThreadingWorkloads_QdiscEnqueueFailed_AlreadyCompleted);
         }
         else
         {
-            DebugLog.WriteWarning("A workload was scheduled, but could not be bound to the qdisc. This is a likely a bug in the qdisc scheduler implementation.", LogWriter.Blocking);
+            throw new WorkloadSchedulingException(SR.ThreadingWorkloads_QdiscEnqueueFailed_NotBound);
         }
     }
 
@@ -59,5 +60,5 @@ internal class WorkStealingQdisc<THandle>(THandle handle, Predicate<object?>? pr
 
     protected override bool TryRemoveInternal(AwaitableWorkload workload) => false;
 
-    public override string ToString() => $"Random qdisc (handle: {Handle}, count: {BestEffortCount})";
+    public override string ToString() => $"WorkStealing qdisc (handle: {Handle}, count: {BestEffortCount})";
 }

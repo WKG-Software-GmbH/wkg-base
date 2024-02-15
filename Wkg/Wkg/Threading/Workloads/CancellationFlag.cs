@@ -1,5 +1,6 @@
 ﻿using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
+using Wkg.Threading.Workloads.Exceptions;
 using Wkg.Threading.Workloads.WorkloadTypes;
 
 namespace Wkg.Threading.Workloads;
@@ -39,7 +40,7 @@ public readonly struct CancellationFlag
         if (IsCancellationRequested)
         {
             MarkCanceled();
-            throw new OperationCanceledException();
+            throw new WorkloadCanceledException();
         }
     }
 

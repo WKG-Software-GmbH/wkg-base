@@ -1,5 +1,6 @@
 ﻿using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
+using Wkg.Threading.Workloads.Exceptions;
 using Wkg.Threading.Workloads.Queuing;
 using Wkg.Threading.Workloads.Scheduling;
 
@@ -33,11 +34,11 @@ public abstract class AsyncWorkload : AwaitableWorkload
                     goto FAILURE;
                 }
             }
-            catch (OperationCanceledException)
+            catch (WorkloadCanceledException)
             {
                 Interlocked.Exchange(ref _status, WorkloadStatus.Canceled);
                 SetCanceledResultUnsafe();
-                DebugLog.WriteDiagnostic($"{this}: Execution was canceled with an OperationCanceledException.", LogWriter.Blocking);
+                DebugLog.WriteDiagnostic($"{this}: Execution was canceled with a {nameof(WorkloadCanceledException)}.", LogWriter.Blocking);
             }
             catch (Exception ex)
             {

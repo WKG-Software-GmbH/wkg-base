@@ -10,7 +10,7 @@ internal class LogFileSink : ILogSink
     /// <summary>
     /// Lock object for file access.
     /// </summary>
-    private readonly object _fileLock = new();
+    private readonly object _syncRoot;
 
     /// <summary>
     /// Wrapper for <see cref="File.AppendAllLines(string, IEnumerable{string}, Encoding)"/>.
@@ -32,24 +32,25 @@ internal class LogFileSink : ILogSink
     /// </summary>
     /// <param name="logFileName">Name of the log file.</param>
     /// <param name="logFileMaxByteSize">Maximum size of the log file in bytes.</param>
-    internal LogFileSink(string logFileName, long logFileMaxByteSize)
+    /// <param name="syncRoot">Lock object for file access.</param>
+    internal LogFileSink(string logFileName, long logFileMaxByteSize, object? syncRoot)
     {
         FileName = logFileName;
         MaxFileSize = logFileMaxByteSize;
+        _syncRoot = syncRoot ?? new object();
         new FileInfo(FileName).Directory?.Create();
     }
 
     /// <summary>
     /// Logs a message to the file.
     /// </summary>
-    /// <param name="entry">Message to log.</param>
-    /// <param name="logLevel">The <see cref="LogLevel"/> of the message.</param>
-    public void Log(string entry, LogLevel logLevel)
+    /// <param name="logEntry">Message to log.</param>
+    public void Log(ref LogEntry logEntry)
     {
-        lock (_fileLock)
+        lock (_syncRoot)
         {
             TruncateFile__UNSAFE();
-            _writeLineWrapper[0] = entry;
+            _writeLineWrapper[0] = logEntry.LogMessage;
             File.AppendAllLines(FileName, _writeLineWrapper, Encoding.UTF8);
         }
     }

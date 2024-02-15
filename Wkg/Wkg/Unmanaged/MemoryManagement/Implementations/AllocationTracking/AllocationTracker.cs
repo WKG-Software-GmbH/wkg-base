@@ -82,7 +82,7 @@ public readonly unsafe struct AllocationTracker<TMemoryManager> : IMemoryManager
     /// <inheritdoc/>
     public AllocationSnapshot GetAllocationSnapshot(bool reset = false)
     {
-        Allocation[] allocations = _allocations.Values.ToArray();
+        Allocation[] allocations = [.. _allocations.Values];
         if (reset)
         {
             _allocations.Clear();

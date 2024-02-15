@@ -1,6 +1,7 @@
 ﻿using System.Reflection;
 using System.Text;
 using Wkg.Logging.Configuration;
+using Wkg.Text;
 
 namespace Wkg.Logging.Generators;
 
@@ -33,10 +34,11 @@ public class TracingLogEntryGeneratorWithParamNames : TracingLogEntryGenerator, 
     {
         if (!_targetSiteLookup.TryGetValue(method, out string? site))
         {
+            StringBuilder targetBuilder = StringBuilderPool.Shared.Rent(256);
+
             string type = method.DeclaringType?.Name ?? "<UnknownType>";
             ParameterInfo[] parameters = method.GetParameters();
-            StringBuilder builder = new();
-            builder.Append('(')
+            targetBuilder.Append('(')
                 .Append(type)
                 .Append("::")
                 .Append(method.Name)
@@ -46,20 +48,22 @@ public class TracingLogEntryGeneratorWithParamNames : TracingLogEntryGenerator, 
             {
                 if (flag)
                 {
-                    builder.Append(", ");
+                    targetBuilder.Append(", ");
                 }
 
-                builder.Append(parameter.ParameterType.Name);
+                targetBuilder.Append(parameter.ParameterType.Name);
 
                 if (parameter.Name is not null)
                 {
-                    builder.Append(' ').Append(parameter.Name);
+                    targetBuilder.Append(' ').Append(parameter.Name);
                 }
                 flag = true;
             }
-            builder.Append("))");
-            site = builder.ToString();
+            targetBuilder.Append("))");
+            site = targetBuilder.ToString();
             _targetSiteLookup.TryAdd(method, site);
+
+            StringBuilderPool.Shared.Return(targetBuilder);
         }
         return site;
     }

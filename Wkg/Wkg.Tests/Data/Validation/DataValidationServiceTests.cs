@@ -1,14 +1,13 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Wkg.Tests;
-using static System.Net.WebRequestMethods;
 
 namespace Wkg.Data.Validation.Tests;
 
 [TestClass]
 public class DataValidationServiceTests : BaseTest
 {
-    private static readonly string[] _validEmailAddresses = new string[]
-    {
+    private static readonly string[] _validEmailAddresses =
+    [
         "email@example.com",
         "firstname.lastname@example.com",
         "email@subdomain.example.com",
@@ -22,10 +21,10 @@ public class DataValidationServiceTests : BaseTest
         "email@example.museum",
         "email@example.co.jp",
         "firstname-lastname@example.com",
-    };
+    ];
 
-    private static readonly string?[] _invalidEmailAddresses = new string?[]
-    {
+    private static readonly string?[] _invalidEmailAddresses =
+    [
         "    ",
         null,
         string.Empty,
@@ -47,7 +46,7 @@ public class DataValidationServiceTests : BaseTest
         "“(),:;<>[\\]@example.com",
         "just\"not\"right @example.com",
         "this\\ is\"really\"not\\allowed @example.com",
-    };
+    ];
 
     [TestMethod]
     public void IsEmailAddressTest_ValidEmails()
@@ -67,8 +66,8 @@ public class DataValidationServiceTests : BaseTest
         }
     }
 
-    private static readonly string[] _validPhoneNumbers = new string[]
-    {
+    private static readonly string[] _validPhoneNumbers =
+    [
         "+49 123 456 789",
         "+49 123 456",
         "+1 (555) 123-4567",
@@ -81,10 +80,10 @@ public class DataValidationServiceTests : BaseTest
         "0800 123 456",
         "+49 89 12345678",
         "333-444-5555",
-    };
+    ];
 
-    private static readonly string[] _invalidPhoneNumbers = new string[]
-    {
+    private static readonly string[] _invalidPhoneNumbers =
+    [
         "+1 (555) 123-4567-",
         "(555) 555-5555-",
         "+44 7911 123456-",
@@ -97,7 +96,7 @@ public class DataValidationServiceTests : BaseTest
         "333-444-5555-",
         "333-444- 5555",
         "555-ABC-1234",
-    };
+    ];
 
     [TestMethod]
     public void IsPhoneNumberTest_ValidPhoneNumbers()
@@ -117,8 +116,8 @@ public class DataValidationServiceTests : BaseTest
         }
     }
 
-    private static readonly string[] _validUrls = new string[]
-    {
+    private static readonly string[] _validUrls =
+    [
         "https://www.example.com/",
         "https://www.example.com/path/to/resource",
         "https://www.example.com/path/to/resource?query=string",
@@ -141,10 +140,10 @@ public class DataValidationServiceTests : BaseTest
         "http://example.com/тест",
         "http://example.com/%20",
         "http://example.com/?param=value#fragment",
-    };
+    ];
 
-    private static readonly string?[] _invalidUrls = new string?[]
-    {
+    private static readonly string?[] _invalidUrls =
+    [
         string.Empty,
         null,
         "example.com",
@@ -157,7 +156,7 @@ public class DataValidationServiceTests : BaseTest
         "http://example .com:path",
         "http://example.com/path with space/file",
         "http://example.com/{}",
-    };
+    ];
 
     [TestMethod]
     public void IsUrlTest_ValidUrls()

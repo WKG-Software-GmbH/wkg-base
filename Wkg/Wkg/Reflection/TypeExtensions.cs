@@ -12,7 +12,7 @@ public static partial class TypeExtensions
 
     public static partial IEnumerable<Type[]> GetGenericTypeArgumentsOfInterfaces(this Type type, Type interfaceType)
     {
-        _ = type ?? throw new ArgumentNullException(nameof(type));
+        ArgumentNullException.ThrowIfNull(type, nameof(type));
 
         return type
             .GetInterfaces()
@@ -21,7 +21,7 @@ public static partial class TypeExtensions
 
     public static partial IEnumerable<Type[]> GetGenericTypeArgumentsOfDirectInterfaces(this Type type, Type interfaceType)
     {
-        _ = type ?? throw new ArgumentNullException(nameof(type));
+        ArgumentNullException.ThrowIfNull(type, nameof(type));
 
         return type
             .GetDirectInterfaces()
@@ -30,7 +30,7 @@ public static partial class TypeExtensions
 
     private static IEnumerable<Type[]> GetGenericTypeArgumentsOfInterfacesCore(this IEnumerable<Type> interfaces, Type interfaceType)
     {
-        _ = interfaceType ?? throw new ArgumentNullException(nameof(interfaceType));
+        ArgumentNullException.ThrowIfNull(interfaceType, nameof(interfaceType));
 
         return interfaces
             .Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == interfaceType)
@@ -39,7 +39,7 @@ public static partial class TypeExtensions
 
     public static partial Type[]? GetGenericTypeArgumentsOfSingleInterface(this Type type, Type interfaceType)
     {
-        _ = type ?? throw new ArgumentNullException(nameof(type));
+        ArgumentNullException.ThrowIfNull(type, nameof(type));
 
         return type
             .GetInterfaces()
@@ -48,7 +48,7 @@ public static partial class TypeExtensions
 
     public static partial Type[]? GetGenericTypeArgumentsOfSingleDirectInterface(this Type type, Type interfaceType)
     {
-        _ = type ?? throw new ArgumentNullException(nameof(type));
+        ArgumentNullException.ThrowIfNull(type, nameof(type));
 
         return type
             .GetDirectInterfaces()
@@ -57,7 +57,7 @@ public static partial class TypeExtensions
 
     private static Type[]? GetGenericTypeArgumentsOfSingleInterfaceCore(this IEnumerable<Type> interfaces, Type interfaceType)
     {
-        _ = interfaceType ?? throw new ArgumentNullException(nameof(interfaceType));
+        ArgumentNullException.ThrowIfNull(interfaceType, nameof(interfaceType));
 
         return interfaces
             .Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == interfaceType)
@@ -89,8 +89,8 @@ public static partial class TypeExtensions
 
     public static partial bool ExtendsGenericBaseClass(this Type type, Type genericBaseClass)
     {
-        _ = type ?? throw new ArgumentNullException(nameof(type));
-        _ = genericBaseClass ?? throw new ArgumentNullException(nameof(genericBaseClass));
+        ArgumentNullException.ThrowIfNull(type, nameof(type));
+        ArgumentNullException.ThrowIfNull(genericBaseClass, nameof(genericBaseClass));
 
         if (!genericBaseClass.IsClass || !genericBaseClass.IsGenericTypeDefinition)
         {
@@ -113,8 +113,8 @@ public static partial class TypeExtensions
 
     public static partial bool ExtendsGenericBaseClassDirectly(this Type type, Type genericBaseClass)
     {
-        _ = type ?? throw new ArgumentNullException(nameof(type));
-        _ = genericBaseClass ?? throw new ArgumentNullException(nameof(genericBaseClass));
+        ArgumentNullException.ThrowIfNull(type, nameof(type));
+        ArgumentNullException.ThrowIfNull(genericBaseClass, nameof(genericBaseClass));
 
         if (!genericBaseClass.IsClass || !genericBaseClass.IsGenericTypeDefinition)
         {
@@ -128,8 +128,8 @@ public static partial class TypeExtensions
     
     public static partial bool TryGetGenericBaseClassTypeArguments(this Type type, Type genericBaseClass, out Type[]? typeArguments)
     {
-        _ = type ?? throw new ArgumentNullException(nameof(type));
-        _ = genericBaseClass ?? throw new ArgumentNullException(nameof(genericBaseClass));
+        ArgumentNullException.ThrowIfNull(type, nameof(type));
+        ArgumentNullException.ThrowIfNull(genericBaseClass, nameof(genericBaseClass));
 
         if (!genericBaseClass.IsClass || !genericBaseClass.IsGenericTypeDefinition)
         {
@@ -166,8 +166,8 @@ public static partial class TypeExtensions
 
     public static partial bool TryGetDirectGenericBaseClassTypeArguments(this Type type, Type genericBaseClass, out Type[]? typeArguments)
     {
-        _ = type ?? throw new ArgumentNullException(nameof(type));
-        _ = genericBaseClass ?? throw new ArgumentNullException(nameof(genericBaseClass));
+        ArgumentNullException.ThrowIfNull(type, nameof(type));
+        ArgumentNullException.ThrowIfNull(genericBaseClass, nameof(genericBaseClass));
 
         if (!genericBaseClass.IsClass || !genericBaseClass.IsGenericTypeDefinition)
         {
@@ -224,8 +224,8 @@ public static partial class TypeExtensions
 
     public static partial bool ImplementsInterface(this Type type, Type interfaceType)
     {
-        _ = type ?? throw new ArgumentNullException(nameof(type));
-        _ = interfaceType ?? throw new ArgumentNullException(nameof(interfaceType));
+        ArgumentNullException.ThrowIfNull(type, nameof(type));
+        ArgumentNullException.ThrowIfNull(interfaceType, nameof(interfaceType));
 
         if (!interfaceType.IsInterface)
         {
@@ -242,8 +242,8 @@ public static partial class TypeExtensions
 
     private static bool ImplementsGenericInterfaceCore(Type type, Type genericInterfaceType, Func<Type, IEnumerable<Type>> getInterfaces)
     {
-        _ = type ?? throw new ArgumentNullException(nameof(type));
-        _ = genericInterfaceType ?? throw new ArgumentNullException(nameof(genericInterfaceType));
+        ArgumentNullException.ThrowIfNull(type, nameof(type));
+        ArgumentNullException.ThrowIfNull(genericInterfaceType, nameof(genericInterfaceType));
 
         if (!genericInterfaceType.IsInterface || !genericInterfaceType.IsGenericTypeDefinition)
         {
@@ -269,8 +269,8 @@ public static partial class TypeExtensions
 
     public static partial bool TryGetDirectGenericInterfaceTypeArguments(this Type type, Type genericInterfaceType, out Type[]? genericTypeArguments)
     {
-        _ = type ?? throw new ArgumentNullException(nameof(type));
-        _ = genericInterfaceType ?? throw new ArgumentNullException(nameof(genericInterfaceType));
+        ArgumentNullException.ThrowIfNull(type, nameof(type));
+        ArgumentNullException.ThrowIfNull(genericInterfaceType, nameof(genericInterfaceType));
 
         if (!genericInterfaceType.IsInterface || !genericInterfaceType.IsGenericTypeDefinition)
         {

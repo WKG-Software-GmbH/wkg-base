@@ -3,12 +3,16 @@
 namespace Wkg.Collections;
 
 /// <summary>
-/// An array of objects accessing its elements using <see cref="Volatile.Read{T}(ref T)"/> and <see cref="Volatile.Write{T}(ref T, T)"/>.
+/// An array of objects accessing its elements using <see cref="Volatile.Read{T}(ref readonly T)"/> and <see cref="Volatile.Write{T}(ref T, T)"/>.
 /// </summary>
 /// <typeparam name="T">The underlying type of this array.</typeparam>
-public class VolatileArray<T> : IEnumerable<T>, IEnumerator<T> where T : class
+/// <remarks>
+/// Constructs a new instance of the <see cref="VolatileArray{T}"/> class with the specified length.
+/// </remarks>
+/// <param name="length">The length of the new array.</param>
+public class VolatileArray<T>(int length) : IEnumerable<T>, IEnumerator<T> where T : class
 {
-    private readonly T[] _values;
+    private readonly T[] _values = length == 0 ? [] : new T[length];
     private int _index = -1;
 
     /// <inheritdoc/>
@@ -18,15 +22,6 @@ public class VolatileArray<T> : IEnumerable<T>, IEnumerator<T> where T : class
 
     /// <inheritdoc cref="Array.Length"/>
     public int Length => _values.Length;
-
-    /// <summary>
-    /// Constructs a new instance of the <see cref="VolatileArray{T}"/> class with the specified length.
-    /// </summary>
-    /// <param name="length">The length of the new array.</param>
-    public VolatileArray(int length)
-    {
-        _values = length == 0 ? Array.Empty<T>() : new T[length];
-    }
 
     /// <summary>
     /// Gets or sets the element at the specified <paramref name="index"/>.

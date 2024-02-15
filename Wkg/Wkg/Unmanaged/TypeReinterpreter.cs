@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 
 namespace Wkg.Unmanaged;
 
@@ -15,7 +16,7 @@ public static class TypeReinterpreter
     /// <param name="from">The value to reinterpret cast.</param>
     /// <param name="_">(Ignore this) A dummy parameter to allow type inference.</param>
     /// <returns>The specified <paramref name="from"/> reference type reinterpreted as the specified <typeparamref name="TTo"/> reference type.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static TTo ReinterpretCast<TFrom, TTo>(TFrom from, TTo? _ = default)
         where TFrom : class
         where TTo : class => 
@@ -27,19 +28,20 @@ public static class TypeReinterpreter
     /// <typeparam name="T">The target reference type to reinterpret cast to.</typeparam>
     /// <param name="from">The value to reinterpret cast.</param>
     /// <returns>The specified <paramref name="from"/> object reinterpreted as the specified <typeparamref name="T"/> reference type.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [return: NotNullIfNotNull(nameof(from))]
     public static T? ReinterpretCast<T>(object? from) where T : class =>
         Unsafe.As<T>(from);
 
     /// <summary>
-    /// Reinterprets the specified <paramref name="from"/> unmanaged value type as the specified <typeparamref name="TTo"/> unmanaged value type.
+    /// Reinterprets the provided <typeparamref name="TFrom"/> as a <typeparamref name="TTo"/>.
     /// </summary>
     /// <typeparam name="TFrom">The source unmanaged value type to reinterpret cast from.</typeparam>
     /// <typeparam name="TTo">The target unmanaged value type to reinterpret cast to.</typeparam>
     /// <param name="from">The value to reinterpret cast.</param>
     /// <param name="_">(Ignore this) A dummy parameter to allow type inference.</param>
     /// <returns>The specified <paramref name="from"/> unmanaged value type reinterpreted as the specified <typeparamref name="TTo"/> unmanaged value type.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static unsafe TTo ReinterpretCast<TFrom, TTo>(TFrom from, TTo? _ = default)
         where TFrom : unmanaged
         where TTo : unmanaged => 
@@ -52,7 +54,7 @@ public static class TypeReinterpreter
     /// <typeparam name="TTo">The target unmanaged ByRef value type to reinterpret cast to.</typeparam>
     /// <param name="from">The value to reinterpret cast.</param>
     /// <returns>The specified <paramref name="from"/> unmanaged ByRef value type reinterpreted as the specified <typeparamref name="TTo"/> unmanaged ByRef value type.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static unsafe ref TTo ReinterpretCastByRef<TFrom, TTo>(ref TFrom from)
         where TFrom : unmanaged
         where TTo : unmanaged =>

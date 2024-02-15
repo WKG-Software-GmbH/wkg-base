@@ -8,9 +8,12 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{B06BBA12-962C-49BC-B626-FBDA8C109F91}"
 	ProjectSection(SolutionItems) = preProject
 		.editorconfig = .editorconfig
+		Directory.Build.props = Directory.Build.props
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wkg.Tests", "Wkg.Tests\Wkg.Tests.csproj", "{37968D39-5DC7-4EB3-B3CC-5EFF5A147E38}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Wkg.Tests", "Wkg.Tests\Wkg.Tests.csproj", "{37968D39-5DC7-4EB3-B3CC-5EFF5A147E38}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Samples", "Samples\Samples.csproj", "{9EE8A9BA-44F7-46ED-963E-54FFE572960D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -26,6 +29,10 @@ Global
 		{37968D39-5DC7-4EB3-B3CC-5EFF5A147E38}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{37968D39-5DC7-4EB3-B3CC-5EFF5A147E38}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{37968D39-5DC7-4EB3-B3CC-5EFF5A147E38}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9EE8A9BA-44F7-46ED-963E-54FFE572960D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9EE8A9BA-44F7-46ED-963E-54FFE572960D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9EE8A9BA-44F7-46ED-963E-54FFE572960D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9EE8A9BA-44F7-46ED-963E-54FFE572960D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

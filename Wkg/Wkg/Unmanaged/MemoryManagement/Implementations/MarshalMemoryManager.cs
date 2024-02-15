@@ -22,7 +22,7 @@ public readonly struct MarshalMemoryManager : IMemoryManager
     {
         int byteSize = count * size;
         void* ptr = Marshal.AllocHGlobal(byteSize).ToPointer();
-        MemoryManager.ZeroMemory(ptr, (uint)byteSize);
+        MemoryManager.Memset(ptr, 0x0, (uint)byteSize);
         return ptr;
     }
 
@@ -47,7 +47,7 @@ public readonly struct MarshalMemoryManager : IMemoryManager
     {
         int byteSize = count * sizeof(T);
         T* ptr = (T*)Marshal.AllocHGlobal(byteSize);
-        MemoryManager.ZeroMemory(ptr, (uint)byteSize);
+        MemoryManager.Memset(ptr, 0x0, (uint)byteSize);
         return ptr;
     }
 

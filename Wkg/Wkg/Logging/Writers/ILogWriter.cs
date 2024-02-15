@@ -8,12 +8,11 @@ namespace Wkg.Logging.Writers;
 public interface ILogWriter
 {
     /// <summary>
-    /// Writes the <paramref name="logEntry"/> with the specified <paramref name="logLevel"/> to the <paramref name="sink"/>.
+    /// Writes the <paramref name="logEntry"/> to the <paramref name="sink"/>.
     /// </summary>
     /// <param name="logEntry">The log entry to write.</param>
     /// <param name="sink">The <see cref="ILogSink"/> to write the log entry to.</param>
-    /// <param name="logLevel">The <see cref="LogLevel"/> of the log entry.</param>
-    void Write(string logEntry, ILogSink sink, LogLevel logLevel);
+    void Write(ref LogEntry logEntry, ILogSink sink);
 }
 
 /// <summary>

@@ -9,7 +9,7 @@ using Wkg.Threading.Workloads.Queuing.Routing;
 
 namespace Wkg.Threading.Workloads.Queuing.Classless.PriorityFifoFast;
 
-internal class PriorityFifoFastQdisc<THandle> : ClasslessQdisc<THandle>, INotifyWorkScheduled
+internal class PriorityFifoFastQdisc<THandle> : ClassifyingQdisc<THandle>, INotifyWorkScheduled
     where THandle : unmanaged
 {
     // it is impossible to have a hierachy of PriorityFifoFastQdiscs (classless)

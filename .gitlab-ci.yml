@@ -11,7 +11,7 @@ variables:
 
 include:
     - project: 'wkg/gitlab-templates'
-      ref: 'net8.0-ios'
+      ref: 'v1.2.0'
       file:
           - '/jobs/build_dotnet_8.yml'
           - '/jobs/test_dotnet_8.yml'

@@ -61,7 +61,7 @@ namespace Wkg {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to A workload was scheduled, but it was already completed. What are you doing?.
+        ///   Looks up a localized string similar to A workload was scheduled, but it was already completed. Ignoring scheduling attempt..
         /// </summary>
         internal static string ThreadingWorkloads_QdiscEnqueueFailed_AlreadyCompleted {
             get {

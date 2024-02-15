@@ -1,15 +1,10 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
-using Wkg.Internals.Diagnostic;
-using Wkg.Logging.Writers;
-using Wkg.Threading.Workloads.Exceptions;
 using Wkg.Threading.Workloads.Queuing.Routing;
 
 namespace Wkg.Threading.Workloads.Queuing.Classless.Random;
 
-internal class WorkStealingQdisc<THandle>(THandle handle, Predicate<object?>? predicate) 
-    : ClasslessQdisc<THandle>(handle, predicate), IClassifyingQdisc<THandle> 
-    where THandle : unmanaged
+internal class WorkStealingQdisc<THandle>(THandle handle, Predicate<object?>? predicate) : ClasslessQdisc<THandle>(handle, predicate) where THandle : unmanaged
 {
     private readonly ConcurrentBag<AbstractWorkloadBase> _queue = [];
 
@@ -21,22 +16,7 @@ internal class WorkStealingQdisc<THandle>(THandle handle, Predicate<object?>? pr
 
     protected override bool ContainsChild(THandle handle) => false;
 
-    protected override void EnqueueDirect(AbstractWorkloadBase workload)
-    {
-        if (TryBindWorkload(workload))
-        {
-            _queue.Add(workload);
-            NotifyWorkScheduled();
-        }
-        else if (workload.IsCompleted)
-        {
-            throw new WorkloadSchedulingException(SR.ThreadingWorkloads_QdiscEnqueueFailed_AlreadyCompleted);
-        }
-        else
-        {
-            throw new WorkloadSchedulingException(SR.ThreadingWorkloads_QdiscEnqueueFailed_NotBound);
-        }
-    }
+    protected override void EnqueueDirectLocal(AbstractWorkloadBase workload) => _queue.Add(workload);
 
     protected override bool TryDequeueInternal(int workerId, bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload) => _queue.TryTake(out workload);
 

@@ -22,18 +22,7 @@ internal sealed class LifoQdisc<THandle>(THandle handle, Predicate<object?>? pre
 
     protected override bool ContainsChild(THandle handle) => false;
 
-    protected override void EnqueueDirect(AbstractWorkloadBase workload)
-    {
-        if (TryBindWorkload(workload))
-        {
-            _stack.Push(workload);
-            NotifyWorkScheduled();
-        }
-        else
-        {
-            DebugLog.WriteWarning("A workload was scheduled, but could not be bound to the qdisc. This is a likely a bug in the qdisc scheduler implementation.", LogWriter.Blocking);
-        }
-    }
+    protected override void EnqueueDirectLocal(AbstractWorkloadBase workload) => _stack.Push(workload);
 
     protected override bool TryDequeueInternal(int workerId, bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload) => 
         _stack.TryPop(out workload);

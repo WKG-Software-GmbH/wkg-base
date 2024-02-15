@@ -3,7 +3,7 @@ using Wkg.Threading.Workloads.Queuing.Classless;
 
 namespace Wkg.Threading.Workloads.Queuing.Classful;
 
-public abstract class ClassfulQdisc<THandle> : ClasslessQdisc<THandle>, IClassfulQdisc<THandle> 
+public abstract class ClassfulQdisc<THandle> : ClassifyingQdisc<THandle>, IClassfulQdisc<THandle> 
     where THandle : unmanaged
 {
     protected ClassfulQdisc(THandle handle, Predicate<object?>? predicate) : base(handle, predicate)

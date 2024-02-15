@@ -1,9 +1,11 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using Wkg.Internals.Diagnostic;
+using Wkg.Threading.Workloads.Exceptions;
 using Wkg.Threading.Workloads.Queuing.Routing;
 
 namespace Wkg.Threading.Workloads.Queuing.Classless.LatestOnly;
 
-internal class LatestOnlyQdisc<THandle>(THandle handle, Predicate<object?>? predicate) : ClasslessQdisc<THandle>(handle, predicate) where THandle : unmanaged
+internal class LatestOnlyQdisc<THandle>(THandle handle, Predicate<object?>? predicate) : ClassifyingQdisc<THandle>(handle, predicate) where THandle : unmanaged
 {
     private volatile AbstractWorkloadBase? _singleWorkload;
 
@@ -33,6 +35,14 @@ internal class LatestOnlyQdisc<THandle>(THandle handle, Predicate<object?>? pred
                 // we need to abort the old workload and invoke any continuations
                 old?.InternalAbort();
             }
+        }
+        else if (workload.IsCompleted)
+        {
+            DebugLog.WriteInfo(SR.ThreadingWorkloads_QdiscEnqueueFailed_AlreadyCompleted);
+        }
+        else
+        {
+            throw new WorkloadSchedulingException(SR.ThreadingWorkloads_QdiscEnqueueFailed_NotBound);
         }
     }
 

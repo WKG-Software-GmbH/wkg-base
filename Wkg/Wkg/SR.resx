@@ -118,7 +118,7 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="ThreadingWorkloads_QdiscEnqueueFailed_AlreadyCompleted" xml:space="preserve">
-    <value>A workload was scheduled, but it was already completed. What are you doing?</value>
+    <value>A workload was scheduled, but it was already completed. Ignoring scheduling attempt.</value>
   </data>
   <data name="ThreadingWorkloads_QdiscEnqueueFailed_NoScheduler" xml:space="preserve">
     <value>A workload was scheduled, but no workload scheduler was found in the current context. This is a bug in the qdisc implementation.</value>

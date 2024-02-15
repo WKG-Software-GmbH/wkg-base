@@ -10,7 +10,7 @@ using Wkg.Threading.Workloads.Queuing.Routing;
 
 namespace Wkg.Threading.Workloads.Queuing.Classless.PriorityFifoFast;
 
-internal class PriorityFifoFastQdiscLocking<THandle> : ClasslessQdisc<THandle>, INotifyWorkScheduled
+internal class PriorityFifoFastQdiscLocking<THandle> : ClassifyingQdisc<THandle>, INotifyWorkScheduled
     where THandle : unmanaged
 {
     private readonly object _syncRoot = new();

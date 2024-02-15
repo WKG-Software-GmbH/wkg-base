@@ -2,6 +2,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
+using Wkg.Threading.Workloads.Exceptions;
 using Wkg.Threading.Workloads.Queuing.Routing;
 
 namespace Wkg.Threading.Workloads.Queuing.Classless.ConstrainedFifo;
@@ -59,18 +60,7 @@ internal class ConstrainedFifoQdisc<THandle> : ClasslessQdisc<THandle>, IClassif
 
     protected override bool TryRemoveInternal(AwaitableWorkload workload) => false;
 
-    protected override void EnqueueDirect(AbstractWorkloadBase workload)
-    {
-        if (TryBindWorkload(workload))
-        {
-            EnqueueInternal(workload);
-            NotifyWorkScheduled();
-        }
-        else
-        {
-            DebugLog.WriteWarning("A workload was scheduled, but could not be bound to the qdisc. This is a likely a bug in the qdisc scheduler implementation.", LogWriter.Blocking);
-        }
-    }
+    protected override void EnqueueDirectLocal(AbstractWorkloadBase workload) => EnqueueInternal(workload);
 
     private protected virtual void EnqueueInternal(AbstractWorkloadBase workload)
     {

@@ -13,7 +13,7 @@ namespace Wkg.Threading.Workloads.Queuing.Classless.Fifo;
 /// <typeparam name="THandle">The type of the handle.</typeparam>
 /// <param name="handle">The handle of the qdisc.</param>
 /// <param name="predicate">The predicate used to determine if a workload can be scheduled.</param>
-internal sealed class FifoQdisc<THandle>(THandle handle, Predicate<object?>? predicate) : ClasslessQdisc<THandle>(handle, predicate), IClassifyingQdisc<THandle> where THandle : unmanaged
+internal sealed class FifoQdisc<THandle>(THandle handle, Predicate<object?>? predicate) : ClasslessQdisc<THandle>(handle, predicate) where THandle : unmanaged
 {
     private readonly ConcurrentQueue<AbstractWorkloadBase> _queue = [];
 
@@ -25,22 +25,7 @@ internal sealed class FifoQdisc<THandle>(THandle handle, Predicate<object?>? pre
 
     protected override bool ContainsChild(THandle handle) => false;
 
-    protected override void EnqueueDirect(AbstractWorkloadBase workload)
-    {
-        if (TryBindWorkload(workload))
-        {
-            _queue.Enqueue(workload);
-            NotifyWorkScheduled();
-        }
-        else if (workload.IsCompleted)
-        {
-            throw new WorkloadSchedulingException(SR.ThreadingWorkloads_QdiscEnqueueFailed_AlreadyCompleted);
-        }
-        else
-        {
-            throw new WorkloadSchedulingException(SR.ThreadingWorkloads_QdiscEnqueueFailed_NotBound);
-        }
-    }
+    protected override void EnqueueDirectLocal(AbstractWorkloadBase workload) => _queue.Enqueue(workload);
 
     protected override bool TryDequeueInternal(int workerId, bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload) => _queue.TryDequeue(out workload);
 

@@ -10,7 +10,6 @@ using Wkg.Threading.Workloads.Exceptions;
 using Wkg.Threading.Workloads.Queuing.Classless;
 using Wkg.Threading.Workloads.Queuing.Routing;
 using Wkg.Threading.Workloads.Queuing.VirtualTime;
-using Wkg.Threading.Workloads.Scheduling;
 
 namespace Wkg.Threading.Workloads.Queuing.Classful.FairQueuing;
 

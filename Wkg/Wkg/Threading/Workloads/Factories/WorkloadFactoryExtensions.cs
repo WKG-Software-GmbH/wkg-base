@@ -1,4 +1,5 @@
 ﻿using Wkg.Threading.Workloads.DependencyInjection;
+using Wkg.Threading.Workloads.Exceptions;
 
 namespace Wkg.Threading.Workloads.Factories;
 
@@ -174,7 +175,7 @@ public static class WorkloadFactoryExtensions
                 }
                 else
                 {
-                    throw new OperationCanceledException("At least one workload was canceled while awaiting the results.");
+                    throw new WorkloadCanceledException("At least one workload was canceled while awaiting the results.");
                 }
             }
         }

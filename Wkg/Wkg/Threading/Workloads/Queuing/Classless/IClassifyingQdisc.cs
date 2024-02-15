@@ -2,6 +2,14 @@
 
 namespace Wkg.Threading.Workloads.Queuing.Classless;
 
+/// <summary>
+/// Represents a queuing discipline (qdisc) with basic classification capabilities using registered predicates.
+/// </summary>
+/// <remarks>
+/// An <see cref="IClassifyingQdisc"/> by itself is classless, and does not provide child-management capabilities.
+/// Classful qdiscs extend this interface and provide child-management capabilities.
+/// Therefore, this interface only provides the necessary API surface to determine whether it can accept and enqueue a workload to itself (or any of its children).
+/// </remarks>
 public interface IClassifyingQdisc : IQdisc
 {
     internal INotifyWorkScheduled ParentScheduler { get; }
@@ -12,8 +20,6 @@ public interface IClassifyingQdisc : IQdisc
     /// Enqueues the workload to be executed onto this qdisc.
     /// </summary>
     /// <param name="workload">The workload to be enqueued.</param>
-    // TODO: binding can fail if the workload is already completed!
-    // we currently don't check for this, which could cause state corruption with emptiness tracking and other things
     internal void Enqueue(AbstractWorkloadBase workload);
 
     /// <summary>
@@ -49,6 +55,18 @@ public interface IClassifyingQdisc : IQdisc
     internal void AssertNotCompleted();
 }
 
+/// <summary>
+/// Represents a queuing discipline (qdisc) that can classify workloads and enqueue them to this qdisc.
+/// </summary>
+/// <remarks>
+/// An <see cref="IClassifyingQdisc{THandle}"/> by itself is classless, and does not provide child-management capabilities.
+/// Classful qdiscs extend this interface and provide child-management capabilities.
+/// Therefore, this interface only provides the necessary API surface to determine whether it can accept and enqueue a workload to itself (or any of its children).
+/// <para>
+/// This interface extends <see cref="IClassifyingQdisc"/> by adding support for handle-based classification and routing.
+/// </para>
+/// </remarks>
+/// <typeparam name="THandle">The primitive type of the handle used to identify all qdiscs in this hierarchy.</typeparam>
 public interface IClassifyingQdisc<THandle> : IClassifyingQdisc, IQdisc<THandle> 
     where THandle : unmanaged
 {

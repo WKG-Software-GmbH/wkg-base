@@ -1,5 +1,6 @@
 ﻿using Wkg.Threading.Workloads.Configuration.Classful.Custom;
 using Wkg.Threading.Workloads.Configuration.Classless;
+using Wkg.Threading.Workloads.Exceptions;
 using Wkg.Threading.Workloads.Queuing.Classful;
 using Wkg.Threading.Workloads.Queuing.Classful.Classification;
 using Wkg.Threading.Workloads.Queuing.Classless;

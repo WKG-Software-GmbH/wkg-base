@@ -5,6 +5,7 @@ using Wkg.Threading.Workloads.DependencyInjection;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
 using Wkg.Threading.Workloads.Continuations;
+using Wkg.Threading.Workloads.Exceptions;
 
 namespace Wkg.Threading.Workloads;
 
@@ -91,7 +92,9 @@ public abstract class AbstractWorkloadBase
             }
             else
             {
-                DebugLog.WriteException(WorkloadSchedulingException.CreateVirtual($"Invalid continuation type '{continuation.GetType().Name}'. This is a bug. Please report this issue."), LogWriter.Blocking);
+                WorkloadSchedulingException ex = WorkloadSchedulingException.CreateVirtual($"Invalid continuation type '{continuation.GetType().Name}'. This is a bug. Please report this issue.");
+                DebugLog.WriteException(ex, LogWriter.Blocking);
+                throw ex;
             }
         }
     }

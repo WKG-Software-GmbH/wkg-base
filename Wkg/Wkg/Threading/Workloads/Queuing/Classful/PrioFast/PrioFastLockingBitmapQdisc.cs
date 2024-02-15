@@ -294,7 +294,6 @@ internal sealed class PrioFastLockingBitmapQdisc<THandle> : ClassfulQdisc<THandl
             child.Dispose();
         }
         _localLasts.AsSpan().Clear();
-
         base.DisposeManaged();
     }
 

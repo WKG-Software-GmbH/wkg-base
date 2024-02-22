@@ -65,7 +65,7 @@ public readonly struct PooledArray<T>
         get
         {
             Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, _end - _start - 1, nameof(index));
-            return ref _array[index];
+            return ref _array[_start + index];
         }
     }
 

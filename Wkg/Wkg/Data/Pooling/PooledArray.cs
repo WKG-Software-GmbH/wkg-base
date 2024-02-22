@@ -64,7 +64,7 @@ public readonly struct PooledArray<T>
     {
         get
         {
-            Throw.ArgumentOutOfRangeException.IfNotInRange(index, _start, _end - 1, nameof(index));
+            Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, _end - _start - 1, nameof(index));
             return ref _array[index];
         }
     }
@@ -78,9 +78,9 @@ public readonly struct PooledArray<T>
     /// <exception cref="ArgumentOutOfRangeException">Thrown if <paramref name="start"/> or <paramref name="length"/> is negative or greater than the length of the usable portion of the array.</exception>
     public PooledArray<T> Slice(int start, int length)
     {
-        Throw.ArgumentOutOfRangeException.IfNotInRange(start, 0, _end, nameof(start));
-        Throw.ArgumentOutOfRangeException.IfNotInRange(length, 0, _end - start, nameof(length));
-        return new PooledArray<T>(_array, start, length, noChecks: true);
+        Throw.ArgumentOutOfRangeException.IfNotInRange(start, 0, _end - _start - 1, nameof(start));
+        Throw.ArgumentOutOfRangeException.IfNotInRange(length, 0, _end - _start - 1, nameof(length));
+        return new PooledArray<T>(_array, _start + start, length, noChecks: true);
     }
 
     /// <summary>
@@ -98,7 +98,7 @@ public readonly struct PooledArray<T>
     /// <exception cref="ArgumentOutOfRangeException">Thrown if <paramref name="newLength"/> is negative.</exception>"
     public bool TryResize(int newLength, out PooledArray<T> resized)
     {
-        if (newLength > _array.Length)
+        if (_start + newLength > _array.Length)
         {
             resized = this;
             return false;
@@ -120,7 +120,7 @@ public readonly struct PooledArray<T>
     /// <returns><see langword="true"/> if the operation was successful; otherwise, <see langword="false"/>.</returns>
     public bool TryResizeUnsafe(int newLength, out PooledArray<T> resized)
     {
-        if (newLength > _array.Length)
+        if (_start + newLength > _array.Length)
         {
             resized = this;
             return false;

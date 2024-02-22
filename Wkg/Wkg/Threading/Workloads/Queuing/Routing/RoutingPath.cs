@@ -46,7 +46,7 @@ public ref struct RoutingPath<THandle> where THandle : unmanaged
             int newLength = path.Length * 2;
             PooledArray<RoutingPathNode<THandle>> newPath = ArrayPool.Rent<RoutingPathNode<THandle>>(newLength);
             path.Array.AsSpan().CopyTo(newPath.Array.AsSpan());
-            _path = new PooledArray<RoutingPathNode<THandle>>(newPath.Array, path.Length + 1, noChecks: true);
+            _path = new PooledArray<RoutingPathNode<THandle>>(newPath.Array, start: 0, path.Length + 1, noChecks: true);
         }
         resized.Array[path.Length] = node;
         _path = resized;

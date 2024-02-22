@@ -6,7 +6,7 @@ namespace Wkg.Logging.Configuration;
 
 public partial class LoggerConfiguration
 {
-    private readonly List<ILogSink> _logSinks = new();
+    private readonly List<ILogSink> _logSinks = [];
     private int _mainThreadId = 0;
     private LogLevel _minimumLogLevel = LogLevel.Diagnostic;
     private Func<CompiledLoggerConfiguration, ILogEntryGenerator> _generatorFactory = TracingLogEntryGenerator.Create;

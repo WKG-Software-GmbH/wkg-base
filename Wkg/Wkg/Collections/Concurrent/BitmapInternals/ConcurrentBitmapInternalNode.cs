@@ -36,7 +36,7 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
                 childStepSize *= SEGMENTS_PER_CLUSTER;
             }
             int childCount = (bitSize + childStepSize - 1) / childStepSize;
-            _children = new PooledArray<ConcurrentBitmapNode>(new ConcurrentBitmapNode[childCount], childCount, noChecks: true);
+            _children = new PooledArray<ConcurrentBitmapNode>(new ConcurrentBitmapNode[childCount], start: 0, childCount, noChecks: true);
             Span<ConcurrentBitmapNode> children = _children.AsSpan();
             int remainingBits = bitSize;
             for (int i = 0; i < children.Length; i++, remainingBits -= childStepSize)
@@ -68,7 +68,7 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
             // we are one level above the leaf nodes
             // split the bitSize into multiple clusters
             int childCount = (bitSize + CLUSTER_BIT_SIZE - 1) / CLUSTER_BIT_SIZE;
-            _children = new PooledArray<ConcurrentBitmapNode>(new ConcurrentBitmapNode[childCount], childCount, noChecks: true);
+            _children = new PooledArray<ConcurrentBitmapNode>(new ConcurrentBitmapNode[childCount], start: 0, childCount, noChecks: true);
             Span<ConcurrentBitmapNode> children = _children.AsSpan();
             int remainingBits = bitSize;
             for (int i = 0; i < children.Length; i++, remainingBits -= CLUSTER_BIT_SIZE)
@@ -336,7 +336,7 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
                 // grow the array
                 ConcurrentBitmapNode[] newChildren = new ConcurrentBitmapNode[newTotalChildCount];
                 Array.Copy(_children.Array, newChildren, _children.Array.Length);
-                _children = new PooledArray<ConcurrentBitmapNode>(newChildren, newChildren.Length, noChecks: true);
+                _children = new PooledArray<ConcurrentBitmapNode>(newChildren, start: 0, newChildren.Length, noChecks: true);
             }
             _children = resized;
             Span<ConcurrentBitmapNode> children = _children.AsSpan();

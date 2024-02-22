@@ -16,7 +16,7 @@ public static class ArrayPool
     /// whose <see cref="PooledArray{T}.Length"/> property is guaranteed to be equal to the <paramref name="length"/> parameter.<br/>
     /// The underlying array may be larger than the specified length, but the <see cref="PooledArray{T}.Length"/> property will always be equal to the specified length.
     /// </remarks>
-    public static PooledArray<T> Rent<T>(int length) => new(Std::ArrayPool<T>.Shared.Rent(length), length, noChecks: true);
+    public static PooledArray<T> Rent<T>(int length) => new(Std::ArrayPool<T>.Shared.Rent(length), 0, length, noChecks: true);
 
     /// <inheritdoc cref="Std::ArrayPool{T}.Return(T[], bool)"/>
     public static void Return<T>(PooledArray<T> array, bool clearArray = false) => Std::ArrayPool<T>.Shared.Return(array.Array, clearArray);

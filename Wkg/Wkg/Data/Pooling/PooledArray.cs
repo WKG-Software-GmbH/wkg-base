@@ -10,7 +10,8 @@ namespace Wkg.Data.Pooling;
 public readonly struct PooledArray<T>
 {
     private readonly T[] _array;
-    private readonly int _length;
+    private readonly int _start;
+    private readonly int _end;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PooledArray{T}"/> struct with the specified array and usage length.
@@ -25,23 +26,25 @@ public readonly struct PooledArray<T>
         Throw.ArgumentOutOfRangeException.IfNotInRange(actualLength, 0, array.Length, nameof(actualLength));
 
         _array = array;
-        _length = actualLength;
+        _start = 0;
+        _end = actualLength;
     }
 
-    internal PooledArray(T[] array, int actualLength, bool noChecks)
+    internal PooledArray(T[] array, int start, int actualLength, bool noChecks)
     {
         Debug.Assert(noChecks);
         Debug.Assert(array is not null);
         Debug.Assert(actualLength >= 0 && actualLength <= array.Length);
 
+        _start = start;
         _array = array;
-        _length = actualLength;
+        _end = start + actualLength;
     }
 
     /// <summary>
     /// Gets the length of the usable portion of the array.
     /// </summary>
-    public int Length => _length;
+    public int Length => _end - _start;
 
     /// <summary>
     /// Gets the underlying array.
@@ -61,15 +64,29 @@ public readonly struct PooledArray<T>
     {
         get
         {
-            Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, _length - 1, nameof(index));
+            Throw.ArgumentOutOfRangeException.IfNotInRange(index, _start, _end - 1, nameof(index));
             return ref _array[index];
         }
     }
 
     /// <summary>
+    /// Returns a new <see cref="PooledArray{T}"/> that represents a portion of the usable portion of the array.
+    /// </summary>
+    /// <param name="start">The zero-based index at which the slice begins.</param>
+    /// <param name="length">The length of the slice.</param>
+    /// <returns>A new <see cref="PooledArray{T}"/> that represents a portion of the usable portion of the array.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown if <paramref name="start"/> or <paramref name="length"/> is negative or greater than the length of the usable portion of the array.</exception>
+    public PooledArray<T> Slice(int start, int length)
+    {
+        Throw.ArgumentOutOfRangeException.IfNotInRange(start, 0, _end, nameof(start));
+        Throw.ArgumentOutOfRangeException.IfNotInRange(length, 0, _end - start, nameof(length));
+        return new PooledArray<T>(_array, start, length, noChecks: true);
+    }
+
+    /// <summary>
     /// Returns a <see cref="Span{T}"/> that represents the usable portion of the array.
     /// </summary>
-    public Span<T> AsSpan() => _array.AsSpan(0, _length);
+    public Span<T> AsSpan() => _array.AsSpan(_start, _end);
 
     /// <summary>
     /// Attempts to resize the usable portion of the array to the specified length.
@@ -87,7 +104,7 @@ public readonly struct PooledArray<T>
             return false;
         }
         ArgumentOutOfRangeException.ThrowIfNegative(newLength, nameof(newLength));
-        resized = new PooledArray<T>(_array, newLength, noChecks: true);
+        resized = new PooledArray<T>(_array, _start, newLength, noChecks: true);
         return true;
     }
 
@@ -108,7 +125,7 @@ public readonly struct PooledArray<T>
             resized = this;
             return false;
         }
-        resized = new PooledArray<T>(_array, newLength, noChecks: true);
+        resized = new PooledArray<T>(_array, _start, newLength, noChecks: true);
         return true;
     }
 

@@ -1,4 +1,4 @@
-﻿namespace Wkg.Extensions.Reflection;
+﻿namespace Wkg.Reflection.Extensions;
 
 public static partial class TypeExtensions
 {

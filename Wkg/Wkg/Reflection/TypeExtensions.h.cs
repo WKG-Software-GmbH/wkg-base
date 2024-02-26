@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
-namespace Wkg.Extensions.Reflection;
+namespace Wkg.Reflection.Extensions;
 
 /// <summary>
 /// Provides extension methods for <see cref="Type"/>.

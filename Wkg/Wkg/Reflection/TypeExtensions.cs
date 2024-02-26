@@ -46,6 +46,16 @@ public static partial class TypeExtensions
             .GetGenericTypeArgumentsOfSingleInterfaceCore(interfaceType);
     }
 
+    public static partial Type? GetGenericTypeArgumentOfSingleInterface(this Type type, Type interfaceType)
+    {
+        ArgumentNullException.ThrowIfNull(type, nameof(type));
+
+        return type
+            .GetInterfaces()
+            .GetGenericTypeArgumentsOfSingleInterfaceCore(interfaceType)?
+            .SingleOrDefault();
+    }
+
     public static partial Type[]? GetGenericTypeArgumentsOfSingleDirectInterface(this Type type, Type interfaceType)
     {
         ArgumentNullException.ThrowIfNull(type, nameof(type));
@@ -53,6 +63,16 @@ public static partial class TypeExtensions
         return type
             .GetDirectInterfaces()
             .GetGenericTypeArgumentsOfSingleInterfaceCore(interfaceType);
+    }
+
+    public static partial Type? GetGenericTypeArgumentOfSingleDirectInterface(this Type type, Type interfaceType)
+    {
+        ArgumentNullException.ThrowIfNull(type, nameof(type));
+
+        return type
+            .GetDirectInterfaces()
+            .GetGenericTypeArgumentsOfSingleInterfaceCore(interfaceType)?
+            .SingleOrDefault();
     }
 
     private static Type[]? GetGenericTypeArgumentsOfSingleInterfaceCore(this IEnumerable<Type> interfaces, Type interfaceType)

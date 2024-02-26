@@ -33,22 +33,40 @@ public static partial class TypeExtensions
     public static partial IEnumerable<Type[]> GetGenericTypeArgumentsOfDirectInterfaces(this Type type, Type interfaceType);
 
     /// <summary>
-    /// Gets the generic type arguments of the single interface of type <paramref name="interfaceType"/> that is implemented by the specified <paramref name="type"/>.
+    /// Gets the generic type arguments of the single interface implementation of type <paramref name="interfaceType"/> that is implemented by the specified <paramref name="type"/>.
     /// </summary>
     /// <param name="type">The <see cref="Type"/> implementing the interface to get the generic type arguments of.</param>
     /// <param name="interfaceType">The <see cref="Type"/> of the interface implemented by the specified <paramref name="type"/> to get the generic type arguments of.</param>
-    /// <returns>An array containing the generic type arguments of the single interface of type <paramref name="interfaceType"/> that is implemented by the specified <paramref name="type"/> or <see langword="null"/> if the specified <paramref name="type"/> does not implement exactly one interface of type <paramref name="interfaceType"/>.</returns>
+    /// <returns>An array containing the generic type arguments of the single interface of type <paramref name="interfaceType"/> that is implemented by the specified <paramref name="type"/> or <see langword="null"/> if the specified <paramref name="type"/> does not implement the interface of type <paramref name="interfaceType"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="type"/> or <paramref name="interfaceType"/> is <see langword="null"/>.</exception>
     public static partial Type[]? GetGenericTypeArgumentsOfSingleInterface(this Type type, Type interfaceType);
+
+    /// <summary>
+    /// Gets the single generic type argument of the single interface implementation of type <paramref name="interfaceType"/> that is implemented by the specified <paramref name="type"/>.
+    /// </summary>
+    /// <param name="type">The <see cref="Type"/> implementing the interface to get the generic type argument of.</param>
+    /// <param name="interfaceType">The <see cref="Type"/> of the interface implemented by the specified <paramref name="type"/> to get the generic type argument of.</param>
+    /// <returns>The generic type argument of the single interface implementation of type <paramref name="interfaceType"/> that is implemented by the specified <paramref name="type"/> or <see langword="null"/> if the specified <paramref name="type"/> does not implement exactly one interface of type <paramref name="interfaceType"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="type"/> or <paramref name="interfaceType"/> is <see langword="null"/>.</exception>
+    public static partial Type? GetGenericTypeArgumentOfSingleInterface(this Type type, Type interfaceType);
 
     /// <summary>
     /// Gets the generic type arguments of the single interface of type <paramref name="interfaceType"/> that is directly implemented by the specified <paramref name="type"/>.
     /// </summary>
     /// <param name="type">The <see cref="Type"/> directly implementing the interface to get the generic type arguments of.</param>
     /// <param name="interfaceType">The <see cref="Type"/> of the interface implemented by the specified <paramref name="type"/> to get the generic type arguments of.</param>
-    /// <returns>An array containing the generic type arguments of the single direct interface of type <paramref name="interfaceType"/> that is implemented by the specified <paramref name="type"/> or <see langword="null"/> if the specified <paramref name="type"/> does not implement exactly one interface of type <paramref name="interfaceType"/>.</returns>
+    /// <returns>An array containing the generic type arguments of the single direct interface of type <paramref name="interfaceType"/> that is implemented by the specified <paramref name="type"/> or <see langword="null"/> if the specified <paramref name="type"/> does not implement the interface of type <paramref name="interfaceType"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="type"/> or <paramref name="interfaceType"/> is <see langword="null"/>.</exception>
     public static partial Type[]? GetGenericTypeArgumentsOfSingleDirectInterface(this Type type, Type interfaceType);
+
+    /// <summary>
+    /// Gets the single generic type argument of the single interface of type <paramref name="interfaceType"/> that is directly implemented by the specified <paramref name="type"/>.
+    /// </summary>
+    /// <param name="type">The <see cref="Type"/> directly implementing the interface to get the generic type argument of.</param>
+    /// <param name="interfaceType">The <see cref="Type"/> of the interface implemented by the specified <paramref name="type"/> to get the generic type argument of.</param>
+    /// <returns>The generic type argument of the single direct interface implementation of type <paramref name="interfaceType"/> that is implemented by the specified <paramref name="type"/> or <see langword="null"/> if the specified <paramref name="type"/> does not implement the interface of type <paramref name="interfaceType"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="type"/> or <paramref name="interfaceType"/> is <see langword="null"/>.</exception>
+    public static partial Type? GetGenericTypeArgumentOfSingleDirectInterface(this Type type, Type interfaceType);
 
     /// <summary>
     /// Checks whether the specified <paramref name="type"/> implements an interface of type <paramref name="interfaceType"/> with a single generic type parameter of type <paramref name="typeParam"/>.

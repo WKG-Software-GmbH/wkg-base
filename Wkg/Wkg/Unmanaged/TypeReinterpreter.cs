@@ -34,6 +34,17 @@ public static class TypeReinterpreter
         Unsafe.As<T>(from);
 
     /// <summary>
+    /// Reinterprets the specified <paramref name="from"/> object as the specified <typeparamref name="T"/> reference type.
+    /// </summary>
+    /// <typeparam name="T">The target reference type to reinterpret cast to.</typeparam>
+    /// <param name="from">The value to reinterpret cast.</param>
+    /// <returns>The specified <paramref name="from"/> object reinterpreted as the specified <typeparamref name="T"/> reference type.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [return: NotNullIfNotNull(nameof(from))]
+    public static T? ReinterpretAs<T>(this object? from) where T : class =>
+        ReinterpretCast<T>(from);
+
+    /// <summary>
     /// Reinterprets the provided <typeparamref name="TFrom"/> as a <typeparamref name="TTo"/>.
     /// </summary>
     /// <typeparam name="TFrom">The source unmanaged value type to reinterpret cast from.</typeparam>

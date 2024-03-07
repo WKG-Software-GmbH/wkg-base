@@ -195,6 +195,39 @@ public static partial class TypeExtensions
     public static partial Type? GetDirectGenericBaseClassTypeArgument(this Type type, Type genericBaseClass);
 
     /// <summary>
+    /// Checks whether the specified <paramref name="type"/> implements the specified non-generic interface <typeparamref name="TInteface"/> directly, i.e. not through inheritance.
+    /// </summary>
+    /// <typeparam name="TInteface">The type of the interface to check for.</typeparam>
+    /// <param name="type">The <see cref="Type"/> to check whether it implements the specified <typeparamref name="TInteface"/> directly.</param>
+    /// <returns><see langword="true"/> if <paramref name="type"/> implements the specified <typeparamref name="TInteface"/>; otherwise, <see langword="false"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="type"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><typeparamref name="TInteface"/> is not an interface.</exception>
+    public static partial bool ImplementsInterfaceDirectly<TInteface>(this Type type);
+
+    /// <summary>
+    /// Checks whether the specified <paramref name="type"/> implements the specified <paramref name="interfaceType"/> directly, i.e. not through inheritance.
+    /// </summary>
+    /// <param name="type">The <see cref="Type"/> to check whether it implements the specified <paramref name="interfaceType"/> directly.</param>
+    /// <param name="interfaceType">The <see cref="Type"/> of the interface to be checked for.</param>
+    /// <returns><see langword="true"/> if <paramref name="type"/> implements the specified <paramref name="interfaceType"/> directly; otherwise, <see langword="false"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="type"/> or <paramref name="interfaceType"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="interfaceType"/> is not an interface.</exception>
+    public static partial bool ImplementsInterfaceDirectly(this Type type, Type interfaceType);
+
+    /// <summary>
+    /// Checks whether the specified <paramref name="type"/> implements the specified non-generic interface <typeparamref name="TInteface"/>.
+    /// </summary>
+    /// <typeparam name="TInteface">The type of the interface to check for.</typeparam>
+    /// <param name="type">The <see cref="Type"/> to check whether it implements the specified <typeparamref name="TInteface"/>.</param>
+    /// <returns><see langword="true"/> if <paramref name="type"/> implements the specified <typeparamref name="TInteface"/>; otherwise, <see langword="false"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="type"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><typeparamref name="TInteface"/> is not an interface.</exception>
+    /// <remarks>
+    /// This method is equivalent to <see cref="Type.IsAssignableFrom(Type)"/> with the restriction that <typeparamref name="TInteface"/> must be an interface.
+    /// </remarks>
+    public static partial bool ImplementsInterface<TInteface>(this Type type);
+
+    /// <summary>
     /// Checks whether <paramref name="type"/> implements the specified non-generic interface <paramref name="interfaceType"/>.
     /// </summary>
     /// <param name="type">The <see cref="Type"/> to check whether it implements the specified <paramref name="interfaceType"/>.</param>

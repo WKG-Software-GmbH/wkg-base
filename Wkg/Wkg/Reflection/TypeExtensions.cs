@@ -242,6 +242,24 @@ public static partial class TypeExtensions
         return typeArgument;
     }
 
+    public static partial bool ImplementsInterfaceDirectly<TInteface>(this Type type) => 
+        type.ImplementsInterfaceDirectly(typeof(TInteface));
+
+    public static partial bool ImplementsInterfaceDirectly(this Type type, Type interfaceType)
+    {
+        ArgumentNullException.ThrowIfNull(type, nameof(type));
+        ArgumentNullException.ThrowIfNull(interfaceType, nameof(interfaceType));
+
+        if (!interfaceType.IsInterface)
+        {
+            throw new ArgumentException("The interface type must be an interface.", nameof(interfaceType));
+        }
+        return type.GetDirectInterfaces().Contains(interfaceType);
+    }
+
+    public static partial bool ImplementsInterface<TInteface>(this Type type) => 
+        type.ImplementsInterface(typeof(TInteface));
+
     public static partial bool ImplementsInterface(this Type type, Type interfaceType)
     {
         ArgumentNullException.ThrowIfNull(type, nameof(type));

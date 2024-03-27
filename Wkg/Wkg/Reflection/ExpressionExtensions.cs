@@ -14,9 +14,11 @@ public static class ExpressionExtensions
     /// </summary>
     /// <param name="memberAccessExpression">The member access expression, e.g., <c>foo => foo.Bar</c>.</param>
     /// <returns>The <see cref="MemberInfo"/> for the specified member access expression.</returns>
+    [RequiresUnreferencedCode("Requires dynamic access to methods of the declaring type and to properties of the parameter type.")]
     public static MemberInfo GetMemberAccess(this LambdaExpression memberAccessExpression)
         => GetInternalMemberAccess<MemberInfo>(memberAccessExpression);
 
+    [RequiresUnreferencedCode("Requires dynamic access to methods of the declaring type and to properties of the parameter type.")]
     private static TMemberInfo GetInternalMemberAccess<TMemberInfo>(this LambdaExpression memberAccessExpression)
         where TMemberInfo : MemberInfo
     {
@@ -33,20 +35,82 @@ public static class ExpressionExtensions
             && declaringType.IsAssignableFrom(parameterType)
             && memberInfo is PropertyInfo propertyInfo)
         {
-            MethodInfo? propertyGetter = propertyInfo.GetMethod;
-            InterfaceMapping interfaceMapping = parameterType.GetTypeInfo().GetRuntimeInterfaceMap(declaringType);
-            int index = Array.FindIndex(interfaceMapping.InterfaceMethods, p => p.Equals(propertyGetter));
-            MethodInfo targetMethod = interfaceMapping.TargetMethods[index];
-            foreach (PropertyInfo runtimeProperty in parameterType.GetRuntimeProperties())
+            TMemberInfo? info = GetInternalMemberAccessCore<TMemberInfo>(declaringType, parameterType, propertyInfo);
+            if (info is not null)
             {
-                if (targetMethod.Equals(runtimeProperty.GetMethod))
-                {
-                    return (TMemberInfo)(object)runtimeProperty;
-                }
+                return info;
             }
         }
 
         return memberInfo;
+    }
+
+    /// <summary>
+    /// Gets the <see cref="MemberInfo"/> for the specified member access expression with trimming-friendly analysis.
+    /// </summary>
+    /// <param name="memberAccessExpression">The member access expression, e.g., <c>foo => foo.Bar</c>.</param>
+    /// <param name="declaringType">The declaring type of the member, e.g, <c>foo.GetType()</c>.</param>
+    /// <param name="parameterType">The parameter type of the member, e.g., <c>foo.Bar.GetType()</c>.</param>
+    /// <returns>The <see cref="MemberInfo"/> for the specified member access expression.</returns>
+    public static MemberInfo GetMemberAccessTrimFriendly(this LambdaExpression memberAccessExpression,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.NonPublicMethods)] Type declaringType,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.NonPublicProperties)] Type parameterType)
+        => GetInternalMemberAccessTrimFriendly<MemberInfo>(memberAccessExpression, declaringType, parameterType);
+
+    private static TMemberInfo GetInternalMemberAccessTrimFriendly<TMemberInfo>(this LambdaExpression memberAccessExpression,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.NonPublicMethods)] Type declaringType,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.NonPublicProperties)] Type parameterType)
+        where TMemberInfo : MemberInfo
+    {
+        ParameterExpression parameterExpression = memberAccessExpression.Parameters[0];
+        TMemberInfo? memberInfo = parameterExpression.MatchSimpleMemberAccess<TMemberInfo>(memberAccessExpression.Body)
+            ?? throw new InvalidOperationException($"Unable to determine member from {memberAccessExpression.Body}.");
+
+        Type? actualDeclaringType = memberInfo.DeclaringType;
+        Type actualParameterType = parameterExpression.Type;
+        if (actualDeclaringType != declaringType)
+        {
+            throw new InvalidOperationException($"Expected declaring type {declaringType}, but found {actualDeclaringType}.");
+        }
+        if (actualParameterType != parameterType)
+        {
+            throw new InvalidOperationException($"Expected parameter type {parameterType}, but found {actualParameterType}.");
+        }
+
+        if (declaringType != null
+            && declaringType != parameterType
+            && declaringType.IsInterface
+            && declaringType.IsAssignableFrom(parameterType)
+            && memberInfo is PropertyInfo propertyInfo)
+        {
+            TMemberInfo? info = GetInternalMemberAccessCore<TMemberInfo>(declaringType, parameterType, propertyInfo);
+            if (info is not null)
+            {
+                return info;
+            }
+        }
+
+        return memberInfo;
+    }
+
+    private static TMemberInfo? GetInternalMemberAccessCore<TMemberInfo>(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.NonPublicMethods)] Type declaringType,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.NonPublicProperties)] Type parameterType,
+        PropertyInfo propertyInfo)
+        where TMemberInfo : MemberInfo
+    {
+        MethodInfo? propertyGetter = propertyInfo.GetMethod;
+        InterfaceMapping interfaceMapping = parameterType.GetTypeInfo().GetRuntimeInterfaceMap(declaringType);
+        int index = Array.FindIndex(interfaceMapping.InterfaceMethods, p => p.Equals(propertyGetter));
+        MethodInfo targetMethod = interfaceMapping.TargetMethods[index];
+        foreach (PropertyInfo runtimeProperty in parameterType.GetRuntimeProperties())
+        {
+            if (targetMethod.Equals(runtimeProperty.GetMethod))
+            {
+                return (TMemberInfo)(object)runtimeProperty;
+            }
+        }
+        return null;
     }
 
     /// <summary>

@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
 using System.Text;
 using Wkg.Logging.Configuration;
 using Wkg.Text;
@@ -15,6 +16,7 @@ namespace Wkg.Logging.Generators;
 /// This class requires reflective enumeration of target site information and stack unwinding, resulting in a performance penalty for extensive logging.
 /// It is recommended to use this class only in development environments.
 /// </remarks>
+[RequiresUnreferencedCode("Requires reflective access to the event args type for JSON serialization.")]
 public class TracingLogEntryGeneratorWithParamNames : TracingLogEntryGenerator, ILogEntryGenerator<TracingLogEntryGeneratorWithParamNames>
 {
     /// <summary>
@@ -26,8 +28,10 @@ public class TracingLogEntryGeneratorWithParamNames : TracingLogEntryGenerator, 
     }
 
     /// <inheritdoc/>
+#pragma warning disable IL2046 // 'RequiresUnreferencedCodeAttribute' annotations must match across all interface implementations or overrides.
     public static new TracingLogEntryGeneratorWithParamNames Create(CompiledLoggerConfiguration config) =>
         new(config);
+#pragma warning restore IL2046 // 'RequiresUnreferencedCodeAttribute' annotations must match across all interface implementations or overrides.
 
     /// <inheritdoc/>
     protected override string GetTargetSite(MethodBase method)

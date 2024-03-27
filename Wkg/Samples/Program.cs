@@ -40,7 +40,7 @@ Log.UseLogger(Logger.Create(LoggerConfiguration.Create()
     //.AddSink<ColoredThreadBasedConsoleSink>()
     .AddSink<ColoredConsoleSink>()
     .SetMinimumLogLevel(LogLevel.Diagnostic)
-    .UseEntryGenerator<TracingLogEntryGenerator>()
+    .UseEntryGeneratorFactory(TracingLogEntryGenerator.Create)
     .RegisterMainThread(Thread.CurrentThread)
     .UseDefaultLogWriter(LogWriter.Blocking)));
 

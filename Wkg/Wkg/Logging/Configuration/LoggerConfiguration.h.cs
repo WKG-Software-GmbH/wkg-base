@@ -32,11 +32,11 @@ public partial class LoggerConfiguration
     public partial LoggerConfiguration SetMinimumLogLevel(LogLevel logLevel);
 
     /// <summary>
-    /// Specifies that the provided <typeparamref name="TGenerator"/> should be used by the <see cref="ILogger"/> as the default <see cref="ILogEntryGenerator"/>.
+    /// Specifies that the provided <paramref name="generatorFactory"/> should be used to create <see cref="ILogEntryGenerator"/> instances for the <see cref="ILogger"/>.
     /// </summary>
-    /// <typeparam name="TGenerator">The type of the <see cref="ILogEntryGenerator"/> to be used.</typeparam>
+    /// <param name="generatorFactory">The factory to be used to create <see cref="ILogEntryGenerator"/> instances for the <see cref="ILogger"/>.</param>
     /// <returns>This <see cref="LoggerConfiguration"/> instance to enable fluent configuration.</returns>
-    public partial LoggerConfiguration UseEntryGenerator<TGenerator>() where TGenerator : class, ILogEntryGenerator<TGenerator>;
+    public partial LoggerConfiguration UseEntryGenerator(LogEntryGeneratorFactory generatorFactory);
 
     /// <summary>
     /// <inheritdoc cref="AddSink"/>

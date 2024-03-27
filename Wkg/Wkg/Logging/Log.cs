@@ -16,7 +16,7 @@ public class Log : ILog
     /// <inheritdoc/>
     public static ILogger CurrentLogger { get; private set; } = Logger.Create(
         LoggerConfiguration.Create()
-            .UseEntryGenerator<SimpleLogEntryGenerator>()
+            .UseEntryGeneratorFactory(SimpleLogEntryGenerator.Create)
             .AddSink<ConsoleSink>());
 
     /// <inheritdoc/>

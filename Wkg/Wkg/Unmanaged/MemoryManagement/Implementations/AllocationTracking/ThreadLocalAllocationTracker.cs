@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Wkg.Unmanaged.MemoryManagement.Implementations.AllocationTracking;
 
@@ -10,7 +11,8 @@ namespace Wkg.Unmanaged.MemoryManagement.Implementations.AllocationTracking;
 /// Allocations are tracked per thread and are as such only visible to the thread that allocated them.
 /// </remarks>
 /// <typeparam name="TMemoryManager">The underlying <see cref="IMemoryManager"/> to use.</typeparam>
-public readonly unsafe struct ThreadLocalAllocationTracker<TMemoryManager> : IMemoryManager, IAllocationTracker where TMemoryManager : struct, IMemoryManager
+[RequiresUnreferencedCode("Requires reflective access to calling methods.")]
+public unsafe class ThreadLocalAllocationTracker<TMemoryManager> : IMemoryManager, IAllocationTracker where TMemoryManager : struct, IMemoryManager
 {
     private static readonly ThreadLocal<ConcurrentDictionary<nuint, Allocation>> _allocations = new(() => new());
 
@@ -36,7 +38,9 @@ public readonly unsafe struct ThreadLocalAllocationTracker<TMemoryManager> : IMe
 
     /// <inheritdoc/>
     [StackTraceHidden]
+#pragma warning disable IL2046 // 'RequiresUnreferencedCodeAttribute' annotations must match across all interface implementations or overrides.
     public static void* Calloc(int count, int size)
+#pragma warning restore IL2046 // 'RequiresUnreferencedCodeAttribute' annotations must match across all interface implementations or overrides.
     {
         void* p = TMemoryManager.Calloc(count, size);
         Allocation allocation = new(new IntPtr(p), (ulong)count * (ulong)size, new StackTrace(fNeedFileInfo: true));
@@ -45,7 +49,9 @@ public readonly unsafe struct ThreadLocalAllocationTracker<TMemoryManager> : IMe
     }
 
     /// <inheritdoc/>
+#pragma warning disable IL2046 // 'RequiresUnreferencedCodeAttribute' annotations must match across all interface implementations or overrides.
     public static void Free(void* memory)
+#pragma warning restore IL2046 // 'RequiresUnreferencedCodeAttribute' annotations must match across all interface implementations or overrides.
     {
         TMemoryManager.Free(memory);
         _allocations.Value!.TryRemove((nuint)memory, out _);
@@ -53,7 +59,9 @@ public readonly unsafe struct ThreadLocalAllocationTracker<TMemoryManager> : IMe
 
     /// <inheritdoc/>
     [StackTraceHidden]
+#pragma warning disable IL2046 // 'RequiresUnreferencedCodeAttribute' annotations must match across all interface implementations or overrides.
     public static void* Malloc(int size)
+#pragma warning restore IL2046 // 'RequiresUnreferencedCodeAttribute' annotations must match across all interface implementations or overrides.
     {
         void* p = TMemoryManager.Malloc(size);
         Allocation allocation = new(new IntPtr(p), (ulong)size, new StackTrace(fNeedFileInfo: true));
@@ -63,7 +71,9 @@ public readonly unsafe struct ThreadLocalAllocationTracker<TMemoryManager> : IMe
 
     /// <inheritdoc/>
     [StackTraceHidden]
+#pragma warning disable IL2046 // 'RequiresUnreferencedCodeAttribute' annotations must match across all interface implementations or overrides.
     public static void* Realloc(void* previous, int newSize)
+#pragma warning restore IL2046 // 'RequiresUnreferencedCodeAttribute' annotations must match across all interface implementations or overrides.
     {
         _allocations.Value!.TryRemove((nuint)previous, out _);
         void* p = TMemoryManager.Realloc(previous, newSize);

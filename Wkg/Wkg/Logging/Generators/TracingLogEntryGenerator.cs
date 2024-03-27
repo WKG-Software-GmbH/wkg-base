@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
@@ -19,6 +20,7 @@ namespace Wkg.Logging.Generators;
 /// This class requires reflective enumeration of target site information and stack unwinding, resulting in a performance penalty for extensive logging.
 /// It is recommended to use this class only in development environments.
 /// </remarks>
+[RequiresUnreferencedCode("Requires reflective access to the event args type for JSON serialization.")]
 public class TracingLogEntryGenerator : ILogEntryGenerator<TracingLogEntryGenerator>
 {
     // tracing log entries can get rather large, so we use a capacity that should be sufficient for most cases
@@ -42,8 +44,10 @@ public class TracingLogEntryGenerator : ILogEntryGenerator<TracingLogEntryGenera
         _config = config;
 
     /// <inheritdoc/>
+#pragma warning disable IL2046 // 'RequiresUnreferencedCodeAttribute' annotations must match across all interface implementations or overrides.
     public static TracingLogEntryGenerator Create(CompiledLoggerConfiguration config) =>
         new(config);
+#pragma warning restore IL2046 // 'RequiresUnreferencedCodeAttribute' annotations must match across all interface implementations or overrides.
 
     /// <inheritdoc/>
     [StackTraceHidden]

@@ -40,7 +40,7 @@ public static unsafe partial class MemoryManager
     /// Sets the memory manager to use.
     /// </summary>
     /// <typeparam name="TImpl">The type of the memory manager to use.</typeparam>
-    public static void UseImplementation<TImpl>() where TImpl : struct, IMemoryManager
+    public static void UseImplementation<TImpl>() where TImpl : IMemoryManager, new()
     {
         Allocator = new TImpl();
         Free = &TImpl.Free;

@@ -8,6 +8,9 @@ namespace Wkg.Reflection.Aot.TrimmingSupport;
 /// <param name="type">The type to mark.</param>
 public readonly struct DynamicallyAccessedInterfacesTypeDescriptor(Type type)
 {
+    /// <summary>
+    /// The type decorated with the <see cref="DynamicallyAccessedMemberTypes.Interfaces"/> flag.
+    /// </summary>
     [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)]
     public readonly Type Type = type;
 }

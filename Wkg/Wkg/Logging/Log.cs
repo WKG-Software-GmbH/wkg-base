@@ -13,126 +13,132 @@ namespace Wkg.Logging;
 /// </summary>
 public class Log : ILog
 {
-    /// <inheritdoc/>
-    public static ILogger CurrentLogger { get; private set; } = Logger.Create(
+    internal static IProxyLogger _proxyLogger = Logger.CreateProxy(
         LoggerConfiguration.Create()
-            .UseEntryGeneratorFactory(SimpleLogEntryGenerator.Create)
+            .UseEntryGenerator(SimpleLogEntryGenerator.Create)
             .AddSink<ConsoleSink>());
 
     /// <inheritdoc/>
-    public static void UseLogger(ILogger logger)
+    public static ILogger CurrentLogger => _proxyLogger;
+
+    /// <inheritdoc/>
+    public static void UseLogger(IProxyLogger logger)
     {
-        CurrentLogger = logger;
-        CurrentLogger.Log(new string('=', 60), LogWriter.Blocking, LogLevel.Info);
-        CurrentLogger.Log($"{new string(' ', 20)}Logger initialized!", LogWriter.Blocking, LogLevel.Info);
-        CurrentLogger.Log(new string('=', 60), LogWriter.Blocking, LogLevel.Info);
+        _proxyLogger = logger;
+        _proxyLogger.Log(new string('=', 60), LogWriter.Blocking, LogLevel.Info);
+        _proxyLogger.Log($"{new string(' ', 20)}Logger initialized!", LogWriter.Blocking, LogLevel.Info);
+        _proxyLogger.Log(new string('=', 60), LogWriter.Blocking, LogLevel.Info);
     }
 
     /// <inheritdoc/>
-    [StackTraceHidden]
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void WriteDiagnostic(string message, ILogWriter logWriter) => 
-        CurrentLogger.Log(message, logWriter, LogLevel.Diagnostic);
+    public static void UseConfiguration(LoggerConfiguration configuration) => 
+        UseLogger(Logger.CreateProxy(configuration));
 
     /// <inheritdoc/>
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void WriteDiagnostic(string message) => 
-        CurrentLogger.Log(message, LogLevel.Diagnostic);
+    public static void WriteDiagnostic(string message, ILogWriter logWriter, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) => 
+        _proxyLogger.LogInternal(message, logWriter, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Diagnostic);
 
     /// <inheritdoc/>
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void WriteDebug(string message) => 
-        CurrentLogger.Log(message, LogLevel.Debug);
+    public static void WriteDiagnostic(string message, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) => 
+        _proxyLogger.LogInternal(message, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Diagnostic);
 
     /// <inheritdoc/>
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void WriteDebug(string message, ILogWriter logWriter) => 
-        CurrentLogger.Log(message, logWriter, LogLevel.Debug);
+    public static void WriteDebug(string message, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) => 
+        _proxyLogger.LogInternal(message, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Debug);
 
     /// <inheritdoc/>
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void WriteInfo(string message) => 
-        CurrentLogger.Log(message, LogLevel.Info);
+    public static void WriteDebug(string message, ILogWriter logWriter, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) => 
+        _proxyLogger.LogInternal(message, logWriter, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Debug);
 
     /// <inheritdoc/>
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void WriteInfo(string message, ILogWriter logWriter) => 
-        CurrentLogger.Log(message, logWriter, LogLevel.Info);
+    public static void WriteInfo(string message, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) => 
+        _proxyLogger.LogInternal(message, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Info);
 
     /// <inheritdoc/>
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void WriteWarning(string message) => 
-        CurrentLogger.Log(message, LogLevel.Warning);
+    public static void WriteInfo(string message, ILogWriter logWriter, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) => 
+        _proxyLogger.LogInternal(message, logWriter, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Info);
 
     /// <inheritdoc/>
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void WriteWarning(string message, ILogWriter logWriter) => 
-        CurrentLogger.Log(message, logWriter, LogLevel.Warning);
+    public static void WriteWarning(string message, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) => 
+        _proxyLogger.LogInternal(message, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Warning);
 
     /// <inheritdoc/>
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void WriteError(string message) => 
-        CurrentLogger.Log(message, LogLevel.Error);
+    public static void WriteWarning(string message, ILogWriter logWriter, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) => 
+        _proxyLogger.LogInternal(message, logWriter, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Warning);
 
     /// <inheritdoc/>
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void WriteError(string message, ILogWriter logWriter) => 
-        CurrentLogger.Log(message, logWriter, LogLevel.Error);
+    public static void WriteError(string message, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) => 
+        _proxyLogger.LogInternal(message, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Error);
 
     /// <inheritdoc/>
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void WriteFatal(string message) => 
-        CurrentLogger.Log(message, LogLevel.Fatal);
+    public static void WriteError(string message, ILogWriter logWriter, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) => 
+        _proxyLogger.LogInternal(message, logWriter, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Error);
 
     /// <inheritdoc/>
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void WriteFatal(string message, ILogWriter logWriter) => 
-        CurrentLogger.Log(message, logWriter, LogLevel.Fatal);
+    public static void WriteFatal(string message, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) => 
+        _proxyLogger.LogInternal(message, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Fatal);
 
     /// <inheritdoc/>
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void WriteException(Exception exception, LogLevel logLevel = LogLevel.Error) => 
-        CurrentLogger.Log(exception, logLevel);
+    public static void WriteFatal(string message, ILogWriter logWriter, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) => 
+        _proxyLogger.LogInternal(message, logWriter, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Fatal);
 
     /// <inheritdoc/>
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void WriteException(Exception exception, ILogWriter logWriter, LogLevel logLevel = LogLevel.Error) => 
-        CurrentLogger.Log(exception, logWriter, logLevel);
+    public static void WriteException(Exception exception, LogLevel logLevel = LogLevel.Error, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) => 
+        _proxyLogger.LogInternal(exception, callerFilePath, callerMemberName, callerLineNumber, logLevel);
 
     /// <inheritdoc/>
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void WriteEvent(string message) => 
-        CurrentLogger.Log(message, LogLevel.Event);
+    public static void WriteException(Exception exception, ILogWriter logWriter, LogLevel logLevel = LogLevel.Error, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) => 
+        _proxyLogger.LogInternal(exception, logWriter, callerFilePath, callerMemberName, callerLineNumber, logLevel);
 
     /// <inheritdoc/>
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void WriteEvent(string message, ILogWriter logWriter) => 
-        CurrentLogger.Log(message, logWriter, LogLevel.Event);
+    public static void WriteEvent(string message, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) => 
+        _proxyLogger.LogInternal(message, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Event);
 
     /// <inheritdoc/>
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void WriteException(Exception exception, string additionalInfo, LogLevel logLevel = LogLevel.Error) => 
-        CurrentLogger.Log(exception, additionalInfo, logLevel);
+    public static void WriteEvent(string message, ILogWriter logWriter, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) => 
+        _proxyLogger.LogInternal(message, logWriter, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Event);
 
     /// <inheritdoc/>
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void WriteException(Exception exception, string additionalInfo, ILogWriter logWriter, LogLevel logLevel = LogLevel.Error) => 
-        CurrentLogger.Log(exception, additionalInfo, logWriter, logLevel);
+    public static void WriteException(Exception exception, string additionalInfo, LogLevel logLevel = LogLevel.Error, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) => 
+        _proxyLogger.LogInternal(exception, additionalInfo, callerFilePath, callerMemberName, callerLineNumber, logLevel);
+
+    /// <inheritdoc/>
+    [StackTraceHidden]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void WriteException(Exception exception, string additionalInfo, ILogWriter logWriter, LogLevel logLevel = LogLevel.Error, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) => 
+        _proxyLogger.LogInternal(exception, additionalInfo, logWriter, callerFilePath, callerMemberName, callerLineNumber, logLevel);
 }

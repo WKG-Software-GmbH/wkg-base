@@ -1,3 +1,5 @@
+using Wkg.Reflection.Aot.TrimmingSupport;
+
 namespace Wkg.Reflection.Extensions;
 
 public static partial class TypeExtensions

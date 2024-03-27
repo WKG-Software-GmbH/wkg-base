@@ -1,4 +1,5 @@
-﻿using Wkg.Logging.Generators;
+﻿using System.Collections.Immutable;
+using Wkg.Logging.Generators;
 using Wkg.Logging.Sinks;
 using Wkg.Logging.Writers;
 
@@ -16,7 +17,7 @@ public partial class LoggerConfiguration
     {
     }
 
-    internal CompiledLoggerConfiguration Compile() => new(_minimumLogLevel, new ConcurrentSinkCollection(_logSinks.ToArray()), _mainThreadId, _defaultWriter, _generatorFactory);
+    internal CompiledLoggerConfiguration Compile() => new(_minimumLogLevel, new SinkCollection([.. _logSinks]), _mainThreadId, _defaultWriter, _generatorFactory);
 
     public static partial LoggerConfiguration Create() => new();
 

@@ -10,26 +10,40 @@ public class ColoredConsoleSink : ILogSink
 {
     private static readonly object _lock = new();
 
+    private static readonly ConsoleColor[] _colorsByLogLevel =
+    [
+        ConsoleColor.DarkGray,
+        ConsoleColor.White,
+        ConsoleColor.Green,
+        ConsoleColor.Blue,
+        ConsoleColor.Yellow,
+        ConsoleColor.Red,
+        ConsoleColor.Magenta,
+    ];
+
     /// <inheritdoc/>
-    public void Log(ref LogEntry logEntry)
+    public void Log(ref readonly LogEntry logEntry)
     {
         lock (_lock)
         {
-            Console.ForegroundColor = ColorFor(logEntry.LogLevel);
-            Console.WriteLine(logEntry);
-            Console.ResetColor();
+            LogUnsafe(in logEntry);
         }
     }
 
-    private static ConsoleColor ColorFor(LogLevel level) => level switch
+    /// <inheritdoc/>
+    public void LogUnsafe(ref readonly LogEntry logEntry)
     {
-        LogLevel.Diagnostic => ConsoleColor.DarkGray,
-        LogLevel.Debug => ConsoleColor.White,
-        LogLevel.Event => ConsoleColor.Green,
-        LogLevel.Info => ConsoleColor.Blue,
-        LogLevel.Warning => ConsoleColor.Yellow,
-        LogLevel.Error => ConsoleColor.Red,
-        LogLevel.Fatal => ConsoleColor.Magenta,
-        _ => ConsoleColor.Cyan
-    };
+        Console.ForegroundColor = ColorFor(logEntry.LogLevel);
+        Console.WriteLine(logEntry);
+        Console.ResetColor();
+    }
+
+    private static ConsoleColor ColorFor(LogLevel level)
+    {
+        if (Enum.IsDefined(level))
+        {
+            return _colorsByLogLevel[(int)level];
+        }
+        return ConsoleColor.Cyan;
+    }
 }

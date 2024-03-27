@@ -45,14 +45,19 @@ internal class LogFileSink : ILogSink
     /// Logs a message to the file.
     /// </summary>
     /// <param name="logEntry">Message to log.</param>
-    public void Log(ref LogEntry logEntry)
+    public void Log(ref readonly LogEntry logEntry)
     {
         lock (_syncRoot)
         {
-            TruncateFile__UNSAFE();
-            _writeLineWrapper[0] = logEntry.LogMessage;
-            File.AppendAllLines(FileName, _writeLineWrapper, Encoding.UTF8);
+            LogUnsafe(in logEntry);
         }
+    }
+
+    public void LogUnsafe(ref readonly LogEntry logEntry)
+    {
+        TruncateFile__UNSAFE();
+        _writeLineWrapper[0] = logEntry.LogMessage;
+        File.AppendAllLines(FileName, _writeLineWrapper, Encoding.UTF8);
     }
 
     /// <summary>

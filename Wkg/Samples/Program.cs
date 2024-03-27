@@ -36,13 +36,13 @@ using Wkg.Threading.Workloads.Queuing.Classless.PriorityFifoFast;
 //BenchmarkRunner.Run<CashVsTpl>();
 //Console.ReadLine();
 //return;
-Log.UseLogger(Logger.Create(LoggerConfiguration.Create()
+Log.UseConfiguration(LoggerConfiguration.Create()
     //.AddSink<ColoredThreadBasedConsoleSink>()
     .AddSink<ColoredConsoleSink>()
     .SetMinimumLogLevel(LogLevel.Diagnostic)
-    .UseEntryGeneratorFactory(TracingLogEntryGenerator.Create)
+    .UseEntryGenerator(TracingLogEntryGenerator.Create)
     .RegisterMainThread(Thread.CurrentThread)
-    .UseDefaultLogWriter(LogWriter.Blocking)));
+    .UseDefaultLogWriter(LogWriter.Blocking));
 
 //Tests tests = new()
 //{

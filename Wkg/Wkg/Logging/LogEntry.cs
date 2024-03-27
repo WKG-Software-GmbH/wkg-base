@@ -36,6 +36,11 @@ public struct LogEntry
     public DateTime TimestampUtc { get; set; }
 
     /// <summary>
+    /// Gets or sets the caller information from which the log entry originated.
+    /// </summary>
+    public CallerInfo CallerInfo { get; set; }
+
+    /// <summary>
     /// Gets or sets the name of the assembly that the log entry originated from.
     /// </summary>
     public string? AssemblyName { get; set; }

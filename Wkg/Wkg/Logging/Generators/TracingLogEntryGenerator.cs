@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using Wkg.Logging.Configuration;
+using Wkg.Logging.Generators.Helpers;
 using Wkg.Logging.Intrinsics.CallStack;
 using Wkg.Text;
 
@@ -178,11 +179,7 @@ public class TracingLogEntryGenerator : ILogEntryGenerator<TracingLogEntryGenera
         }
         entry.AssemblyName = textAssemblyName;
 
-        string textLogLevel = entry.LogLevel switch
-        {
-            LogLevel.Error or LogLevel.Fatal => entry.LogLevel.ToString().ToUpper(),
-            _ => entry.LogLevel.ToString()
-        };
+        string textLogLevel = LogLevelNames.NameForOrUnknown(entry.LogLevel);
         string mainThreadTag = string.Empty;
         int threadId = Environment.CurrentManagedThreadId;
         entry.ThreadId = threadId;

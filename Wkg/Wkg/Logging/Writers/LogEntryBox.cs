@@ -4,8 +4,8 @@ namespace Wkg.Logging.Writers;
 
 internal class LogEntryBox(ILogSink sink, ref readonly LogEntry entry)
 {
-    private readonly ILogSink _sink = sink;
-    private LogEntry _entry = entry;
+    public readonly ILogSink _sink = sink;
+    public LogEntry _entry = entry;
 
     public static void WriteToSink(object? state)
     {
@@ -13,5 +13,5 @@ internal class LogEntryBox(ILogSink sink, ref readonly LogEntry entry)
         box._sink.Log(ref box._entry);
     }
 
-    public void WriteToSink() => _sink.Log(ref _entry);
+    public void WriteToSinkUnsafe() => _sink.LogUnsafe(ref _entry);
 }

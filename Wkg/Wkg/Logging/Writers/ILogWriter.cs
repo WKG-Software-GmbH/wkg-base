@@ -12,7 +12,7 @@ public interface ILogWriter
     /// </summary>
     /// <param name="logEntry">The log entry to write.</param>
     /// <param name="sink">The <see cref="ILogSink"/> to write the log entry to.</param>
-    void Write(ref LogEntry logEntry, ILogSink sink);
+    void Write(ref readonly LogEntry logEntry, ILogSink sink);
 }
 
 /// <summary>

@@ -48,7 +48,7 @@ public static partial class TypeExtensions
     /// <param name="interfaceType">The <see cref="Type"/> of the interface implemented by the specified <paramref name="type"/> to get the generic type argument of.</param>
     /// <returns>The generic type argument of the single interface implementation of type <paramref name="interfaceType"/> that is implemented by the specified <paramref name="type"/> or <see langword="null"/> if the specified <paramref name="type"/> does not implement exactly one interface of type <paramref name="interfaceType"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="type"/> or <paramref name="interfaceType"/> is <see langword="null"/>.</exception>
-    public static partial Type? GetGenericTypeArgumentOfSingleInterface(this Type type, Type interfaceType);
+    public static partial Type? GetGenericTypeArgumentOfSingleInterface([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] this Type type, Type interfaceType);
 
     /// <summary>
     /// Gets the generic type arguments of the single interface of type <paramref name="interfaceType"/> that is directly implemented by the specified <paramref name="type"/>.
@@ -66,7 +66,7 @@ public static partial class TypeExtensions
     /// <param name="interfaceType">The <see cref="Type"/> of the interface implemented by the specified <paramref name="type"/> to get the generic type argument of.</param>
     /// <returns>The generic type argument of the single direct interface implementation of type <paramref name="interfaceType"/> that is implemented by the specified <paramref name="type"/> or <see langword="null"/> if the specified <paramref name="type"/> does not implement the interface of type <paramref name="interfaceType"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="type"/> or <paramref name="interfaceType"/> is <see langword="null"/>.</exception>
-    public static partial Type? GetGenericTypeArgumentOfSingleDirectInterface(this Type type, Type interfaceType);
+    public static partial Type? GetGenericTypeArgumentOfSingleDirectInterface([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] this Type type, Type interfaceType);
 
     /// <summary>
     /// Checks whether the specified <paramref name="type"/> implements an interface of type <paramref name="interfaceType"/> with a single generic type parameter of type <paramref name="typeParam"/>.
@@ -202,7 +202,7 @@ public static partial class TypeExtensions
     /// <returns><see langword="true"/> if <paramref name="type"/> implements the specified <typeparamref name="TInteface"/>; otherwise, <see langword="false"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="type"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException"><typeparamref name="TInteface"/> is not an interface.</exception>
-    public static partial bool ImplementsInterfaceDirectly<TInteface>(this Type type);
+    public static partial bool ImplementsInterfaceDirectly<TInteface>([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] this Type type);
 
     /// <summary>
     /// Checks whether the specified <paramref name="type"/> implements the specified <paramref name="interfaceType"/> directly, i.e. not through inheritance.
@@ -212,7 +212,7 @@ public static partial class TypeExtensions
     /// <returns><see langword="true"/> if <paramref name="type"/> implements the specified <paramref name="interfaceType"/> directly; otherwise, <see langword="false"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="type"/> or <paramref name="interfaceType"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException"><paramref name="interfaceType"/> is not an interface.</exception>
-    public static partial bool ImplementsInterfaceDirectly(this Type type, Type interfaceType);
+    public static partial bool ImplementsInterfaceDirectly([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] this Type type, Type interfaceType);
 
     /// <summary>
     /// Checks whether the specified <paramref name="type"/> implements the specified non-generic interface <typeparamref name="TInteface"/>.

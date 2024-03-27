@@ -9,5 +9,11 @@ public interface ILogSink
     /// Logs an event.
     /// </summary>
     /// <param name="logEntry">The entry to be logged.</param>
-    void Log(ref LogEntry logEntry);
+    void Log(ref readonly LogEntry logEntry);
+
+    /// <summary>
+    /// Logs an event with the caller guaranteeing that writes are synchronized.
+    /// </summary>
+    /// <param name="logEntry">The entry to be logged.</param>
+    void LogUnsafe(ref readonly LogEntry logEntry);
 }

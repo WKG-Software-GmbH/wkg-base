@@ -1,11 +1,19 @@
 ﻿using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Wkg.Logging;
+using Wkg.Logging.Configuration;
 using Wkg.Logging.Loggers;
 using Wkg.Logging.Writers;
 
 namespace Wkg.Internals.Diagnostic;
 
+/// <summary>
+/// An internal <see cref="Log"/> implementation with conditional compilation for debug builds.
+/// </summary>
+/// <remarks>
+/// Any methods falling back to the "default" <see cref="ILogWriter"/> will use <see cref="LogWriter.Blocking"/> as the default writer, 
+/// no matter the actual default writer set in the <see cref="Log.CurrentLogger"/>.
+/// </remarks>
 [DebuggerStepThrough]
 internal class DebugLog /*: ILog*/ // We cannot implement ILog because we use conditional compilation to trim the code in release builds.
 {
@@ -21,11 +29,15 @@ internal class DebugLog /*: ILog*/ // We cannot implement ILog because we use co
     public static void UseLogger(IProxyLogger logger) => 
         Log.UseLogger(logger);
 
+    [Obsolete("The debug logger should not be used for configuration. Use the Log class instead.", error: true)]
+    public static void UseConfiguration(LoggerConfiguration configuration) =>
+        Log.UseConfiguration(configuration);
+
     /// <inheritdoc cref="Log.WriteDebug(string, string, string, int)"/>
     [StackTraceHidden]
     [Conditional(DEBUG)]
     public static void WriteDebug(string message, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) => 
-        Log._proxyLogger.LogInternal(message, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Debug);
+        Log._proxyLogger.LogInternal(message, LogWriter.Blocking, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Debug);
 
     /// <inheritdoc cref="Log.WriteDebug(string, ILogWriter, string, string, int)"/>
     [StackTraceHidden]
@@ -37,7 +49,7 @@ internal class DebugLog /*: ILog*/ // We cannot implement ILog because we use co
     [StackTraceHidden]
     [Conditional(DEBUG)]
     public static void WriteDiagnostic(string message, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) => 
-        Log._proxyLogger.LogInternal(message, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Diagnostic);
+        Log._proxyLogger.LogInternal(message, LogWriter.Blocking, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Diagnostic);
 
     /// <inheritdoc cref="Log.WriteDiagnostic(string, ILogWriter, string, string, int)"/>
     [StackTraceHidden]
@@ -61,7 +73,7 @@ internal class DebugLog /*: ILog*/ // We cannot implement ILog because we use co
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void WriteError(string message, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) => 
-        Log._proxyLogger.LogInternal(message, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Error);
+        Log._proxyLogger.LogInternal(message, LogWriter.Blocking, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Error);
 
     /// <inheritdoc cref="Log.WriteError(string, ILogWriter, string, string, int)"/>
     /// <remarks>
@@ -76,7 +88,7 @@ internal class DebugLog /*: ILog*/ // We cannot implement ILog because we use co
     [StackTraceHidden]
     [Conditional(DEBUG)]
     public static void WriteEvent(string message, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) => 
-        Log._proxyLogger.LogInternal(message, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Event);
+        Log._proxyLogger.LogInternal(message, LogWriter.Blocking, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Event);
 
     /// <inheritdoc cref="Log.WriteEvent(string, ILogWriter, string, string, int)"/>
     [StackTraceHidden]
@@ -91,7 +103,7 @@ internal class DebugLog /*: ILog*/ // We cannot implement ILog because we use co
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void WriteException(Exception exception, LogLevel logLevel = LogLevel.Error, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) =>
-        Log._proxyLogger.LogInternal(exception, callerFilePath, callerMemberName, callerLineNumber, logLevel);
+        Log._proxyLogger.LogInternal(exception, LogWriter.Blocking, callerFilePath, callerMemberName, callerLineNumber, logLevel);
 
     /// <inheritdoc cref="Log.WriteException(Exception, ILogWriter, LogLevel, string, string, int)"/>
     /// <remarks>
@@ -100,7 +112,7 @@ internal class DebugLog /*: ILog*/ // We cannot implement ILog because we use co
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void WriteException(Exception exception, string additionalInfo, LogLevel logLevel = LogLevel.Error, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) =>
-        Log._proxyLogger.LogInternal(exception, additionalInfo, callerFilePath, callerMemberName, callerLineNumber, logLevel);
+        Log._proxyLogger.LogInternal(exception, additionalInfo, LogWriter.Blocking, callerFilePath, callerMemberName, callerLineNumber, logLevel);
 
     /// <inheritdoc cref="Log.WriteException(Exception, ILogWriter, LogLevel, string, string, int)"/>
     /// <remarks>
@@ -127,7 +139,7 @@ internal class DebugLog /*: ILog*/ // We cannot implement ILog because we use co
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void WriteFatal(string message, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) =>
-        Log._proxyLogger.LogInternal(message, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Fatal);
+        Log._proxyLogger.LogInternal(message, LogWriter.Blocking, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Fatal);
 
     /// <inheritdoc cref="Log.WriteFatal(string, ILogWriter, string, string, int)"/>
     /// <remarks>
@@ -142,7 +154,7 @@ internal class DebugLog /*: ILog*/ // We cannot implement ILog because we use co
     [StackTraceHidden]
     [Conditional(DEBUG)]
     public static void WriteInfo(string message, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) =>
-        Log._proxyLogger.LogInternal(message, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Info);
+        Log._proxyLogger.LogInternal(message, LogWriter.Blocking, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Info);
 
     /// <inheritdoc cref="Log.WriteInfo(string, ILogWriter, string, string, int)"/>
     [StackTraceHidden]
@@ -157,7 +169,7 @@ internal class DebugLog /*: ILog*/ // We cannot implement ILog because we use co
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void WriteWarning(string message, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) =>
-        Log._proxyLogger.LogInternal(message, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Warning);
+        Log._proxyLogger.LogInternal(message, LogWriter.Blocking, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Warning);
 
     /// <inheritdoc cref="Log.WriteWarning(string, ILogWriter, string, string, int)"/>
     /// <remarks>

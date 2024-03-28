@@ -1,4 +1,4 @@
-﻿using System.Collections.Immutable;
+using System.Collections.Immutable;
 using System.Text;
 using Wkg.Logging.Configuration;
 using Wkg.Logging.Generators.Helpers;
@@ -21,15 +21,6 @@ namespace Wkg.Logging.Generators;
 public class DetailedLogEntryGenerator : ILogEntryGenerator<DetailedLogEntryGenerator>
 {
     private const int DEFAULT_STRING_BUILDER_CAPACITY = 512;
-    private static readonly ImmutableArray<string> _logLevelNames;
-
-    static DetailedLogEntryGenerator()
-    {
-        string[] logLevelNames = Enum.GetNames<LogLevel>();
-        logLevelNames[(int)LogLevel.Error] = LogLevel.Error.ToString().ToUpperInvariant();
-        logLevelNames[(int)LogLevel.Fatal] = LogLevel.Fatal.ToString().ToUpperInvariant();
-        _logLevelNames = [.. logLevelNames];
-    }
 
     /// <summary>
     /// The <see cref="CompiledLoggerConfiguration"/> used to create this <see cref="DetailedLogEntryGenerator"/>

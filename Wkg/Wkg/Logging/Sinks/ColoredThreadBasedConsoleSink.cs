@@ -11,8 +11,8 @@
 /// </remarks>
 public class ColoredThreadBasedConsoleSink : ILogSink
 {
-    private static readonly ReadOnlyMemory<ConsoleColor> _consoleColors = new ConsoleColor[]
-    {
+    private static readonly ConsoleColor[] _consoleColors =
+    [
         ConsoleColor.White,
         ConsoleColor.Blue,
         ConsoleColor.Green,
@@ -23,19 +23,25 @@ public class ColoredThreadBasedConsoleSink : ILogSink
         ConsoleColor.DarkCyan,
         ConsoleColor.DarkYellow,
         ConsoleColor.DarkGray,
-    };
+    ];
 
     private static readonly object _lock = new();
 
     /// <inheritdoc/>
-    public void Log(ref LogEntry logEntry)
+    public void Log(ref readonly LogEntry logEntry)
     {
         lock (_lock)
         {
-            int color = logEntry.ThreadId % _consoleColors.Length;
-            Console.ForegroundColor = _consoleColors.Span[color];
-            Console.WriteLine(logEntry);
-            Console.ResetColor();
+            LogUnsafe(in logEntry);
         }
+    }
+
+    /// <inheritdoc/>
+    public void LogUnsafe(ref readonly LogEntry logEntry)
+    {
+        int color = logEntry.ThreadId % _consoleColors.Length;
+        Console.ForegroundColor = _consoleColors[color];
+        Console.WriteLine(logEntry);
+        Console.ResetColor();
     }
 }

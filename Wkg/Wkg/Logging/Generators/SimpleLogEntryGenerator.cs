@@ -1,11 +1,12 @@
 ﻿using System.Text;
 using Wkg.Logging.Configuration;
+using Wkg.Logging.Generators.Helpers;
 using Wkg.Text;
 
 namespace Wkg.Logging.Generators;
 
 /// <summary>
-/// A simple and lightweight <see cref="ILogEntryGenerator"/> implementation that generates log entries in the following format:
+/// A AOT compatible, simple, and lightweight <see cref="ILogEntryGenerator"/> implementation that generates log entries in the following format:
 /// <code>
 /// 2023-05-30 14:35:42.185 (UTC) Info on Thread_0x123 --> Output: 'This is a log message';
 /// 2023-05-30 14:35:42.185 (UTC) Error: SomeException on Thread_0x123 --> info: 'while trying to do a thing' original: 'Exception message' at:
@@ -170,10 +171,11 @@ public class SimpleLogEntryGenerator : ILogEntryGenerator<SimpleLogEntryGenerato
     /// <param name="builder">The <see cref="StringBuilder"/> to add the prefix to.</param>
     protected virtual void AddPrefix(ref LogEntry entry, StringBuilder builder)
     {
+        string logLevel = LogLevelNames.NameForOrUnknown(entry.LogLevel);
         entry.TimestampUtc = DateTime.UtcNow;
         builder
             .Append(entry.TimestampUtc.ToString("yyyy-MM-dd HH:mm:ss.fff"))
             .Append(" (UTC) ")
-            .Append(entry.LogLevel);
+            .Append(logLevel);
     }
 }

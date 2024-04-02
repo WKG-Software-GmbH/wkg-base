@@ -7,7 +7,7 @@ stages:
 variables:
     PROJECT_FILE_PATH: "Wkg/Wkg/Wkg.csproj"
     MAJOR_VERSION: "8"
-    MINOR_VERSION: "0"
+    MINOR_VERSION: "1"
 
 include:
     - project: 'wkg/gitlab-templates'

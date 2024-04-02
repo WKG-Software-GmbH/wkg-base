@@ -1,4 +1,6 @@
-﻿namespace Wkg.Reflection.Extensions;
+using Wkg.Reflection.Aot.TrimmingSupport;
+
+namespace Wkg.Reflection.Extensions;
 
 public static partial class TypeExtensions
 {
@@ -6,7 +8,8 @@ public static partial class TypeExtensions
     {
         Type[] allInterfaces = type.GetInterfaces();
         return allInterfaces
-            .Except(allInterfaces.SelectMany(i => i.GetInterfaces()))               // Remove all interfaces that are inherited from other interfaces
+            .Except(allInterfaces.Select(t => new DynamicallyAccessedInterfacesTypeDescriptor(t))
+                .SelectMany(i => i.Type.GetInterfaces()))                           // Remove all interfaces that are inherited from other interfaces
             .Except(type.BaseType?.GetInterfaces() ?? Enumerable.Empty<Type>());    // Remove all interfaces that are inherited from the base type
     }
 
@@ -273,10 +276,10 @@ public static partial class TypeExtensions
     }
 
     public static partial bool ImplementsGenericInterface(this Type type, Type genericInterfaceType) =>
-        ImplementsGenericInterfaceCore(type, genericInterfaceType, t => t.GetInterfaces());
+        ImplementsGenericInterfaceCore(type, genericInterfaceType, t => new DynamicallyAccessedInterfacesTypeDescriptor(t).Type.GetInterfaces());
 
     public static partial bool ImplementsGenericInterfaceDirectly(this Type type, Type genericInterfaceType) =>
-        ImplementsGenericInterfaceCore(type, genericInterfaceType, t => t.GetDirectInterfaces());
+        ImplementsGenericInterfaceCore(type, genericInterfaceType, t => new DynamicallyAccessedInterfacesTypeDescriptor(t).Type.GetDirectInterfaces());
 
     private static bool ImplementsGenericInterfaceCore(Type type, Type genericInterfaceType, Func<Type, IEnumerable<Type>> getInterfaces)
     {

@@ -8,10 +8,11 @@
 /// </remarks>
 public class ConsoleSink : ILogSink
 {
-    /// <summary>
-    /// Logs the specified message.
-    /// </summary>
-    /// <param name="logEntry">The message to be logged.</param>
-    public void Log(ref LogEntry logEntry) =>
+    /// <inheritdoc/>
+    public void Log(ref readonly LogEntry logEntry) =>
+        Console.WriteLine(logEntry.LogMessage);
+
+    /// <inheritdoc/>
+    public void LogUnsafe(ref readonly LogEntry logEntry) =>
         Console.WriteLine(logEntry.LogMessage);
 }

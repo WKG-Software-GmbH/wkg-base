@@ -15,8 +15,8 @@ namespace Wkg.Logging.Configuration;
 public record CompiledLoggerConfiguration
 (
     LogLevel MinimumLogLevel,
-    ConcurrentSinkCollection LoggingSinks, 
+    SinkCollection LoggingSinks, 
     int MainThreadId, 
     ILogWriter DefaultLogWriter,
-    Func<CompiledLoggerConfiguration, ILogEntryGenerator> GeneratorFactory
+    LogEntryGeneratorFactory GeneratorFactory
 );

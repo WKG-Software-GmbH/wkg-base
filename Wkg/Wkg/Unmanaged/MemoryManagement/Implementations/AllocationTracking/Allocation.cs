@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Wkg.Unmanaged.MemoryManagement.Implementations.AllocationTracking;
 
@@ -8,7 +9,8 @@ namespace Wkg.Unmanaged.MemoryManagement.Implementations.AllocationTracking;
 /// <param name="Pointer">The address of the allocated memory.</param>
 /// <param name="Size">The size in bytes of the allocated memory.</param>
 /// <param name="Trace">The stack trace of where the allocation originated from.</param>
-public readonly record struct Allocation(IntPtr Pointer, ulong Size, StackTrace Trace)
+[RequiresUnreferencedCode("Requires reflective access to calling methods.")]
+public record Allocation(IntPtr Pointer, ulong Size, StackTrace Trace)
 {
     private StackFrame CallSite { get; } = Trace.GetFrame(0)!;
 

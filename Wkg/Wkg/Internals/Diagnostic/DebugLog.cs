@@ -1,11 +1,19 @@
 ﻿using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Wkg.Logging;
+using Wkg.Logging.Configuration;
 using Wkg.Logging.Loggers;
 using Wkg.Logging.Writers;
 
 namespace Wkg.Internals.Diagnostic;
 
+/// <summary>
+/// An internal <see cref="Log"/> implementation with conditional compilation for debug builds.
+/// </summary>
+/// <remarks>
+/// Any methods falling back to the "default" <see cref="ILogWriter"/> will use <see cref="LogWriter.Blocking"/> as the default writer, 
+/// no matter the actual default writer set in the <see cref="Log.CurrentLogger"/>.
+/// </remarks>
 [DebuggerStepThrough]
 internal class DebugLog /*: ILog*/ // We cannot implement ILog because we use conditional compilation to trim the code in release builds.
 {
@@ -16,155 +24,159 @@ internal class DebugLog /*: ILog*/ // We cannot implement ILog because we use co
     public static ILogger CurrentLogger => 
         Log.CurrentLogger;
 
-    /// <inheritdoc cref="Log.UseLogger(ILogger)"/>
+    /// <inheritdoc cref="Log.UseLogger(IProxyLogger)"/>
     [Obsolete("The debug logger should not be used for configuration. Use the Log class instead.", error: true)]
-    public static void UseLogger(ILogger logger) => 
+    public static void UseLogger(IProxyLogger logger) => 
         Log.UseLogger(logger);
 
-    /// <inheritdoc cref="Log.WriteDebug(string)"/>
+    [Obsolete("The debug logger should not be used for configuration. Use the Log class instead.", error: true)]
+    public static void UseConfiguration(LoggerConfiguration configuration) =>
+        Log.UseConfiguration(configuration);
+
+    /// <inheritdoc cref="Log.WriteDebug(string, string, string, int)"/>
     [StackTraceHidden]
     [Conditional(DEBUG)]
-    public static void WriteDebug(string message) => 
-        Log.WriteDebug(message);
+    public static void WriteDebug(string message, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) => 
+        Log._proxyLogger.LogInternal(message, LogWriter.Blocking, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Debug);
 
-    /// <inheritdoc cref="Log.WriteDebug(string, ILogWriter)"/>
+    /// <inheritdoc cref="Log.WriteDebug(string, ILogWriter, string, string, int)"/>
     [StackTraceHidden]
     [Conditional(DEBUG)]
-    public static void WriteDebug(string message, ILogWriter logWriter) =>
-        Log.WriteDebug(message, logWriter);
+    public static void WriteDebug(string message, ILogWriter logWriter, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) =>
+        Log._proxyLogger.LogInternal(message, logWriter, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Debug);
 
-    /// <inheritdoc cref="Log.WriteDiagnostic(string)"/>
+    /// <inheritdoc cref="Log.WriteDiagnostic(string, string, string, int)"/>
     [StackTraceHidden]
     [Conditional(DEBUG)]
-    public static void WriteDiagnostic(string message) => 
-        Log.WriteDiagnostic(message);
+    public static void WriteDiagnostic(string message, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) => 
+        Log._proxyLogger.LogInternal(message, LogWriter.Blocking, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Diagnostic);
 
-    /// <inheritdoc cref="Log.WriteDiagnostic(string, ILogWriter)"/>
+    /// <inheritdoc cref="Log.WriteDiagnostic(string, ILogWriter, string, string, int)"/>
     [StackTraceHidden]
     [Conditional(DEBUG)]
-    public static void WriteDiagnostic(string message, ILogWriter logWriter) =>
-        Log.WriteDiagnostic(message, logWriter);
+    public static void WriteDiagnostic(string message, ILogWriter logWriter, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) =>
+        Log._proxyLogger.LogInternal(message, logWriter, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Diagnostic);
 
-    /// <inheritdoc cref="Log.WriteWarning(string, ILogWriter)"/>
+    /// <inheritdoc cref="Log.WriteWarning(string, ILogWriter, string, string, int)"/>
     /// <remarks>
     /// Warnings written with this method will only be visible in debug builds.
     /// </remarks>
     [StackTraceHidden]
     [Conditional(DEBUG)]
-    public static void WriteInternalWarning(string message, ILogWriter logWriter) =>
-        Log.WriteWarning(message, logWriter);
+    public static void WriteInternalWarning(string message, ILogWriter logWriter, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) =>
+        Log._proxyLogger.LogInternal(message, logWriter, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Warning);
 
-    /// <inheritdoc cref="Log.WriteError(string)"/>
+    /// <inheritdoc cref="Log.WriteError(string, string, string, int)"/>
     /// <remarks>
     /// <see langword="WARNING"></see>: This method is *<c>NOT</c>* marked with the <see cref="ConditionalAttribute"/> and will be compiled in release builds.
     /// </remarks>
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void WriteError(string message) => 
-        Log.WriteError(message);
+    public static void WriteError(string message, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) => 
+        Log._proxyLogger.LogInternal(message, LogWriter.Blocking, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Error);
 
-    /// <inheritdoc cref="Log.WriteError(string, ILogWriter)"/>
+    /// <inheritdoc cref="Log.WriteError(string, ILogWriter, string, string, int)"/>
     /// <remarks>
     /// <see langword="WARNING"></see>: This method is *<c>NOT</c>* marked with the <see cref="ConditionalAttribute"/> and will be compiled in release builds.
     /// </remarks>
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void WriteError(string message, ILogWriter logWriter) =>
-        Log.WriteError(message, logWriter);
+    public static void WriteError(string message, ILogWriter logWriter, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) =>
+        Log._proxyLogger.LogInternal(message, logWriter, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Error);
 
-    /// <inheritdoc cref="Log.WriteEvent(string)"/>
+    /// <inheritdoc cref="Log.WriteEvent(string, string, string, int)"/>
     [StackTraceHidden]
     [Conditional(DEBUG)]
-    public static void WriteEvent(string message) => 
-        Log.WriteEvent(message);
+    public static void WriteEvent(string message, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) => 
+        Log._proxyLogger.LogInternal(message, LogWriter.Blocking, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Event);
 
-    /// <inheritdoc cref="Log.WriteEvent(string, ILogWriter)"/>
+    /// <inheritdoc cref="Log.WriteEvent(string, ILogWriter, string, string, int)"/>
     [StackTraceHidden]
     [Conditional(DEBUG)]
-    public static void WriteEvent(string message, ILogWriter logWriter) =>
-        Log.WriteEvent(message, logWriter);
+    public static void WriteEvent(string message, ILogWriter logWriter, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) =>
+        Log._proxyLogger.LogInternal(message, logWriter, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Event);
 
-    /// <inheritdoc cref="Log.WriteException(Exception, LogLevel)"/>
+    /// <inheritdoc cref="Log.WriteException(Exception, LogLevel, string, string, int)"/>
     /// <remarks>
     /// <see langword="WARNING"></see>: This method is *<c>NOT</c>* marked with the <see cref="ConditionalAttribute"/> and will be compiled in release builds.
     /// </remarks>
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void WriteException(Exception exception, LogLevel logLevel = LogLevel.Error) =>
-        Log.WriteException(exception, logLevel);
+    public static void WriteException(Exception exception, LogLevel logLevel = LogLevel.Error, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) =>
+        Log._proxyLogger.LogInternal(exception, LogWriter.Blocking, callerFilePath, callerMemberName, callerLineNumber, logLevel);
 
-    /// <inheritdoc cref="Log.WriteException(Exception, ILogWriter, LogLevel)"/>
+    /// <inheritdoc cref="Log.WriteException(Exception, ILogWriter, LogLevel, string, string, int)"/>
     /// <remarks>
     /// <see langword="WARNING"></see>: This method is *<c>NOT</c>* marked with the <see cref="ConditionalAttribute"/> and will be compiled in release builds.
     /// </remarks>
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void WriteException(Exception exception, string additionalInfo, LogLevel logLevel = LogLevel.Error) =>
-        Log.WriteException(exception, additionalInfo, logLevel);
+    public static void WriteException(Exception exception, string additionalInfo, LogLevel logLevel = LogLevel.Error, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) =>
+        Log._proxyLogger.LogInternal(exception, additionalInfo, LogWriter.Blocking, callerFilePath, callerMemberName, callerLineNumber, logLevel);
 
-    /// <inheritdoc cref="Log.WriteException(Exception, ILogWriter, LogLevel)"/>
+    /// <inheritdoc cref="Log.WriteException(Exception, ILogWriter, LogLevel, string, string, int)"/>
     /// <remarks>
     /// <see langword="WARNING"></see>: This method is *<c>NOT</c>* marked with the <see cref="ConditionalAttribute"/> and will be compiled in release builds.
     /// </remarks>
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void WriteException(Exception exception, ILogWriter logWriter, LogLevel logLevel = LogLevel.Error) =>
-        Log.WriteException(exception, logWriter, logLevel);
+    public static void WriteException(Exception exception, ILogWriter logWriter, LogLevel logLevel = LogLevel.Error, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) =>
+        Log._proxyLogger.LogInternal(exception, logWriter, callerFilePath, callerMemberName, callerLineNumber, logLevel);
 
-    /// <inheritdoc cref="Log.WriteException(Exception, string, ILogWriter, LogLevel)"/>
+    /// <inheritdoc cref="Log.WriteException(Exception, string, ILogWriter, LogLevel, string, string, int)"/>
     /// <remarks>
     /// <see langword="WARNING"></see>: This method is *<c>NOT</c>* marked with the <see cref="ConditionalAttribute"/> and will be compiled in release builds.
     /// </remarks>
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void WriteException(Exception exception, string additionalInfo, ILogWriter logWriter, LogLevel logLevel = LogLevel.Error) =>
-        Log.WriteException(exception, additionalInfo, logWriter, logLevel);
+    public static void WriteException(Exception exception, string additionalInfo, ILogWriter logWriter, LogLevel logLevel = LogLevel.Error, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) =>
+        Log._proxyLogger.LogInternal(exception, additionalInfo, logWriter, callerFilePath, callerMemberName, callerLineNumber, logLevel);
 
-    /// <inheritdoc cref="Log.WriteFatal(string)"/>
+    /// <inheritdoc cref="Log.WriteFatal(string, string, string, int)"/>
     /// <remarks>
     /// <see langword="WARNING"></see>: This method is *<c>NOT</c>* marked with the <see cref="ConditionalAttribute"/> and will be compiled in release builds.
     /// </remarks>
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void WriteFatal(string message) =>
-        Log.WriteFatal(message);
+    public static void WriteFatal(string message, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) =>
+        Log._proxyLogger.LogInternal(message, LogWriter.Blocking, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Fatal);
 
-    /// <inheritdoc cref="Log.WriteFatal(string, ILogWriter)"/>
+    /// <inheritdoc cref="Log.WriteFatal(string, ILogWriter, string, string, int)"/>
     /// <remarks>
     /// <see langword="WARNING"></see>: This method is *<c>NOT</c>* marked with the <see cref="ConditionalAttribute"/> and will be compiled in release builds.
     /// </remarks>
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void WriteFatal(string message, ILogWriter logWriter) =>
-        Log.WriteFatal(message, logWriter);
+    public static void WriteFatal(string message, ILogWriter logWriter, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) =>
+        Log._proxyLogger.LogInternal(message, logWriter, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Fatal);
 
-    /// <inheritdoc cref="Log.WriteInfo(string)"/>
+    /// <inheritdoc cref="Log.WriteInfo(string, string, string, int)"/>
     [StackTraceHidden]
     [Conditional(DEBUG)]
-    public static void WriteInfo(string message) =>
-        Log.WriteInfo(message);
+    public static void WriteInfo(string message, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) =>
+        Log._proxyLogger.LogInternal(message, LogWriter.Blocking, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Info);
 
-    /// <inheritdoc cref="Log.WriteInfo(string, ILogWriter)"/>
+    /// <inheritdoc cref="Log.WriteInfo(string, ILogWriter, string, string, int)"/>
     [StackTraceHidden]
     [Conditional(DEBUG)]
-    public static void WriteInfo(string message, ILogWriter logWriter) =>
-        Log.WriteInfo(message, logWriter);
+    public static void WriteInfo(string message, ILogWriter logWriter, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) =>
+        Log._proxyLogger.LogInternal(message, logWriter, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Info);
 
-    /// <inheritdoc cref="Log.WriteWarning(string)"/>
+    /// <inheritdoc cref="Log.WriteWarning(string, string, string, int)"/>
     /// <remarks>
     /// <see langword="WARNING"></see>: This method is *<c>NOT</c>* marked with the <see cref="ConditionalAttribute"/> and will be compiled in release builds.
     /// </remarks>
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void WriteWarning(string message) =>
-        Log.WriteWarning(message);
+    public static void WriteWarning(string message, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) =>
+        Log._proxyLogger.LogInternal(message, LogWriter.Blocking, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Warning);
 
-    /// <inheritdoc cref="Log.WriteWarning(string, ILogWriter)"/>
+    /// <inheritdoc cref="Log.WriteWarning(string, ILogWriter, string, string, int)"/>
     /// <remarks>
     /// <see langword="WARNING"></see>: This method is *<c>NOT</c>* marked with the <see cref="ConditionalAttribute"/> and will be compiled in release builds.
     /// </remarks>
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void WriteWarning(string message, ILogWriter logWriter) =>
-        Log.WriteWarning(message, logWriter);
+    public static void WriteWarning(string message, ILogWriter logWriter, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) =>
+        Log._proxyLogger.LogInternal(message, logWriter, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Warning);
 }

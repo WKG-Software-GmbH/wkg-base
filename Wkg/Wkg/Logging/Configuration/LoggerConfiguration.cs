@@ -1,4 +1,5 @@
-﻿using Wkg.Logging.Generators;
+﻿using System.Collections.Immutable;
+using Wkg.Logging.Generators;
 using Wkg.Logging.Sinks;
 using Wkg.Logging.Writers;
 
@@ -9,14 +10,14 @@ public partial class LoggerConfiguration
     private readonly List<ILogSink> _logSinks = [];
     private int _mainThreadId = 0;
     private LogLevel _minimumLogLevel = LogLevel.Diagnostic;
-    private Func<CompiledLoggerConfiguration, ILogEntryGenerator> _generatorFactory = TracingLogEntryGenerator.Create;
+    private LogEntryGeneratorFactory _generatorFactory = SimpleLogEntryGenerator.Create;
     private ILogWriter _defaultWriter = LogWriter.Blocking;
 
     private LoggerConfiguration()
     {
     }
 
-    internal CompiledLoggerConfiguration Compile() => new(_minimumLogLevel, new ConcurrentSinkCollection(_logSinks.ToArray()), _mainThreadId, _defaultWriter, _generatorFactory);
+    internal CompiledLoggerConfiguration Compile() => new(_minimumLogLevel, new SinkCollection([.. _logSinks]), _mainThreadId, _defaultWriter, _generatorFactory);
 
     public static partial LoggerConfiguration Create() => new();
 
@@ -41,9 +42,9 @@ public partial class LoggerConfiguration
         return this;
     }
 
-    public partial LoggerConfiguration UseEntryGenerator<TGenerator>() where TGenerator : class, ILogEntryGenerator<TGenerator>
+    public partial LoggerConfiguration UseEntryGenerator(LogEntryGeneratorFactory generatorFactory)
     {
-        _generatorFactory = TGenerator.Create;
+        _generatorFactory = generatorFactory;
         return this;
     }
 
@@ -56,3 +57,10 @@ public partial class LoggerConfiguration
         return this;
     }
 }
+
+/// <summary>
+/// A factory for creating log entry generators
+/// </summary>
+/// <param name="config">The <see cref="CompiledLoggerConfiguration"/> used to create the log entry generator</param>
+/// <returns>A new instance of a log entry generator</returns>
+public delegate ILogEntryGenerator LogEntryGeneratorFactory(CompiledLoggerConfiguration config);

@@ -100,7 +100,8 @@ public class DetailedLogEntryGenerator : ILogEntryGenerator<DetailedLogEntryGene
 
         for (Exception? inner = entry.Exception.InnerException; inner is not null; inner = inner.InnerException)
         {
-            builder.Append("=> [")
+            builder.AppendLine()
+                .Append("=> [")
                 .Append(inner.GetType().Name)
                 .Append("] '")
                 .Append(inner.Message)

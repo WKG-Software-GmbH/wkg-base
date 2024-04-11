@@ -107,7 +107,8 @@ public class SimpleLogEntryGenerator : ILogEntryGenerator<SimpleLogEntryGenerato
 
         for (Exception? inner = entry.Exception.InnerException; inner is not null; inner = inner.InnerException)
         {
-            builder.Append("Caused by ")
+            builder.AppendLine()
+                .Append("Caused by ")
                 .Append(inner.GetType().Name)
                 .Append(": '")
                 .Append(inner.Message)

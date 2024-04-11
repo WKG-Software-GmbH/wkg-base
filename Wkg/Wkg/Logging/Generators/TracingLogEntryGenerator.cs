@@ -111,7 +111,8 @@ public class TracingLogEntryGenerator : ILogEntryGenerator<TracingLogEntryGenera
 
         for (Exception? inner = entry.Exception.InnerException; inner is not null; inner = inner.InnerException)
         {
-            builder.Append("caused by ")
+            builder.AppendLine()
+                .Append("caused by ")
                 .Append(inner.GetType().Name)
                 .Append(": '")
                 .Append(inner.Message)

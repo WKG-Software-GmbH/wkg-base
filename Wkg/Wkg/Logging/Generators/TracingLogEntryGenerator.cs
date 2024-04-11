@@ -85,20 +85,58 @@ public class TracingLogEntryGenerator : ILogEntryGenerator<TracingLogEntryGenera
                 .Append(additionalInfo)
                 .Append("\' ");
         }
-        builder.Append("original: \'")
-            .Append(exception.Message)
-            .Append("\' at: ");
-        if (exception.StackTrace is not null)
-        {
-            builder.Append('\n').Append(exception.StackTrace);
-        }
-        else
-        {
-            builder.Append("stacktrace unavailable");
-        }
+        AddStackTrace(ref entry, builder);
         entry.LogMessage = builder.ToString();
 
         StringBuilderPool.Shared.Return(builder);
+    }
+
+    /// <summary>
+    /// Adds the stack trace of the <paramref name="entry"/> to the <paramref name="builder"/>.
+    /// </summary>
+    /// <param name="entry">The <see cref="LogEntry"/> to add the stack trace of.</param>
+    /// <param name="builder">The <see cref="StringBuilder"/> to add the stack trace to.</param>
+    protected virtual void AddStackTrace(ref LogEntry entry, StringBuilder builder)
+    {
+        if (entry.Exception is null)
+        {
+            return;
+        }
+
+        builder.Append("original: \'")
+            .Append(entry.Exception.Message)
+            .Append("\' at: ");
+
+        AddStackTraceOrPlaceholder(builder, entry.Exception.StackTrace);
+
+        for (Exception? inner = entry.Exception.InnerException; inner is not null; inner = inner.InnerException)
+        {
+            builder.Append("caused by ")
+                .Append(inner.GetType().Name)
+                .Append(": '")
+                .Append(inner.Message)
+                .Append("' at:");
+
+            AddStackTraceOrPlaceholder(builder, inner.StackTrace);
+        }
+    }
+
+    /// <summary>
+    /// Adds the <paramref name="stackTrace"/> to the <paramref name="builder"/> or a placeholder if the <paramref name="stackTrace"/> is <see langword="null"/>.
+    /// </summary>
+    /// <param name="builder">The <see cref="StringBuilder"/> to add the <paramref name="stackTrace"/> to.</param>
+    /// <param name="stackTrace">The stack trace to add to the <paramref name="builder"/>.</param>
+    protected virtual void AddStackTraceOrPlaceholder(StringBuilder builder, string? stackTrace)
+    {
+        if (stackTrace is null)
+        {
+            builder.Append("<stacktrace unavailable>");
+        }
+        else
+        {
+            builder.AppendLine()
+                .Append(stackTrace);
+        }
     }
 
     /// <inheritdoc/>

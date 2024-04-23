@@ -18,6 +18,25 @@ public static class ExpressionExtensions
     public static MemberInfo GetMemberAccess(this LambdaExpression memberAccessExpression)
         => GetInternalMemberAccess<MemberInfo>(memberAccessExpression);
 
+    /// <summary>
+    /// Returns a list of <see cref="PropertyInfo" /> extracted from the given simple <see cref="LambdaExpression" />.
+    /// </summary>
+    /// <param name="propertyAccessExpression">The expression.</param>
+    /// <returns>The list of referenced properties.</returns>
+    [RequiresUnreferencedCode("Requires dynamic access to methods of the declaring type and to properties of the parameter type.")]
+    public static List<PropertyInfo> GetPropertyAccessList(this LambdaExpression propertyAccessExpression) => 
+        GetInternalMemberAccessList<PropertyInfo>(propertyAccessExpression);
+
+    [RequiresUnreferencedCode("Requires dynamic access to methods of the declaring type and to properties of the parameter type.")]
+    private static List<TMemberInfo> GetInternalMemberAccessList<TMemberInfo>(this LambdaExpression memberAccessExpression)
+        where TMemberInfo : MemberInfo
+    {
+        ParameterExpression parameterExpression = memberAccessExpression.Parameters[0];
+        List<TMemberInfo> result = parameterExpression.MatchMemberAccess<TMemberInfo>(memberAccessExpression.Body)
+            ?? throw new InvalidOperationException($"Unable to determine member from {memberAccessExpression.Body}.");
+        return result;
+    }
+
     [RequiresUnreferencedCode("Requires dynamic access to methods of the declaring type and to properties of the parameter type.")]
     private static TMemberInfo GetInternalMemberAccess<TMemberInfo>(this LambdaExpression memberAccessExpression)
         where TMemberInfo : MemberInfo

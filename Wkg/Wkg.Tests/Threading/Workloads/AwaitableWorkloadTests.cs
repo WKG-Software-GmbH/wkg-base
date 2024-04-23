@@ -196,7 +196,7 @@ public class AwaitableWorkloadTests
         ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
         Workload<int> workload = factory.ScheduleAsync(_ =>
         {
-            Thread.Sleep(250);
+            Thread.Sleep(1000);
             return 1;
         });
         bool waitResult = workload.Wait(TimeSpan.FromMilliseconds(100));
@@ -210,7 +210,7 @@ public class AwaitableWorkloadTests
     public void TestBlockingWaitExplicitWithTimeout2()
     {
         ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
-        Workload workload = factory.ScheduleAsync(_ => Thread.Sleep(250));
+        Workload workload = factory.ScheduleAsync(_ => Thread.Sleep(1000));
         bool waitResult = workload.Wait(TimeSpan.FromMilliseconds(100));
         Assert.IsFalse(waitResult);
         WorkloadResult result = workload.GetAwaiter().GetResult();

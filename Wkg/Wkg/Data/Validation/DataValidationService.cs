@@ -8,7 +8,7 @@ namespace Wkg.Data.Validation;
 public static partial class DataValidationService
 {
     /// <summary>
-    /// Checks if the given string is a valid email address.
+    /// Checks if the given string is a valid email address conforming to the email address format specified in RFC 5322.
     /// </summary>
     /// <param name="email">The email address to validate.</param>
     /// <returns><see langword="true"/> if the given string is a valid email address; otherwise, <see langword="false"/>.</returns>
@@ -21,6 +21,11 @@ public static partial class DataValidationService
         Regex regex = GetEmailRegex();
         return regex.IsMatch(email);
     }
+
+    /// <summary>
+    /// Retrieves a regular expression to validate email addresses against the email address format specified in RFC 5322.
+    /// </summary>
+    public static Regex EmailAddress => GetEmailRegex();
 
     /// <summary>
     /// Checks if the given string is a valid phone number.
@@ -38,7 +43,12 @@ public static partial class DataValidationService
     }
 
     /// <summary>
-    /// Checks if the given string is a valid URL.
+    /// Retrieves a regular expression to validate phone numbers.
+    /// </summary>
+    public static Regex PhoneNumber => GetPhoneRegex();
+
+    /// <summary>
+    /// Checks if the given string is a valid HTTP, HTTPS, or FTP URL as defined by RFC 3986.
     /// </summary>
     /// <param name="url">The URL to validate.</param>
     /// <returns><see langword="true"/> if the given string is a valid URL; otherwise, <see langword="false"/>.</returns>
@@ -51,4 +61,9 @@ public static partial class DataValidationService
         Regex regex = GetUrlRegex();
         return regex.IsMatch(url);
     }
+
+    /// <summary>
+    /// Retrieves a regular expression to validate HTTP, HTTPS, or FTP URLs against the URL format specified in RFC 3986.
+    /// </summary>
+    public static Regex Url => GetUrlRegex();
 }

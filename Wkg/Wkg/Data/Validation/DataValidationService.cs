@@ -25,7 +25,7 @@ public static partial class DataValidationService
     /// <summary>
     /// Retrieves a regular expression to validate email addresses against the email address format specified in RFC 5322.
     /// </summary>
-    public static Regex EmailAddress => GetEmailRegex();
+    public static RegexDescriptor EmailAddress => new(GetEmailRegex(), EMAIL_ADDRESS_PATTERN);
 
     /// <summary>
     /// Checks if the given string is a valid phone number.
@@ -45,7 +45,7 @@ public static partial class DataValidationService
     /// <summary>
     /// Retrieves a regular expression to validate phone numbers.
     /// </summary>
-    public static Regex PhoneNumber => GetPhoneRegex();
+    public static RegexDescriptor PhoneNumber => new(GetPhoneRegex(), PHONE_NUMBER_PATTERN);
 
     /// <summary>
     /// Checks if the given string is a valid HTTP, HTTPS, or FTP URL as defined by RFC 3986.
@@ -65,5 +65,5 @@ public static partial class DataValidationService
     /// <summary>
     /// Retrieves a regular expression to validate HTTP, HTTPS, or FTP URLs against the URL format specified in RFC 3986.
     /// </summary>
-    public static Regex Url => GetUrlRegex();
+    public static RegexDescriptor Url => new(GetUrlRegex(), URL_PATTERN);
 }

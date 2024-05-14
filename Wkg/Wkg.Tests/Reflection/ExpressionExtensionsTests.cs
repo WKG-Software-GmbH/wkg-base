@@ -38,7 +38,7 @@ public class ExpressionExtensionsTests
         Assert.AreEqual(nameof(TestClass.SimpleProperty), result[2].Name);
     }
 
-    private static LambdaExpression CreateExpression<TProperty>(Expression<Func<TestClass, TProperty>> expression) => expression;
+    private static Expression<Func<TestClass, TProperty>> CreateExpression<TProperty>(Expression<Func<TestClass, TProperty>> expression) => expression;
 }
 
 internal class TestClass

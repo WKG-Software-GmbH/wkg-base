@@ -5,13 +5,15 @@ stages:
     - deploy-baget
 
 variables:
-    PROJECT_FILE_PATH: "Wkg/Wkg/Wkg.csproj"
+    PROJECT_PATH: "Wkg/Wkg"
+    PROJECT_FILE_PATH: "${PROJECT_PATH}/Wkg.csproj"
+    DOTNET_CI_VERSION_FILE: "${PROJECT_PATH}/WkgAssembly.cs"
     MAJOR_VERSION: "8"
     MINOR_VERSION: "1"
 
 include:
     - project: 'wkg/gitlab-templates'
-      ref: 'v1.2.0'
+      ref: 'inject-build-date'
       file:
           - '/jobs/build_dotnet_8.yml'
           - '/jobs/test_dotnet_8.yml'

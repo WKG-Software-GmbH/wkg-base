@@ -9,24 +9,24 @@ namespace Wkg.Common.Extensions;
 public static class GuidExtensions
 {
     /// <summary>
-    /// Converts a <see cref="Guid"/> to its big endian string representation.
-    /// <para>
-    /// <see href="https://stackoverflow.com/questions/48147681/get-a-guid-to-encode-using-big-endian-formatting-c-sharp"/>
-    /// </para>
+    /// Writes the <see cref="Guid"/> to the specified buffer in its big endian ASCII representation.
     /// </summary>
-    public static string ToStringBigEndian(this Guid guid)
+    /// <remarks>
+    /// <see href="https://stackoverflow.com/questions/48147681/get-a-guid-to-encode-using-big-endian-formatting-c-sharp"/>
+    /// </remarks>
+    /// <param name="guid">The <see cref="Guid"/> to write.</param>
+    /// <param name="buffer">The buffer to write the <see cref="Guid"/> to, must be at least 36 bytes long.</param>
+    public static void ToStringBigEndian(this Guid guid, Span<byte> buffer)
     {
-        // allocate enough bytes to store Guid ASCII string
-        Span<byte> result = stackalloc byte[36];
-
+        // it's the responsibility of the caller to ensure that the buffer is at least 36 bytes long, the runtime will also catch out of bounds access
         // get bytes from guid
-        Span<byte> buffer = stackalloc byte[16];
-        _ = guid.TryWriteBytes(buffer);
+        Span<byte> source = stackalloc byte[16];
+        _ = guid.TryWriteBytes(source);
 
         int skip = 0;
 
         // iterate over guid bytes
-        for (int i = 0; i < buffer.Length; i++)
+        for (int i = 0; i < source.Length; i++)
         {
             // indices 4, 6, 8 and 10 will contain a '-' delimiter character in the Guid string.
             // --> leave space for those delimiters
@@ -46,13 +46,28 @@ public static class GuidExtensions
             // skipIndexMask will be 0xFFFFFFFF for indices 4, 6, 8 and 10 and 0x00000000 for all other indices
             // --> skip those indices
             skip += 1 & skipIndexMask;
-            result[2 * i + skip] = ToHexCharBranchless(buffer[i] >>> 0x4);
-            result[2 * i + skip + 1] = ToHexCharBranchless(buffer[i] & 0x0F);
+            buffer[2 * i + skip] = ToHexCharBranchless(source[i] >>> 0x4);
+            buffer[2 * i + skip + 1] = ToHexCharBranchless(source[i] & 0x0F);
         }
 
         // add dashes
         const byte dash = (byte)'-';
-        result[8] = result[13] = result[18] = result[23] = dash;
+        buffer[8] = buffer[13] = buffer[18] = buffer[23] = dash;
+    }
+
+    /// <summary>
+    /// Converts a <see cref="Guid"/> to its big endian string representation.
+    /// <para>
+    /// <see href="https://stackoverflow.com/questions/48147681/get-a-guid-to-encode-using-big-endian-formatting-c-sharp"/>
+    /// </para>
+    /// </summary>
+    public static string ToStringBigEndian(this Guid guid)
+    {
+        // allocate enough bytes to store Guid ASCII string
+        Span<byte> result = stackalloc byte[36];
+
+        // write Guid to buffer
+        guid.ToStringBigEndian(result);
 
         // get string from ASCII encoded guid byte array
         return Encoding.ASCII.GetString(result);

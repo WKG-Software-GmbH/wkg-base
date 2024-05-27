@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 
 namespace Wkg.Common;
 
@@ -71,9 +72,32 @@ public static class SyntacticSugar
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void Pass() { }
 
-    /// <summary>
-    /// Explicitly does nothing. Useful for using expression bodied syntax for empty methods. Also explicitly indicates that methods are *supposed* to be empty (as opposed to a missing implementation).
-    /// </summary>
+    /// <inheritdoc cref="Pass()"/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void Pass<T>(T _) { }
+
+    /// <inheritdoc cref="Pass()"/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void Pass<T1, T2>(T1 _1, T2 _2) { }
+
+    /// <inheritdoc cref="Pass()"/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void Pass<T1, T2, T3>(T1 _1, T2 _2, T3 _3) { }
+
+    /// <inheritdoc cref="Pass()"/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void Pass<T1, T2, T3, T4>(T1 _1, T2 _2, T3 _3, T4 _4) { }
+
+    /// <summary>
+    /// Converts the provided <paramref name="value"/> to its nullable equivalent.
+    /// </summary>
+    /// <remarks>
+    /// This method does nothing other than providing Code Analysis with a hint that the value is nullable, which may be required in nullable-value-returning lambda expressions.
+    /// </remarks>
+    /// <typeparam name="T">The type of the value.</typeparam>
+    /// <param name="value">The value to return.</param>
+    /// <returns>The provided <paramref name="value"/> but with the Code Analysis hint that it is nullable.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [return: MaybeNull]
+    public static T? Nullable<T>(T? value) => value;
 }

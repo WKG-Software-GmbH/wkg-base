@@ -264,7 +264,7 @@ The `Logging.Generators` namespace provides a set of built-in `ILogEntryGenerato
 - `AotLogEntryGenerator` - The default log entry generator that is used when no other log entry generator is specified. It is AOT-friendly and formats log entries in a minimalistic way:
     ```text
     2023-05-30 14:35:42.185 (UTC) Info on Thread_0x1 (Main Thread) --> Output: 'This is a log message';
-    2023-05-30 14:35:42.185 (UTC) Error: NullReferenceException on Thread_0x1 (Main Thread) --> info: 'while trying to do a thing' original: 'Object reference not set to an instance of an object.' at:
+    2023-05-30 14:35:42.185 (UTC) ERROR: NullReferenceException on Thread_0x1 (Main Thread) --> info: 'while trying to do a thing' original: 'Object reference not set to an instance of an object.' at:
       StackTrace line 1
     2023-05-30 14:35:42.185 (UTC) Event on Thread_0x1 (Main Thread) --> (MyAssembly) (MyClass::MyButtonInstance) ==> OnClick(MyEventType: eventArgs)
     ```

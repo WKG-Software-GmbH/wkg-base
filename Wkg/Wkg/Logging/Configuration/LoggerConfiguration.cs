@@ -9,7 +9,7 @@ public partial class LoggerConfiguration
     private readonly List<ILogSink> _logSinks = [];
     private int _mainThreadId = 0;
     private LogLevel _minimumLogLevel = LogLevel.Diagnostic;
-    private LogEntryGeneratorFactory _generatorFactory = SimpleLogEntryGenerator.Create;
+    private LogEntryGeneratorFactory _generatorFactory = AotLogEntryGenerator.Create;
     private ILogWriter _defaultWriter = LogWriter.Blocking;
 
     private LoggerConfiguration() => Pass();

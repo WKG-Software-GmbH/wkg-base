@@ -9,7 +9,12 @@ namespace Wkg.Logging.Generators;
 /// <summary>
 /// A variant of the <see cref="TracingLogEntryGenerator"/> that includes parameter names in the target site, generating log entries in the following format:
 /// <code>
-/// 2023-05-31 14:14:24.626 (UTC) Wkg: [Info->Thread_0x1(MAIN THREAD)] (MyClass::MyMethod(String[] arguments, Boolean sendHelp)) ==> Output: 'Hello world! :)'
+/// <code>
+/// 2023-05-31 14:14:24.626 (UTC) MyAssembly: [Info->Thread_0x1(MAIN THREAD)] (MyClass::MyMethod(String[] args, Boolean myFlag)) ==> Output: 'Hello world! :)'
+/// 2023-05-31 14:14:24.626 (UTC) MyAssembly: [ERROR->Thread_0x1(MAIN THREAD)] (MyClass::MyMethod(String[] args, Boolean myFlag)) ==> [DirectoryNotFoundException] info: 'failed to open my file' original: '..\artifacts\bin\MyProject\data' at: 
+///    StackTrace line 1
+/// 2023-05-31 14:14:24.626 (UTC) MyAssembly: [Info->Thread_0x1(MAIN THREAD)] (MyClass::ByButton) ==> OnClick(MyEventArgs: { "Property": "JSON serialized model", "foo": 1234 })
+/// </code>
 /// </code>
 /// </summary>
 /// <remarks>

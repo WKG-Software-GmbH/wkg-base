@@ -40,7 +40,7 @@ Log.UseConfiguration(LoggerConfiguration.Create()
     //.AddSink<ColoredThreadBasedConsoleSink>()
     .AddSink<ColoredConsoleSink>()
     .SetMinimumLogLevel(LogLevel.Diagnostic)
-    .UseEntryGenerator(DetailedLogEntryGenerator.Create)
+    .UseEntryGenerator(DetailedAotLogEntryGenerator.Create)
     .RegisterMainThread(Thread.CurrentThread)
     .UseDefaultLogWriter(LogWriter.Blocking));
 

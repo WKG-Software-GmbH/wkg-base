@@ -14,7 +14,10 @@ namespace Wkg.Logging.Generators;
 /// <summary>
 /// A diagnostic log entry generator that generates log entries in the format of:
 /// <code>
-/// 2023-05-31 14:14:24.626 (UTC) Wkg: [Info->Thread_0x1(MAIN THREAD)] (MyClass::MyMethod(String[], Boolean)) ==> Output: 'Hello world! :)'
+/// 2023-05-31 14:14:24.626 (UTC) MyAssembly: [Info->Thread_0x1(MAIN THREAD)] (MyClass::MyMethod(String[], Boolean)) ==> Output: 'Hello world! :)'
+/// 2023-05-31 14:14:24.626 (UTC) MyAssembly: [ERROR->Thread_0x1(MAIN THREAD)] (MyClass::MyMethod(String[], Boolean)) ==> [DirectoryNotFoundException] info: 'failed to open my file' original: '..\artifacts\bin\MyProject\data' at: 
+///    StackTrace line 1
+/// 2023-05-31 14:14:24.626 (UTC) MyAssembly: [Info->Thread_0x1(MAIN THREAD)] (MyClass::ByButton) ==> OnClick(MyEventArgs: { "Property": "JSON serialized model", "foo": 1234 })
 /// </code>
 /// </summary>
 /// <remarks>
@@ -75,8 +78,9 @@ public class TracingLogEntryGenerator : ILogEntryGenerator<TracingLogEntryGenera
 
         GenerateHeader(ref entry, builder, null, out MethodBase? method);
         AddTargetSite(ref entry, builder, method);
-        builder.Append(exception.GetType().Name)
-            .Append(": ");
+        builder.Append('[')
+            .Append(exception.GetType().Name)
+            .Append("] ");
         entry.Exception = exception;
         if (additionalInfo is not null)
         {
@@ -156,12 +160,13 @@ public class TracingLogEntryGenerator : ILogEntryGenerator<TracingLogEntryGenera
             .Append(instanceName)
             .Append(") ==> ")
             .Append(eventName)
-            .Append(": ");
+            .Append('(');
 
         entry.InstanceName = instanceName;
         entry.EventName = eventName;
         entry.EventArgs = eventArgs;
         AddEventArgs(eventArgs, builder);
+        builder.Append(')');
 
         entry.LogMessage = builder.ToString();
 

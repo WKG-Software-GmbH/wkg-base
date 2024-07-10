@@ -15,7 +15,7 @@ public class Log : ILog
 {
     internal static IProxyLogger _proxyLogger = Logger.CreateProxy(
         LoggerConfiguration.Create()
-            .UseEntryGenerator(SimpleLogEntryGenerator.Create)
+            .UseEntryGenerator(AotLogEntryGenerator.Create)
             .AddSink<ConsoleSink>());
 
     /// <inheritdoc/>

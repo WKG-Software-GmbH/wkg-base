@@ -13,10 +13,10 @@ namespace Wkg.Logging.Generators;
 /// <summary>
 /// A <see cref="DetailedAotLogEntryGenerator"/>-like implementation balancing runtime reflection requirements through caching with detailed log entries enumerated on compile time, generating log entries in the following format:
 /// <code>
-/// 2023-05-31 14:14:24.626 (UTC) AssemblyName: [Info->Thread_0x1(MAIN THREAD)] (MyClass.cs:L69->MyMethod) ==> Output: 'Hello world! :)'
-/// 2023-05-31 14:14:24.626 (UTC) AssemblyName: [ERROR->Thread_0x1(MAIN THREAD)] (MyClass.cs:L69->MyMethod) ==> [NullReferenceException] info: 'while trying to do a thing' original: 'Exception message' at:
+/// 2023-05-31 14:14:24.626 (UTC) MyAssembly: [Info->Thread_0x1(MAIN THREAD)] (MyClass.cs:L69->MyMethod) ==> Output: 'This is a log message'
+/// 2023-05-31 14:14:24.626 (UTC) MyAssembly: [ERROR->Thread_0x1(MAIN THREAD)] (MyClass.cs:L240->MyMethod) ==> [NullReferenceException] info: 'while trying to do a thing' original: 'Object reference not set to an instance of an object.' at:
 ///   StackTrace line 1
-/// 2023-05-31 14:14:24.626 (UTC) AssemblyName: [Event->Thread_0x1(MAIN THREAD)] (MyClass.cs:L69->MyMethod) ==> MyAssembly::MyClass::MyButtonInstance::OnClick(MyEventType: eventArgs)
+/// 2023-05-31 14:14:24.626 (UTC) MyAssembly: [Event->Thread_0x1(MAIN THREAD)] (MyClass.cs:L1337->MyMethod) ==> MyAssembly::MyClass::MyButtonInstance::OnClick(MyEventType: eventArgs)
 /// </code>
 /// </summary>
 /// <remarks>

@@ -9,10 +9,10 @@ namespace Wkg.Logging.Generators;
 /// <summary>
 /// A AOT compatible, simple, and lightweight <see cref="ILogEntryGenerator"/> implementation that generates log entries in the following format:
 /// <code>
-/// 2023-05-30 14:35:42.185 (UTC) Info on Thread_0x123 --> Output: 'This is a log message';
-/// 2023-05-30 14:35:42.185 (UTC) Error: SomeException on Thread_0x123 --> info: 'while trying to do a thing' original: 'Exception message' at:
+/// 2023-05-30 14:35:42.185 (UTC) Info on Thread_0x1 (Main Thread) --> Output: 'This is a log message';
+/// 2023-05-30 14:35:42.185 (UTC) ERROR: NullReferenceException on Thread_0x1 (Main Thread) --> info: 'while trying to do a thing' original: 'Object reference not set to an instance of an object.' at:
 ///   StackTrace line 1
-/// 2023-05-30 14:35:42.185 (UTC) Event on Thread_0x123 --> (MyAssembly) (MyClass::MyButtonInstance) ==> OnClick(MyEventType: eventArgs)
+/// 2023-05-30 14:35:42.185 (UTC) Event on Thread_0x1 (Main Thread) --> (MyAssembly) (MyClass::MyButtonInstance) ==> OnClick(MyEventType: eventArgs)
 /// </code>
 /// </summary>
 /// <remarks>

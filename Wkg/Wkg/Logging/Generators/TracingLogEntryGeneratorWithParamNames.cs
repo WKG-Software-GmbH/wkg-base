@@ -9,12 +9,10 @@ namespace Wkg.Logging.Generators;
 /// <summary>
 /// A variant of the <see cref="TracingLogEntryGenerator"/> that includes parameter names in the target site, generating log entries in the following format:
 /// <code>
-/// <code>
-/// 2023-05-31 14:14:24.626 (UTC) MyAssembly: [Info->Thread_0x1(MAIN THREAD)] (MyClass::MyMethod(String[] args, Boolean myFlag)) ==> Output: 'Hello world! :)'
-/// 2023-05-31 14:14:24.626 (UTC) MyAssembly: [ERROR->Thread_0x1(MAIN THREAD)] (MyClass::MyMethod(String[] args, Boolean myFlag)) ==> [DirectoryNotFoundException] info: 'failed to open my file' original: '..\artifacts\bin\MyProject\data' at: 
+/// 2023-05-31 14:14:24.626 (UTC) MyAssembly: [Info->Thread_0x1(MAIN THREAD)] (MyClass::MyMethod(String[] args, Boolean myFlag)) ==> Output: 'This is a log message'
+/// 2023-05-31 14:14:24.626 (UTC) MyAssembly: [ERROR->Thread_0x1(MAIN THREAD)] (MyClass::MyMethod(String[] args, Boolean myFlag)) ==> [NullReferenceException] info: 'while trying to do a thing' original: 'Object reference not set to an instance of an object.' at: 
 ///    StackTrace line 1
-/// 2023-05-31 14:14:24.626 (UTC) MyAssembly: [Info->Thread_0x1(MAIN THREAD)] (MyClass::ByButton) ==> OnClick(MyEventArgs: { "Property": "JSON serialized model", "foo": 1234 })
-/// </code>
+/// 2023-05-31 14:14:24.626 (UTC) MyAssembly: [Info->Thread_0x1(MAIN THREAD)] (MyClass::ByButton) ==> OnClick(MyEventType: { "Property": "JSON serialized model", "foo": 1234 })
 /// </code>
 /// </summary>
 /// <remarks>

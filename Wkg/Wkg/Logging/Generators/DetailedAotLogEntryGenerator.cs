@@ -1,4 +1,3 @@
-using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Text;
 using Wkg.Logging.Configuration;
@@ -10,10 +9,10 @@ namespace Wkg.Logging.Generators;
 /// <summary>
 /// An AOT compatible <see cref="ILogEntryGenerator"/> implementation with detailed log entries enumerated on compile time that generates log entries in the following format:
 /// <code>
-/// 2023-05-31 14:14:24.626 (UTC) [Info->Thread_0x1(MAIN THREAD)] (MyClass.cs:L69->MyMethod) ==> Output: 'Hello world! :)'
-/// 2023-05-31 14:14:24.626 (UTC) [ERROR->Thread_0x1(MAIN THREAD)] (MyClass.cs:L69->MyMethod) ==> [NullReferenceException] info: 'while trying to do a thing' original: 'Exception message' at:
+/// 2023-05-31 14:14:24.626 (UTC) [Info->Thread_0x1(MAIN THREAD)] (MyClass.cs:L69->MyMethod) ==> Output: 'This is a log message'
+/// 2023-05-31 14:14:24.626 (UTC) [ERROR->Thread_0x1(MAIN THREAD)] (MyClass.cs:L240->MyMethod) ==> [NullReferenceException] info: 'while trying to do a thing' original: 'Object reference not set to an instance of an object.' at:
 ///   StackTrace line 1
-/// 2023-05-31 14:14:24.626 (UTC) [Event->Thread_0x1(MAIN THREAD)] (MyClass.cs:L69->MyMethod) ==> MyAssembly::MyClass::MyButtonInstance::OnClick(MyEventType: eventArgs)
+/// 2023-05-31 14:14:24.626 (UTC) [Event->Thread_0x1(MAIN THREAD)] (MyClass.cs:L1337->MyMethod) ==> MyAssembly::MyClass::MyButtonInstance::OnClick(MyEventType: eventArgs)
 /// </code>
 /// </summary>
 /// <remarks>

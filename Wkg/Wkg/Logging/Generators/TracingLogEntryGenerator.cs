@@ -14,10 +14,10 @@ namespace Wkg.Logging.Generators;
 /// <summary>
 /// A diagnostic log entry generator that generates log entries in the format of:
 /// <code>
-/// 2023-05-31 14:14:24.626 (UTC) MyAssembly: [Info->Thread_0x1(MAIN THREAD)] (MyClass::MyMethod(String[], Boolean)) ==> Output: 'Hello world! :)'
-/// 2023-05-31 14:14:24.626 (UTC) MyAssembly: [ERROR->Thread_0x1(MAIN THREAD)] (MyClass::MyMethod(String[], Boolean)) ==> [DirectoryNotFoundException] info: 'failed to open my file' original: '..\artifacts\bin\MyProject\data' at: 
+/// 2023-05-31 14:14:24.626 (UTC) MyAssembly: [Info->Thread_0x1(MAIN THREAD)] (MyClass::MyMethod(String[], Boolean)) ==> Output: 'This is a log message'
+/// 2023-05-31 14:14:24.626 (UTC) MyAssembly: [ERROR->Thread_0x1(MAIN THREAD)] (MyClass::MyMethod(String[], Boolean)) ==> [NullReferenceException] info: 'while trying to do a thing' original: 'Object reference not set to an instance of an object.' at: 
 ///    StackTrace line 1
-/// 2023-05-31 14:14:24.626 (UTC) MyAssembly: [Info->Thread_0x1(MAIN THREAD)] (MyClass::ByButton) ==> OnClick(MyEventArgs: { "Property": "JSON serialized model", "foo": 1234 })
+/// 2023-05-31 14:14:24.626 (UTC) MyAssembly: [Info->Thread_0x1(MAIN THREAD)] (MyClass::ByButton) ==> OnClick(MyEventType: { "Property": "JSON serialized model", "foo": 1234 })
 /// </code>
 /// </summary>
 /// <remarks>

@@ -264,21 +264,21 @@ The `Logging.Generators` namespace provides a set of built-in `ILogEntryGenerato
 - `AotLogEntryGenerator` - The default log entry generator that is used when no other log entry generator is specified. It is AOT-friendly and formats log entries in a minimalistic way:
     ```text
     2023-05-30 14:35:42.185 (UTC) Info on Thread_0x1 (Main Thread) --> Output: 'This is a log message';
-    2023-05-30 14:35:42.185 (UTC) Error: SomeException on Thread_0x1 (Main Thread) --> info: 'while trying to do a thing' original: 'Exception message' at:
+    2023-05-30 14:35:42.185 (UTC) Error: NullReferenceException on Thread_0x1 (Main Thread) --> info: 'while trying to do a thing' original: 'Object reference not set to an instance of an object.' at:
       StackTrace line 1
     2023-05-30 14:35:42.185 (UTC) Event on Thread_0x1 (Main Thread) --> (MyAssembly) (MyClass::MyButtonInstance) ==> OnClick(MyEventType: eventArgs)
     ```
 - `DetailedAotLogEntryGenerator` - An AOT-compatible log entry generator that uses compiler-evaluated [caller information attributes](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/attributes/caller-information) to gather additional information about the location the log entry originated from. It is more detailed than the default `AotLogEntryGenerator`:
     ```text
     2023-05-31 14:14:24.626 (UTC) [Info->Thread_0x1(MAIN THREAD)] (MyClass.cs:L69->MyMethod) ==> Output: 'This is a log message'
-    2023-05-31 14:14:24.626 (UTC) [ERROR->Thread_0x1(MAIN THREAD)] (MyClass.cs:L240->MyMethod) ==> [NullReferenceException] info: 'while trying to do a thing' original: 'Exception message' at:
+    2023-05-31 14:14:24.626 (UTC) [ERROR->Thread_0x1(MAIN THREAD)] (MyClass.cs:L240->MyMethod) ==> [NullReferenceException] info: 'while trying to do a thing' original: 'Object reference not set to an instance of an object.' at:
       StackTrace line 1
     2023-05-31 14:14:24.626 (UTC) [Event->Thread_0x1(MAIN THREAD)] (MyClass.cs:L1337->MyMethod) ==> MyAssembly::MyClass::MyButtonInstance::OnClick(MyEventType: eventArgs)
     ```
 - `BalancedLogEntryGenerator` - A production-ready log entry generator implementation balancing runtime reflection requirements through caching with detailed log entries enumerated on compile time. It extends the `DetailedAotLogEntryGenerator` through the dynamically determined assembly name of the caller. Reflection is used sparingly during the first call to the generator from each call site, making it suitable in production scenarios that don't rely on AOT compilation.
     ```text
     2023-05-31 14:14:24.626 (UTC) MyAssembly: [Info->Thread_0x1(MAIN THREAD)] (MyClass.cs:L69->MyMethod) ==> Output: 'This is a log message'
-    2023-05-31 14:14:24.626 (UTC) MyAssembly: [ERROR->Thread_0x1(MAIN THREAD)] (MyClass.cs:L240->MyMethod) ==> [NullReferenceException] info: 'while trying to do a thing' original: 'Exception message' at:
+    2023-05-31 14:14:24.626 (UTC) MyAssembly: [ERROR->Thread_0x1(MAIN THREAD)] (MyClass.cs:L240->MyMethod) ==> [NullReferenceException] info: 'while trying to do a thing' original: 'Object reference not set to an instance of an object.' at:
       StackTrace line 1
     2023-05-31 14:14:24.626 (UTC) MyAssembly: [Event->Thread_0x1(MAIN THREAD)] (MyClass.cs:L1337->MyMethod) ==> MyAssembly::MyClass::MyButtonInstance::OnClick(MyEventType: eventArgs)
     ```
@@ -287,14 +287,14 @@ The `Logging.Generators` namespace provides a set of built-in `ILogEntryGenerato
 - `TracingLogEntryGenerator` - A diagnostic log entry generator that liberally uses reflection to gather additional information about the caller. It is neither AOT-compatible nor resource-efficient and should only be used in development or debugging scenarios.
     ```text
     2023-05-31 14:14:24.626 (UTC) MyAssembly: [Info->Thread_0x1(MAIN THREAD)] (MyClass::MyMethod(String[], Boolean)) ==> Output: 'This is a log message'
-    2023-05-31 14:14:24.626 (UTC) MyAssembly: [ERROR->Thread_0x1(MAIN THREAD)] (MyClass::MyMethod(String[], Boolean)) ==> [NullReferenceException] info: 'while trying to do a thing' original: 'Exception message' at: 
+    2023-05-31 14:14:24.626 (UTC) MyAssembly: [ERROR->Thread_0x1(MAIN THREAD)] (MyClass::MyMethod(String[], Boolean)) ==> [NullReferenceException] info: 'while trying to do a thing' original: 'Object reference not set to an instance of an object.' at: 
        StackTrace line 1
     2023-05-31 14:14:24.626 (UTC) MyAssembly: [Info->Thread_0x1(MAIN THREAD)] (MyClass::ByButton) ==> OnClick(MyEventType: { "Property": "JSON serialized model", "foo": 1234 })
     ```
 - `TracingLogEntryGeneratorWithParamNames` - The most detailed log entry generator that uses reflection to gather additional information about the caller. It is neither AOT-compatible nor resource-efficient and should only be used in development or debugging scenarios. It extends the `TracingLogEntryGenerator` by including parameter names in the log entries.
     ```text
     2023-05-31 14:14:24.626 (UTC) MyAssembly: [Info->Thread_0x1(MAIN THREAD)] (MyClass::MyMethod(String[] args, Boolean myFlag)) ==> Output: 'This is a log message'
-    2023-05-31 14:14:24.626 (UTC) MyAssembly: [ERROR->Thread_0x1(MAIN THREAD)] (MyClass::MyMethod(String[] args, Boolean myFlag)) ==> [NullReferenceException] info: 'while trying to do a thing' original: 'Exception message' at: 
+    2023-05-31 14:14:24.626 (UTC) MyAssembly: [ERROR->Thread_0x1(MAIN THREAD)] (MyClass::MyMethod(String[] args, Boolean myFlag)) ==> [NullReferenceException] info: 'while trying to do a thing' original: 'Object reference not set to an instance of an object.' at: 
        StackTrace line 1
     2023-05-31 14:14:24.626 (UTC) MyAssembly: [Info->Thread_0x1(MAIN THREAD)] (MyClass::ByButton) ==> OnClick(MyEventType: { "Property": "JSON serialized model", "foo": 1234 })
     ```

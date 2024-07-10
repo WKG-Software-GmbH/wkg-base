@@ -33,9 +33,10 @@ public class BalancedLogEntryGenerator : DetailedAotLogEntryGenerator, ILogEntry
     /// <param name="config">The <see cref="CompiledLoggerConfiguration"/> used to create this <see cref="BalancedLogEntryGenerator"/>.</param>
     protected BalancedLogEntryGenerator(CompiledLoggerConfiguration config) : base(config) => Pass();
 
+    /// <inheritdoc/>
     [RequiresUnreferencedCode("Requires reflective access to determine the assembly name of the caller.")]
 #pragma warning disable IL2046 // 'RequiresUnreferencedCodeAttribute' annotations must match across all interface implementations or overrides.
-    static BalancedLogEntryGenerator ILogEntryGenerator<BalancedLogEntryGenerator>.Create(CompiledLoggerConfiguration config) => new(config);
+    public static new BalancedLogEntryGenerator Create(CompiledLoggerConfiguration config) => new(config);
 #pragma warning restore IL2046 // 'RequiresUnreferencedCodeAttribute' annotations must match across all interface implementations or overrides.
 
     /// <summary>

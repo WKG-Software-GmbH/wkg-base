@@ -150,6 +150,24 @@ internal class DebugLog /*: ILog*/ // We cannot implement ILog because we use co
     public static void WriteFatal(string message, ILogWriter logWriter, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) =>
         Log._proxyLogger.LogInternal(message, logWriter, callerFilePath, callerMemberName, callerLineNumber, LogLevel.Fatal);
 
+    /// <inheritdoc cref="Log.WriteFatal(string, string, string, int)"/>
+    /// <remarks>
+    /// <see langword="WARNING"></see>: This method is *<c>NOT</c>* marked with the <see cref="ConditionalAttribute"/> and will be compiled in release builds.
+    /// </remarks>
+    [StackTraceHidden]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void WriteSystem(string message, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) =>
+        Log._proxyLogger.LogInternal(message, LogWriter.Blocking, callerFilePath, callerMemberName, callerLineNumber, LogLevel.System);
+
+    /// <inheritdoc cref="Log.WriteFatal(string, ILogWriter, string, string, int)"/>
+    /// <remarks>
+    /// <see langword="WARNING"></see>: This method is *<c>NOT</c>* marked with the <see cref="ConditionalAttribute"/> and will be compiled in release builds.
+    /// </remarks>
+    [StackTraceHidden]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void WriteSystem(string message, ILogWriter logWriter, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) =>
+        Log._proxyLogger.LogInternal(message, logWriter, callerFilePath, callerMemberName, callerLineNumber, LogLevel.System);
+
     /// <inheritdoc cref="Log.WriteInfo(string, string, string, int)"/>
     [StackTraceHidden]
     [Conditional(DEBUG)]

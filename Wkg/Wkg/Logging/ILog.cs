@@ -140,6 +140,25 @@ public interface ILog
     static abstract void WriteFatal(string message, ILogWriter logWriter, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0);
 
     /// <summary>
+    /// Writes the provided <paramref name="message"/> as a <see cref="LogLevel.System"/> entry to the <see cref="CurrentLogger"/> using the configured default <see cref="ILogWriter"/>.
+    /// </summary>
+    /// <param name="message">The message to write.</param>
+    /// <param name="callerFilePath">Compiler-substituted value indicating the path of the file that contains the member that called the method. Leave as default.</param>
+    /// <param name="callerMemberName">Compiler-substituted value indicating the name of the member that called the method. Leave as default.</param>
+    /// <param name="callerLineNumber">Compiler-substituted value indicating the line number in the file at which the method was called. Leave as default.</param>
+    static abstract void WriteSystem(string message, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0);
+
+    /// <summary>
+    /// Writes the provided <paramref name="message"/> as a <see cref="LogLevel.System"/> entry to the <see cref="CurrentLogger"/> using the specified <paramref name="logWriter"/>.
+    /// </summary>
+    /// <param name="message">The message to write.</param>
+    /// <param name="logWriter">The <see cref="ILogWriter"/> to use.</param>
+    /// <param name="callerFilePath">Compiler-substituted value indicating the path of the file that contains the member that called the method. Leave as default.</param>
+    /// <param name="callerMemberName">Compiler-substituted value indicating the name of the member that called the method. Leave as default.</param>
+    /// <param name="callerLineNumber">Compiler-substituted value indicating the line number in the file at which the method was called. Leave as default.</param>
+    static abstract void WriteSystem(string message, ILogWriter logWriter, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0);
+
+    /// <summary>
     /// Writes the provided <paramref name="exception"/> at the specified <paramref name="logLevel"/> to the <see cref="CurrentLogger"/> using the configured default <see cref="ILogWriter"/>.
     /// </summary>
     /// <param name="exception">The <see cref="Exception"/> to write.</param>

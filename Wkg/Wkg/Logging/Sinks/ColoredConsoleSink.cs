@@ -19,6 +19,7 @@ public class ColoredConsoleSink : ILogSink
         ConsoleColor.Yellow,
         ConsoleColor.Red,
         ConsoleColor.Magenta,
+        ConsoleColor.Cyan,
     ];
 
     /// <inheritdoc/>

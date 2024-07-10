@@ -39,4 +39,9 @@ public enum LogLevel : uint
     /// The last breath of your application before it dies a horrible and unexpected death.
     /// </summary>
     Fatal = 6,
+
+    /// <summary>
+    /// A special system level log entry that is always written to the log sink, regardless of the configured minimum log level.
+    /// </summary>
+    System = 7
 }

@@ -12,7 +12,7 @@ using Wkg.Text;
 namespace Wkg.Logging.Generators;
 
 /// <summary>
-/// A log entry generator that generates log entries in the format of:
+/// A diagnostic log entry generator that generates log entries in the format of:
 /// <code>
 /// 2023-05-31 14:14:24.626 (UTC) Wkg: [Info->Thread_0x1(MAIN THREAD)] (MyClass::MyMethod(String[], Boolean)) ==> Output: 'Hello world! :)'
 /// </code>
@@ -142,11 +142,11 @@ public class TracingLogEntryGenerator : ILogEntryGenerator<TracingLogEntryGenera
 
     /// <inheritdoc/>
     [StackTraceHidden]
-    public virtual void Generate<TEventArgs>(ref LogEntry entry, string? assemblyName, string? className, string instanceName, string eventName, TEventArgs eventArgs)
+    public virtual void Generate<TEventArgs>(ref LogEntry entry, string? className, string instanceName, string eventName, TEventArgs eventArgs)
     {
         StringBuilder builder = StringBuilderPool.Shared.Rent(DEFAULT_STRING_BUILDER_CAPACITY);
 
-        GenerateHeader(ref entry, builder, assemblyName, out MethodBase? method);
+        GenerateHeader(ref entry, builder, entry.AssemblyName, out MethodBase? method);
         builder.Append('(');
         className ??= method?.DeclaringType?.Name ?? "<UnknownType>";
         entry.ClassName = className;

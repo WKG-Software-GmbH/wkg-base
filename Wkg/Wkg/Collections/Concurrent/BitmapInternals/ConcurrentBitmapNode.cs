@@ -7,20 +7,12 @@ internal interface IParentNode
     internal void ReplaceChildNode(int index, ConcurrentBitmapNode newNode);
 }
 
-internal abstract class ConcurrentBitmapNode : IDisposable, IParentNode
+internal abstract class ConcurrentBitmapNode(int externalNodeIndex, int baseAddress, IParentNode parent, int bitSize) : IDisposable, IParentNode
 {
-    private protected readonly IParentNode _parent;
-    private protected readonly int _baseAddress;
-    private protected int _bitSize;
-    private protected int _externalNodeIndex;
-
-    protected ConcurrentBitmapNode(int externalNodeIndex, int baseAddress, IParentNode parent, int bitSize)
-    {
-        _externalNodeIndex = externalNodeIndex;
-        _baseAddress = baseAddress;
-        _parent = parent;
-        _bitSize = bitSize;
-    }
+    private protected readonly IParentNode _parent = parent;
+    private protected readonly int _baseAddress = baseAddress;
+    private protected int _bitSize = bitSize;
+    private protected int _externalNodeIndex = externalNodeIndex;
 
     public abstract int MaxNodeBitLength { get; }
 

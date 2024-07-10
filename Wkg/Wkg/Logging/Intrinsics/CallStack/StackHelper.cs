@@ -13,7 +13,7 @@ public static class StackHelper
     /// Retrieves the <see cref="MethodBase"/> of the first stack frame that is not marked with the <see cref="StackTraceHiddenAttribute"/>.
     /// </summary>
     /// <param name="stack">The <see cref="StackTrace"/> to retrieve the <see cref="MethodBase"/> from.</param>
-    [RequiresUnreferencedCode("Requires reflective access to calling methods.")]
+    [RequiresUnreferencedCode("Requires reflection to unwind the call stack and determine the calling method.")]
     public static MethodBase? GetFirstNonHiddenCaller(this StackTrace stack)
     {
         MethodBase? method = null;

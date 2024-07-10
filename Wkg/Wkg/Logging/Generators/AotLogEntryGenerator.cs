@@ -18,24 +18,24 @@ namespace Wkg.Logging.Generators;
 /// <remarks>
 /// This class does not require reflective enumeration of target site information or stack unwinding, making it a good candidate for use in production environments.
 /// </remarks>
-public class SimpleLogEntryGenerator : ILogEntryGenerator<SimpleLogEntryGenerator>
+public class AotLogEntryGenerator : ILogEntryGenerator<AotLogEntryGenerator>
 {
     private const int DEFAULT_STRING_BUILDER_CAPACITY = 512;
 
     /// <summary>
-    /// The <see cref="CompiledLoggerConfiguration"/> used to create this <see cref="SimpleLogEntryGenerator"/>
+    /// The <see cref="CompiledLoggerConfiguration"/> used to create this <see cref="AotLogEntryGenerator"/>
     /// </summary>
     protected readonly CompiledLoggerConfiguration _config;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="SimpleLogEntryGenerator"/> class.
+    /// Initializes a new instance of the <see cref="AotLogEntryGenerator"/> class.
     /// </summary>
-    /// <param name="config">The <see cref="CompiledLoggerConfiguration"/> used to create this <see cref="SimpleLogEntryGenerator"/></param>
-    protected SimpleLogEntryGenerator(CompiledLoggerConfiguration config) => 
+    /// <param name="config">The <see cref="CompiledLoggerConfiguration"/> used to create this <see cref="AotLogEntryGenerator"/></param>
+    protected AotLogEntryGenerator(CompiledLoggerConfiguration config) => 
         _config = config;
 
     /// <inheritdoc/>
-    public static SimpleLogEntryGenerator Create(CompiledLoggerConfiguration config) => 
+    public static AotLogEntryGenerator Create(CompiledLoggerConfiguration config) => 
         new(config);
 
     /// <inheritdoc/>
@@ -136,7 +136,7 @@ public class SimpleLogEntryGenerator : ILogEntryGenerator<SimpleLogEntryGenerato
     }
 
     /// <inheritdoc/>
-    public virtual void Generate<TEventArgs>(ref LogEntry entry, string? assemblyName, string? className, string instanceName, string eventName, TEventArgs eventArgs)
+    public virtual void Generate<TEventArgs>(ref LogEntry entry, string? className, string instanceName, string eventName, TEventArgs eventArgs)
     {
         // 2023-05-30 14:35:42.185 (UTC) Event on Thread_0x123 --> (MyAssembly) (MyClass::MyButtonInstance) ==> OnClick(MyEventType: eventArgs)
         StringBuilder builder = StringBuilderPool.Shared.Rent(DEFAULT_STRING_BUILDER_CAPACITY);
@@ -145,9 +145,10 @@ public class SimpleLogEntryGenerator : ILogEntryGenerator<SimpleLogEntryGenerato
         builder.Append(" on ");
         AddThreadInfo(ref entry, builder);
         builder.Append(" --> (");
+
+        string? assemblyName = entry.AssemblyName;
         if (assemblyName is not null && className is not null)
         {
-            entry.AssemblyName = assemblyName;
             entry.ClassName = className;
             builder.Append(assemblyName)
                 .Append(") (")

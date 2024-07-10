@@ -171,7 +171,8 @@ public class Logger : IProxyLogger
             entry.LogLevel = LogLevel.Event;
             entry.Type = LogEntryType.Event;
             entry.CallerInfo = new CallerInfo(callerFilePath, callerMemberName, callerLineNumber);
-            _logEntryGenerator.Generate(ref entry, assemblyName, className, instanceName, eventName, eventArgs);
+            entry.AssemblyName = assemblyName;
+            _logEntryGenerator.Generate(ref entry, className, instanceName, eventName, eventArgs);
             logWriter.Write(ref entry, _sinks);
         }
     }

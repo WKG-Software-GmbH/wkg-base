@@ -1,5 +1,4 @@
-﻿using System.Collections.Immutable;
-using Wkg.Logging.Generators;
+﻿using Wkg.Logging.Generators;
 using Wkg.Logging.Sinks;
 using Wkg.Logging.Writers;
 
@@ -13,9 +12,7 @@ public partial class LoggerConfiguration
     private LogEntryGeneratorFactory _generatorFactory = SimpleLogEntryGenerator.Create;
     private ILogWriter _defaultWriter = LogWriter.Blocking;
 
-    private LoggerConfiguration()
-    {
-    }
+    private LoggerConfiguration() => Pass();
 
     internal CompiledLoggerConfiguration Compile() => new(_minimumLogLevel, new SinkCollection([.. _logSinks]), _mainThreadId, _defaultWriter, _generatorFactory);
 
@@ -32,6 +29,10 @@ public partial class LoggerConfiguration
 
     public partial LoggerConfiguration SetMinimumLogLevel(LogLevel logLevel)
     {
+        if (logLevel is >= LogLevel.System)
+        {
+            throw new ArgumentOutOfRangeException(nameof(logLevel), logLevel, "The minimum log level must be less than System.");
+        }
         _minimumLogLevel = logLevel;
         return this;
     }

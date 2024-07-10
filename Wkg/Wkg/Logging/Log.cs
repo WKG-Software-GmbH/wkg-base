@@ -109,6 +109,18 @@ public class Log : ILog
     /// <inheritdoc/>
     [StackTraceHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void WriteSystem(string message, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) =>
+        _proxyLogger.LogInternal(message, callerFilePath, callerMemberName, callerLineNumber, LogLevel.System);
+
+    /// <inheritdoc/>
+    [StackTraceHidden]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void WriteSystem(string message, ILogWriter logWriter, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) =>
+        _proxyLogger.LogInternal(message, logWriter, callerFilePath, callerMemberName, callerLineNumber, LogLevel.System);
+
+    /// <inheritdoc/>
+    [StackTraceHidden]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void WriteException(Exception exception, LogLevel logLevel = LogLevel.Error, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerMemberName = "", [CallerLineNumber] int callerLineNumber = 0) => 
         _proxyLogger.LogInternal(exception, callerFilePath, callerMemberName, callerLineNumber, logLevel);
 

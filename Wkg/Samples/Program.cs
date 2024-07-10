@@ -167,10 +167,7 @@ using ClassfulWorkloadFactoryWithDI<int> factory = WorkloadFactoryBuilder.Create
         .AddClasslessChild<ConstrainedFifo>(8, qdisc => qdisc
             .WithCapacity(8)));
 
-factory.ScheduleAsync(1, flag => Log.WriteInfo("Hello from the root scheduler!")).ContinueWith(_ =>
-{
-    Log.WriteInfo("Hello from the root scheduler again!");
-});
+factory.ScheduleAsync(1, flag => Log.WriteInfo("Hello from the root scheduler!")).ContinueWith(_ => Log.WriteInfo("Hello from the root scheduler again!"));
 
 List<int> myData = Enumerable.Range(0, 10000).ToList();
 int sum = myData.Sum();

@@ -1,4 +1,6 @@
-﻿namespace Wkg.Logging;
+﻿using Wkg.Logging.Generators;
+
+namespace Wkg.Logging;
 
 /// <summary>
 /// Represents a log entry.
@@ -43,6 +45,9 @@ public struct LogEntry
     /// <summary>
     /// Gets or sets the name of the assembly that the log entry originated from.
     /// </summary>
+    /// <remarks>
+    /// For log entries originating from events, this property may be pre-populated with the assembly name before the log entry is passed to the configured <see cref="ILogEntryGenerator"/>.
+    /// </remarks>
     public string? AssemblyName { get; set; }
 
     /// <summary>

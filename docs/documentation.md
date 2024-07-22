@@ -31,6 +31,8 @@
           - [MemoryManager APIs](#memorymanager-apis)
       - [`TypeReinterpreter` Class](#typereinterpreter-class)
     - [`Wkg.Reflection` Namespace](#wkgreflection-namespace)
+    - [`Wkg.Web` Namespace](#wkgweb-namespace)
+      - [Simple URI Manipulation](#simple-uri-manipulation)
     - [`Wkg.SyntacticSugar` Class](#wkgsyntacticsugar-class)
       - [`Pass()` Method](#pass-method)
         - [Examples](#examples-3)
@@ -416,6 +418,65 @@ The `Reflection` namespace provides easy access to common reflective operations,
 - `TypeExtensions` - Provides extension methods for the `Type` class. Primarily used for enumerating generic type arguments or checking whether a type implements or extends a generic type with specific generic type arguments.
 - `TypeArray` - A factory class for creating `Type[]` arrays using the `TypeArray.Of<T1, T2, ...>()` method, which is more concise than the usual `new Type[] { typeof(T1), typeof(T2), ... }` syntax.
 - `UnsafeReflection` - A factory class for creating concrete `MethodInfo` instances for the generic `Unsafe.As<...>()` methods. This is primarily used for dynamic code generation, such as IL-emission, or when building performance-oriented `Expression` trees. 
+
+### `Wkg.Web` Namespace
+
+The `Web` namespace provides utilities for working with web technologies, such as HTTP, HTML, and URLs.
+
+#### Simple URI Manipulation
+
+The `SimpleUriParser` and `SimpleUriBuilder` structures provide a very lightweight and simple way to parse and build trusted URIs. These structures are designed to be used in scenarios where the full power of the `System.Uri` class is not required, such as when working with URIs that are expected to be well-formed and do not require extensive validation. The `SimpleUriParser` structure provides a simple way to parse a URI into its components, while the `SimpleUriBuilder` structure provides a simple way to build a URI from its components.
+
+```csharp
+string uri = "https://example.com/foo?key1=value1&key2=value2";
+SimpleUriParser parser = SimpleUriParser.Parse(uri);
+Console.WriteLine(parser.Scheme);           // "https"
+Console.WriteLine(parser.Host);             // "example.com"
+Console.WriteLine(parser.Path);             // "/foo"
+Console.WriteLine(parser.Query);            // "key1=value1&key2=value2"
+Console.WriteLine(parser.SchemaHost);       // "https://example.com"
+Console.WriteLine(parser.SchemaHostPath);   // "https://example.com/foo"
+Console.WriteLine(parser.Uri);              // "https://example.com/foo?key1=value1&key2=value2"
+foreach (RouteDataRef query in parser.QueryParameters)
+{
+    Console.WriteLine($"{query.Key}: {query.Value}");
+}
+// key1: value1
+// key2: value2
+```
+
+As shown in the example above, the `SimpleUriParser` structure provides properties for accessing parsed URI components, such as the scheme, host, and path, as well as for enumerating query parameters. Because the `SimpleUriParser` structure is designed to be very lightweight, all properties are `ReadOnlySpan<char>` instances over the original URI string. As such, the `SimpleUriParser` structure is a `ref struct` and and cannot be used in scenarios where the URI string may fall out of scope. Similarly, as implied by the name, the `RouteDataRef` query parameters are also restricted to stack-only usage, but can be copied to heap memory using the `CreateDeepCopy()` method, which returns a `RouteData` instance with key and value properties allocated as normal managed strings.
+
+The `SimpleUriBuilder` structure provides a simple way to build a URI from its components:
+
+```csharp
+using SimpleUriBuilder builder = SimpleUriBuilder.Create("https://example.com", capacity: 256);
+builder.AppendPath("foo/");
+builder.AppendPath("/bar");
+builder.AppendQuery("key1", "value1&value2");
+builder.AppendQuery("key2", "value2");
+string uri = builder.ToString(); // "https://example.com/foo/bar?key1=value1&amp;value2&key2=value2"
+```
+
+As shown in the example above, the `SimpleUriBuilder` structure provides methods for appending path segments and query parameters to the URI. Query parameters are automatically URL-encoded, and the `ToString()` method returns the built URI as a `string`. The `capacity` parameter of the `SimpleUriBuilder.Create()` method specifies the initial capacity of the internal pooled string builder used to build the URI. The overall length of the uri may grow beyond the initial capacity, but once the capacity is exceeded, the internal string builder will become ineligible for pooling and can no longer be reused.
+
+`SimpleUriParser` and `SimpleUriBuilder` are designed to be compatible with each other, and can be used together to perform transformations on URIs. For example, the following code snippet demonstrates how to remove a query parameter from a URI:
+
+```csharp
+string uri = "https://example.com/foo?key1=value1&key2=value2&key3=value3&amp;4";
+SimpleUriParser parser = SimpleUriParser.Parse(uri);
+using SimpleUriBuilder builder = SimpleUriBuilder.Create(parser.SchemaHostPath, capacity: 256);
+foreach (RouteDataRef query in parser.QueryParameters)
+{
+    if (query.Key != "key2")
+    {
+        builder.AppendQuery(query, urlEncode: false);
+    }
+}
+string newUri = builder.ToString(); // "https://example.com/foo?key1=value1&key3=value3&amp;4"
+```
+
+In the example above, the `SimpleUriParser` structure is used to parse the original URI, and the `SimpleUriBuilder` structure is used to build a new URI without the `key2` query parameter. The `urlEncode` parameter of the `SimpleUriBuilder.AppendQuery()` method specifies whether the query parameter should be URL-encoded. By setting `urlEncode` to `false`, the query parameter is appended as-is, preventing double-encoding of the query parameter with `key3`.
 
 ### `Wkg.SyntacticSugar` Class
 

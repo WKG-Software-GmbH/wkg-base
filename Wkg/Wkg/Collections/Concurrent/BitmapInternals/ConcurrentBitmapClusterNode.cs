@@ -2,10 +2,9 @@
 using System.Text;
 using Wkg.Common;
 using System.Runtime.CompilerServices;
+using static Wkg.Collections.Concurrent.ConcurrentBitmap;
 
 namespace Wkg.Collections.Concurrent.BitmapInternals;
-
-using static ConcurrentBitmap;
 
 internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
 {
@@ -13,7 +12,7 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
     // bits 0 to 27 are used for the segment emptiness state,
     // bits 28 to 55 are used for the segment fullness state
     private ConcurrentBitmap56State _clusterState;
-    private bool disposedValue;
+    private bool _disposedValue;
     // this class is very hot, as it's used by workload scheduling
     // we use an inline array to avoid bound checking and the overhead of a managed array
     private ConcurrentBitmap56StateCluster _segments;
@@ -406,7 +405,7 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
         for (int i = 0; i < SEGMENTS_PER_CLUSTER; i++)
         {
             sb.Append(' ', (depth + 1) * 2)
-                .Append($"Segment offset: 0x{_baseAddress + i * SEGMENT_BIT_SIZE:x8}, ")
+                .Append($"Segment offset: 0x{_baseAddress + (i * SEGMENT_BIT_SIZE):x8}, ")
                 .Append(ConcurrentBitmap56.VolatileRead(ref _segments[i]).ToString());
             if (i >= _segmentCount)
             {
@@ -418,9 +417,9 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
 
     protected virtual void Dispose(bool disposing)
     {
-        if (!disposedValue)
+        if (!_disposedValue)
         {
-            disposedValue = true;
+            _disposedValue = true;
         }
     }
 

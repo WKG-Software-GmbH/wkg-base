@@ -269,6 +269,4 @@ public class GeneralizedFairQueuing<THandle> : CustomClassfulQdiscBuilder<THandl
         }
         return qdisc;
     }
-
-    private static bool NoMatch(object? _) => false;
 }

@@ -14,5 +14,5 @@ public static class MathExtensions
     /// <param name="b">The divisor.</param>
     /// <returns>The modulo of <paramref name="a"/> and <paramref name="b"/>.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static int Modulo(int a, int b) => (a % b + b) % b;
+    public static int Modulo(int a, int b) => ((a % b) + b) % b;
 }

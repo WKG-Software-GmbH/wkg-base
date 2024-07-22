@@ -1,10 +1,12 @@
-﻿using Wkg.Versioning;
+﻿using System.Diagnostics.CodeAnalysis;
+using Wkg.Versioning;
 
 namespace Wkg;
 
 /// <summary>
 /// Provides version information for the Wkg assembly.
 /// </summary>
+[SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "Requires special naming for version injection.")]
 public class WkgAssembly : DeploymentVersionInfo
 {
     private const string __CI_DEPLOYMENT_VERSION_PREFIX = "0.0.0";

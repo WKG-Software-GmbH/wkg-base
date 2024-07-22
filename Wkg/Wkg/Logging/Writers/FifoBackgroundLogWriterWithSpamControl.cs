@@ -21,7 +21,7 @@ public class FifoBackgroundLogWriterWithSpamControl : FifoBackgroundLogWriter
     {
         _timeStampSliceOffset = timeStampSliceOffset;
         const string CENTER_MESSAGE = "SPAM CONTROL";
-        int paddingRight = (timeStampSliceOffset - CENTER_MESSAGE.Length) / 2 - 1;
+        int paddingRight = ((timeStampSliceOffset - CENTER_MESSAGE.Length) / 2) - 1;
         int paddingLeft = timeStampSliceOffset - CENTER_MESSAGE.Length - paddingRight - 2;
         _spamControlHeader = $"[{new('-', paddingLeft)}{CENTER_MESSAGE}{new string('-', paddingRight)}]";
     }
@@ -35,8 +35,8 @@ public class FifoBackgroundLogWriterWithSpamControl : FifoBackgroundLogWriter
 
     private void LogIfAppropriate(LogEntryBox box)
     {
-        if (box._entry.LogMessage.Length > _timeStampSliceOffset && _lastLogEntry.Length > _timeStampSliceOffset 
-            && box._entry.LogMessage.AsSpan()[_timeStampSliceOffset..].SequenceEqual(_lastLogEntry.AsSpan()[_timeStampSliceOffset..]))
+        if (box.Entry.LogMessage.Length > _timeStampSliceOffset && _lastLogEntry.Length > _timeStampSliceOffset 
+            && box.Entry.LogMessage.AsSpan()[_timeStampSliceOffset..].SequenceEqual(_lastLogEntry.AsSpan()[_timeStampSliceOffset..]))
         {
             _spamCount++;
             return;
@@ -50,12 +50,12 @@ public class FifoBackgroundLogWriterWithSpamControl : FifoBackgroundLogWriter
                     LogMessage = $"{_spamControlHeader} {_spamCount} identical log entries suppressed ...",
                     LogLevel = _lastLogLevel
                 };
-                box._sink.LogUnsafe(in newEntry);
+                box.Sink.LogUnsafe(in newEntry);
                 _spamCount = 1;
             }
-            _lastLogEntry = box._entry.LogMessage;
-            _lastLogLevel = box._entry.LogLevel;
-            box._sink.LogUnsafe(in box._entry);
+            _lastLogEntry = box.Entry.LogMessage;
+            _lastLogLevel = box.Entry.LogLevel;
+            box.Sink.LogUnsafe(in box.Entry);
         }
     }
 }

@@ -19,7 +19,7 @@ public abstract class AbstractWorkloadBase
 {
     private protected uint _status;
     // this state may be used by qdiscs to store additional scheduling information
-    internal volatile QueuingStateNode? _schedulerState;
+    internal volatile QueuingStateNode? SchedulerState;
 
     // continuations
     private protected static readonly object _workloadCompletionSentinel = new();

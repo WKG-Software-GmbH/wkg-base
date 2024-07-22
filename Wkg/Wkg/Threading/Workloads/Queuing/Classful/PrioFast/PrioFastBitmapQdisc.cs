@@ -19,6 +19,7 @@ namespace Wkg.Threading.Workloads.Queuing.Classful.RoundRobin;
 internal sealed class PrioFastBitmapQdisc<THandle> : ClassfulQdisc<THandle>, IClassfulQdisc<THandle>
     where THandle : unmanaged
 {
+    [SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "thread-local variable")]
     private readonly ThreadLocal<int?> __LAST_ENQUEUED_CHILD_INDEX = new();
 
     private readonly ConcurrentBitmap _dataMap;

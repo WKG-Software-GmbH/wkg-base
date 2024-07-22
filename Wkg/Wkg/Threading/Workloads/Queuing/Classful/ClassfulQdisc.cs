@@ -3,12 +3,10 @@ using Wkg.Threading.Workloads.Queuing.Classless;
 
 namespace Wkg.Threading.Workloads.Queuing.Classful;
 
-public abstract class ClassfulQdisc<THandle> : ClassifyingQdisc<THandle>, IClassfulQdisc<THandle> 
+public abstract class ClassfulQdisc<THandle>(THandle handle, Predicate<object?>? predicate) 
+    : ClassifyingQdisc<THandle>(handle, predicate), IClassfulQdisc<THandle> 
     where THandle : unmanaged
 {
-    protected ClassfulQdisc(THandle handle, Predicate<object?>? predicate) : base(handle, predicate)
-    {
-    }
 
     /// <summary>
     /// Called when a workload is scheduled to any child qdisc.

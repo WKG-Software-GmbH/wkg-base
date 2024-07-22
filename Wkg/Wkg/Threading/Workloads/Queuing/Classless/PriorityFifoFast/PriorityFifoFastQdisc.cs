@@ -17,6 +17,7 @@ internal class PriorityFifoFastQdisc<THandle> : ClassifyingQdisc<THandle>, INoti
     // so static is fine here because this won't be set for multiple instances at the same time
     // => (no ThreadLocal required)
     [ThreadStatic]
+    [SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "thread-local variable")]
     private static int? __LAST_ENQUEUED_CHILD_INDEX;
 
     private readonly ConcurrentBitmap _dataMap;

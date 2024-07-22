@@ -15,6 +15,7 @@ namespace Wkg.Threading.Workloads.Queuing.Classful.FairQueuing;
 
 internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmanaged
 {
+    [SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "thread-local variable")]
     private readonly ThreadLocal<int?> __LAST_ENQUEUED_CHILD_INDEX = new();
 
     private readonly IVirtualTimeTable _timeTable;
@@ -158,7 +159,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
                         // in either case, we now have a workload to return
                         workload = candidate;
                         // update the virtual time
-                        GfqState state = (GfqState)workload._schedulerState!;
+                        GfqState state = (GfqState)workload.SchedulerState!;
                         EventuallyConsistentVirtualTimeTableEntry latestTimingInfo = _timeTable.GetEntryFor(workload);
                         // we assume average execution time for the aggregate
                         // but we assume worst case execution time for the workload itself
@@ -171,7 +172,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
                         // we just changed the virtual finish time of a child, so we need to increment the generation counter
                         Interlocked.Increment(ref _generationCounter);
                         // don't forget to strip our state from the workload
-                        workload._schedulerState = state.Strip();
+                        workload.SchedulerState = state.Strip();
                         // start the next execution time measurement
                         _timeTable.StartMeasurement(workload);
                         return true;
@@ -279,7 +280,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
                 }
             }
             // we actually found a non-null candidate.
-            if (possibleCandidate._schedulerState is not GfqState candidateState)
+            if (possibleCandidate.SchedulerState is not GfqState candidateState)
             {
                 // this should never happen, as we only enqueue workloads with an earliest due date state
                 // before we can abort the workload, we must acquire the child qdisc lock
@@ -613,7 +614,7 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
     private void UpdateWorkloadState(AbstractWorkloadBase workload, GfqWeight weight)
     {
         EventuallyConsistentVirtualTimeTableEntry timingInformation = _timeTable.GetEntryFor(workload);
-        workload._schedulerState = new GfqState(workload._schedulerState, timingInformation, weight);
+        workload.SchedulerState = new GfqState(workload.SchedulerState, timingInformation, weight);
     }
 
     public override bool RemoveChild(IClassifyingQdisc<THandle> child) =>

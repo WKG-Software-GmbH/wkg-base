@@ -1,7 +1,8 @@
-﻿namespace Wkg.Common.ThrowHelpers;
-
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+
+namespace Wkg.Common.ThrowHelpers;
+
 using AOORE = ArgumentOutOfRangeException;
 
 public static partial class Throw

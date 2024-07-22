@@ -11,11 +11,11 @@ namespace Wkg.Threading.Workloads;
 public readonly struct CancellationFlag
 {
     private static readonly AwaitableWorkload _neverCancelledWorkload = new WorkloadImpl(null!, WorkloadStatus.Invalid, null!, CancellationToken.None);
-    internal readonly AwaitableWorkload _workload;
+    internal readonly AwaitableWorkload Workload;
 
     internal CancellationFlag(AwaitableWorkload workload)
     {
-        _workload = workload;
+        Workload = workload;
     }
 
     /// <inheritdoc cref="CancellationToken.IsCancellationRequested"/>
@@ -26,13 +26,13 @@ public readonly struct CancellationFlag
     public bool IsCancellationRequested =>
         // WorkloadStatus.Canceled is a terminal state, so it should never be set during workload execution
         // we still check for it, to be sure to exit as soon as possible in case of a scheduler bug
-        _workload.Status.IsOneOf(WorkloadStatus.CancellationRequested | WorkloadStatus.Canceled);
+        Workload.Status.IsOneOf(WorkloadStatus.CancellationRequested | WorkloadStatus.Canceled);
 
     /// <summary>
     /// Gets the <see cref="CancellationToken"/> that was passed to the workload when it was scheduled, or creates a new <see cref="CancellationToken"/> that will be canceled when this flag is set.
     /// </summary>
     /// <returns>The <see cref="CancellationToken"/> that was passed to the workload when it was scheduled, or a new <see cref="CancellationToken"/> that will be canceled when this flag is set.</returns>
-    public CancellationToken GetCancellationToken() => _workload.GetOrCreateCancellationToken();
+    public CancellationToken GetCancellationToken() => Workload.GetOrCreateCancellationToken();
 
     /// <inheritdoc cref="CancellationToken.ThrowIfCancellationRequested"/>
     public void ThrowIfCancellationRequested()
@@ -59,7 +59,7 @@ public readonly struct CancellationFlag
     /// <returns><see langword="true"/> if the workload was successfully marked as canceled; otherwise, <see langword="false"/>.</returns>
     public bool MarkCanceled()
     {
-        DebugLog.WriteDiagnostic($"{_workload}: Marking workload as canceled.", LogWriter.Blocking);
-        return _workload.InternalTryMarkAborted();
+        DebugLog.WriteDiagnostic($"{Workload}: Marking workload as canceled.", LogWriter.Blocking);
+        return Workload.InternalTryMarkAborted();
     }
 }

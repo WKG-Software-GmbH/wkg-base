@@ -14,7 +14,6 @@ using CommonFlags = WorkloadStatus.CommonFlags;
 internal class WorkloadScheduler : INotifyWorkScheduled
 {
     private readonly IQdisc _rootQdisc;
-    private readonly int _maximumConcurrencyLevel;
     protected readonly ManualResetEventSlim _fullyDisposed = new(false);
     protected volatile bool _disposed;
 
@@ -30,13 +29,13 @@ internal class WorkloadScheduler : INotifyWorkScheduled
             throw new ArgumentOutOfRangeException(nameof(maximumConcurrencyLevel), maximumConcurrencyLevel, "The maximum degree of parallelism must be greater than zero.");
         }
         _rootQdisc = rootQdisc;
-        _maximumConcurrencyLevel = maximumConcurrencyLevel;
+        MaximumConcurrencyLevel = maximumConcurrencyLevel;
         _state = new WorkerState(maximumConcurrencyLevel);
 
-        DebugLog.WriteInfo($"Created workload scheduler with root qdisc {_rootQdisc} and maximum concurrency level {_maximumConcurrencyLevel}.", LogWriter.Blocking);
+        DebugLog.WriteInfo($"Created workload scheduler with root qdisc {_rootQdisc} and maximum concurrency level {MaximumConcurrencyLevel}.", LogWriter.Blocking);
     }
 
-    public int MaximumConcurrencyLevel => _maximumConcurrencyLevel;
+    public int MaximumConcurrencyLevel { get; }
 
     void INotifyWorkScheduled.OnWorkScheduled()
     {
@@ -54,7 +53,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
             return;
         }
         // we're at the max degree of parallelism, so we can exit
-        DebugLog.WriteDiagnostic($"Reached maximum concurrency level: {state.WorkerCount} >= {_maximumConcurrencyLevel}.", LogWriter.Blocking);
+        DebugLog.WriteDiagnostic($"Reached maximum concurrency level: {state.WorkerCount} >= {MaximumConcurrencyLevel}.", LogWriter.Blocking);
     }
 
     private void DispatchWorkerNonCapturing(int workerId)
@@ -185,7 +184,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
                 {
                     // somehow someone else comitted to creating a new worker, that's unfortunate due to the scheduling overhead
                     // but they are committed now, so we must give up and exit
-                    DebugLog.WriteDebug($"Worker holding ID {previousWorkerId} previously is exiting after encountering maximum concurrency level {_maximumConcurrencyLevel} during restore attempt.", LogWriter.Blocking);
+                    DebugLog.WriteDebug($"Worker holding ID {previousWorkerId} previously is exiting after encountering maximum concurrency level {MaximumConcurrencyLevel} during restore attempt.", LogWriter.Blocking);
                 }
                 return false;
             }

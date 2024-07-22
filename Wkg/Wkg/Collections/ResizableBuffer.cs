@@ -18,18 +18,15 @@ namespace Wkg.Collections;
 /// <typeparam name="T">The type of the elements in this <see cref="ResizableBuffer{T}"/>.</typeparam>
 public unsafe struct ResizableBuffer<T> : IDisposable where T : unmanaged
 {
-    private readonly int ELEMENT_SIZE;
-
+    private readonly int _elementSize;
     private int _allocatedNativeLength;
-
     private T* _basePointer;
-
     private int _usedNativeLength;
 
     /// <summary>
     /// Gets the number of elements in this <see cref="ResizableBuffer{T}"/>.
     /// </summary>
-    public readonly int Length => _usedNativeLength / ELEMENT_SIZE;
+    public readonly int Length => _usedNativeLength / _elementSize;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ResizableBuffer{T}"/> struct.
@@ -41,10 +38,10 @@ public unsafe struct ResizableBuffer<T> : IDisposable where T : unmanaged
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(initialCapacity, 1, nameof(initialCapacity));
 
-        ELEMENT_SIZE = sizeof(T);
+        _elementSize = sizeof(T);
 
         _usedNativeLength = 0;
-        _allocatedNativeLength = initialCapacity * ELEMENT_SIZE;
+        _allocatedNativeLength = initialCapacity * _elementSize;
         _basePointer = (T*)MemoryManager.Calloc(initialCapacity, sizeof(T));
     }
 
@@ -96,7 +93,7 @@ public unsafe struct ResizableBuffer<T> : IDisposable where T : unmanaged
         }
 
         // resize if needed
-        if (_usedNativeLength + span.Length * ELEMENT_SIZE > _allocatedNativeLength)
+        if (_usedNativeLength + (span.Length * _elementSize) > _allocatedNativeLength)
         {
             // need to resize native memory.
             // re-allocate twice the current size.
@@ -106,7 +103,7 @@ public unsafe struct ResizableBuffer<T> : IDisposable where T : unmanaged
 
         // copy buffer to unmanaged memory
         span.CopyTo(NativeAsSpan()[Length..]);
-        _usedNativeLength += span.Length * ELEMENT_SIZE;
+        _usedNativeLength += span.Length * _elementSize;
     }
 
     /// <summary>

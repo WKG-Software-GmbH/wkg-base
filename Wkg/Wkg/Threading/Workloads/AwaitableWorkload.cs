@@ -486,7 +486,7 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
 
     private protected sealed class QdiscCompletionSentinel : IQdisc
     {
-        private const string _message = "Internal error: Qdisc completion sentinel should never be accessed. This is a bug. Please report this issue.";
+        private const string MESSAGE = "Internal error: Qdisc completion sentinel should never be accessed. This is a bug. Please report this issue.";
         bool IQdisc.IsEmpty => ThrowHelper<bool>();
         int IQdisc.BestEffortCount => ThrowHelper<int>();
         bool IQdisc.TryDequeueInternal(int workerId, bool backTrack, [NotNullWhen(true)] out AbstractWorkloadBase? workload) => (workload = null) is null && ThrowHelper<bool>();
@@ -500,6 +500,6 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
 
         [DoesNotReturn]
         [StackTraceHidden]
-        private static T ThrowHelper<T>() => throw new WorkloadSchedulingException(_message);
+        private static T ThrowHelper<T>() => throw new WorkloadSchedulingException(MESSAGE);
     }
 }

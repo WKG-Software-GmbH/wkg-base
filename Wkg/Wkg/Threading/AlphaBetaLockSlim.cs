@@ -37,6 +37,7 @@ public sealed class AlphaBetaLockSlim : IDisposable
     private readonly long _lockId;
 
     [ThreadStatic]
+    [SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "thread-local variable")]
     private static AlphaBetaCount? __counts;
 
     private const int MAX_SPIN_COUNT = 20;
@@ -96,9 +97,9 @@ public sealed class AlphaBetaLockSlim : IDisposable
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IsABCEmpty(AlphaBetaCount abc) => 
-        abc.lockId == 0 || abc.ownership == AlphaBetaOwner.None;
+        abc.LockId == 0 || abc.Ownership == AlphaBetaOwner.None;
 
-    private bool IsABCHashEntryChanged(AlphaBetaCount abc) => abc.lockId != _lockId;
+    private bool IsABCHashEntryChanged(AlphaBetaCount abc) => abc.LockId != _lockId;
 
     /// <summary>
     /// This routine retrieves/sets the per-thread counts needed to enforce the
@@ -112,10 +113,10 @@ public sealed class AlphaBetaLockSlim : IDisposable
     private AlphaBetaCount? GetThreadABCount(bool dontAllocate)
     {
         AlphaBetaCount? empty = null;
-        for (AlphaBetaCount? abc = __counts; abc != null; abc = abc.next)
+        for (AlphaBetaCount? abc = __counts; abc != null; abc = abc.Next)
         {
             // If we find an entry for this thread, return it.
-            if (abc.lockId == _lockId)
+            if (abc.LockId == _lockId)
             {
                 return abc;
             }
@@ -135,12 +136,12 @@ public sealed class AlphaBetaLockSlim : IDisposable
         {
             empty = new AlphaBetaCount
             {
-                next = __counts
+                Next = __counts
             };
             __counts = empty;
         }
 
-        empty.lockId = _lockId;
+        empty.LockId = _lockId;
         return empty;
     }
 
@@ -221,7 +222,7 @@ public sealed class AlphaBetaLockSlim : IDisposable
         
         AlphaBetaCount abc = GetThreadABCount(dontAllocate: false)!;
         // Can't acquire beta lock with alpha lock held.
-        _ = abc.ownership switch
+        _ = abc.Ownership switch
         {
             AlphaBetaOwner.Alpha => throw new InvalidOperationException("Beta lock cannot be acquired while holding an alpha lock."),
             AlphaBetaOwner.Beta => throw new LockRecursionException($"Lock recursion detected while trying to enter the beta lock. {nameof(AlphaBetaLockSlim)} does not support lock recursion."),
@@ -238,7 +239,7 @@ public sealed class AlphaBetaLockSlim : IDisposable
             {
                 // Good case, there is no contention, we are basically done
                 SignalBetaLockAcquisition();
-                abc.ownership = AlphaBetaOwner.Beta;
+                abc.Ownership = AlphaBetaOwner.Beta;
                 break;
             }
             if (timeout.IsExpired)
@@ -366,7 +367,7 @@ public sealed class AlphaBetaLockSlim : IDisposable
 
         AlphaBetaCount abc = GetThreadABCount(dontAllocate: false)!;
         // Can't acquire alpha lock with beta lock held.
-        _ = abc.ownership switch
+        _ = abc.Ownership switch
         {
             AlphaBetaOwner.Alpha => throw new LockRecursionException($"Lock recursion detected while trying to enter the alpha lock. {nameof(AlphaBetaLockSlim)} does not support lock recursion."),
             AlphaBetaOwner.Beta => throw new InvalidOperationException("Alpha lock cannot be acquired while holding a beta lock."),
@@ -416,7 +417,7 @@ public sealed class AlphaBetaLockSlim : IDisposable
             }
         }
         // need to increment the number of alphas out there. (before releasing the lock)
-        abc.ownership = AlphaBetaOwner.Alpha;
+        abc.Ownership = AlphaBetaOwner.Alpha;
         SignalAlphaLockAcquisition();
         _spinLock.Exit();
 
@@ -442,9 +443,9 @@ public sealed class AlphaBetaLockSlim : IDisposable
         ObjectDisposedException.ThrowIf(_disposedValue, this);
 
         AlphaBetaCount? abc = GetThreadABCount(dontAllocate: true);
-        if (abc == null || abc.ownership != lockType || OwnerGroup != lockType)
+        if (abc == null || abc.Ownership != lockType || OwnerGroup != lockType)
         {
-            Debug.Assert(abc == null || OwnerGroup == abc.ownership, $"Internal inconsistency, exiting {lockType} lock when not holding it");
+            Debug.Assert(abc == null || OwnerGroup == abc.Ownership, $"Internal inconsistency, exiting {lockType} lock when not holding it");
             // You have to be holding the alpha lock to make this call.
             throw new SynchronizationLockException($"{lockType} lock cannot be released while not holding it.");
         }
@@ -467,7 +468,7 @@ public sealed class AlphaBetaLockSlim : IDisposable
         // the same type as the lock we are releasing.
         ExitAndWakeUpAppropriateWaiters();
         // can set the thread local variable outside the lock.
-        abc.ownership = AlphaBetaOwner.None;
+        abc.Ownership = AlphaBetaOwner.None;
     }
 
     /// <summary>
@@ -681,7 +682,7 @@ public sealed class AlphaBetaLockSlim : IDisposable
         get
         {
             AlphaBetaCount? abc = GetThreadABCount(dontAllocate: true);
-            return abc != null && abc.ownership == AlphaBetaOwner.Alpha;
+            return abc != null && abc.Ownership == AlphaBetaOwner.Alpha;
         }
     }
 
@@ -693,7 +694,7 @@ public sealed class AlphaBetaLockSlim : IDisposable
         get
         {
             AlphaBetaCount? abc = GetThreadABCount(dontAllocate: true);
-            return abc != null && abc.ownership == AlphaBetaOwner.Beta;
+            return abc != null && abc.Ownership == AlphaBetaOwner.Beta;
         }
     }
 
@@ -945,13 +946,13 @@ internal sealed class AlphaBetaCount
     // 2) Setting the value of a long is faster than setting the value of a reference.
     //    The "hot" paths in GroupLockSlim are short enough that this actually
     //    matters.
-    public long lockId;
+    public long LockId;
 
     // Does this thread own any locks?
-    public AlphaBetaOwner ownership;
+    public AlphaBetaOwner Ownership;
 
     // Next ABC in this thread's list.
-    public AlphaBetaCount? next;
+    public AlphaBetaCount? Next;
 }
 
 file readonly struct AlphaLockOwnership : ILockOwnership

@@ -8,9 +8,9 @@
 /// </remarks>
 public class ColoredConsoleSink : ILogSink
 {
-    private static readonly object _lock = new();
+    private static readonly object s_lock = new();
 
-    private static readonly ConsoleColor[] _colorsByLogLevel =
+    private static readonly ConsoleColor[] s_colorsByLogLevel =
     [
         ConsoleColor.DarkGray,
         ConsoleColor.White,
@@ -25,7 +25,7 @@ public class ColoredConsoleSink : ILogSink
     /// <inheritdoc/>
     public void Log(ref readonly LogEntry logEntry)
     {
-        lock (_lock)
+        lock (s_lock)
         {
             LogUnsafe(in logEntry);
         }
@@ -43,7 +43,7 @@ public class ColoredConsoleSink : ILogSink
     {
         if (Enum.IsDefined(level))
         {
-            return _colorsByLogLevel[(int)level];
+            return s_colorsByLogLevel[(int)level];
         }
         return ConsoleColor.Cyan;
     }

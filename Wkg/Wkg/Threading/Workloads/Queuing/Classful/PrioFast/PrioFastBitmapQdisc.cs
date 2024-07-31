@@ -300,8 +300,8 @@ internal sealed class PrioFastBitmapQdisc<THandle> : ClassfulQdisc<THandle>, ICl
 
     protected override void EnqueueDirect(AbstractWorkloadBase workload)
     {
-        const int localQueueIndex = 0;
-        __LAST_ENQUEUED_CHILD_INDEX.Value = localQueueIndex;
+        const int LOCAL_QUEUE_INDEX = 0;
+        __LAST_ENQUEUED_CHILD_INDEX.Value = LOCAL_QUEUE_INDEX;
         _localQueue.Enqueue(workload);
         DebugLog.WriteDiagnostic($"{this}: enqueued workload {workload} to local queue ({_localQueue}).", LogWriter.Blocking);
     }

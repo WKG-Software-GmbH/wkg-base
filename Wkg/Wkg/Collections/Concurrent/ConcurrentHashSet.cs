@@ -675,7 +675,7 @@ public class ConcurrentHashSet<T> : IReadOnlyCollection<T>, ICollection<T>
 
     private void GrowTable(Tables tables)
     {
-        const int maxArrayLength = 0X7FEFFFFF;
+        const int MAX_ARRAY_LENGTH = 0X7FEFFFFF;
         int locksAcquired = 0;
         try
         {
@@ -731,7 +731,7 @@ public class ConcurrentHashSet<T> : IReadOnlyCollection<T>, ICollection<T>
 
                     Debug.Assert(newLength % 2 != 0);
 
-                    if (newLength > maxArrayLength)
+                    if (newLength > MAX_ARRAY_LENGTH)
                     {
                         maximizeTableSize = true;
                     }
@@ -744,7 +744,7 @@ public class ConcurrentHashSet<T> : IReadOnlyCollection<T>, ICollection<T>
 
             if (maximizeTableSize)
             {
-                newLength = maxArrayLength;
+                newLength = MAX_ARRAY_LENGTH;
 
                 // We want to make sure that GrowTable will not be called again, since table is at the maximum size.
                 // To achieve that, we set the budget to int.MaxValue.

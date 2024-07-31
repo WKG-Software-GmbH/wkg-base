@@ -13,7 +13,7 @@ variables:
 
 include:
   - project: 'wkg/gitlab-templates'
-    ref: 'v1.2.10'
+    ref: 'automatic-info-plist-versioning'
     file:
       - '/jobs/build_dotnet_8.yml'
       - '/jobs/test_dotnet_8.yml'

@@ -5,7 +5,6 @@ using Wkg.Logging.Writers;
 using Wkg.Threading.Workloads.Continuations;
 using Wkg.Threading.Workloads.Exceptions;
 using Wkg.Threading.Workloads.Queuing;
-using Wkg.Threading.Workloads.Scheduling;
 
 namespace Wkg.Threading.Workloads;
 
@@ -16,7 +15,7 @@ using CommonFlags = WorkloadStatus.CommonFlags;
 /// </summary>
 public abstract class AwaitableWorkload : AbstractWorkloadBase
 {
-    private protected static readonly IQdisc _qdiscCompletionSentinel = new QdiscCompletionSentinel();
+    private protected static readonly IQdisc s_qdiscCompletionSentinel = new QdiscCompletionSentinel();
     private protected IQdisc? _qdisc;
 
     // result fields
@@ -198,7 +197,7 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
         // sample the current qdisc
         IQdisc? current = Volatile.Read(ref _qdisc);
         // if the sentine is set, we cannot bind
-        if (ReferenceEquals(current, _qdiscCompletionSentinel))
+        if (ReferenceEquals(current, s_qdiscCompletionSentinel))
         {
             DebugLog.WriteDiagnostic($"{this}: Failed to bind workload to qdisc. The qdisc is in a completion state and the sentinel is set.", LogWriter.Blocking);
             return false;
@@ -306,7 +305,7 @@ public abstract class AwaitableWorkload : AbstractWorkloadBase
     /// Attempts to unbind the workload from the specified qdisc. 
     /// This method requires that this workload has already been dequeued from the qdisc.
     /// </summary>
-    internal void UnbindQdiscUnsafe() => Volatile.Write(ref _qdisc, _qdiscCompletionSentinel);
+    internal void UnbindQdiscUnsafe() => Volatile.Write(ref _qdisc, s_qdiscCompletionSentinel);
 
     internal override void InternalRunContinuations(int workerId)
     {

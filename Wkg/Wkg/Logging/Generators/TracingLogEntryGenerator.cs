@@ -181,12 +181,12 @@ public class TracingLogEntryGenerator : ILogEntryGenerator<TracingLogEntryGenera
     /// <param name="builder">The <see cref="StringBuilder"/> to add the <paramref name="args"/> to.</param>
     protected virtual void AddEventArgs<TEventArgs>(TEventArgs args, StringBuilder builder)
     {
-        const string nullString = "null";
+        const string NULL_STRING = "null";
 
         builder.Append(typeof(TEventArgs).Name).Append(": ");
         if (args is null)
         {
-            builder.Append(nullString);
+            builder.Append(NULL_STRING);
         }
         else
         {

@@ -18,12 +18,12 @@ public class NotifyWorkScheduledSentinel : INotifyWorkScheduled
     /// <summary>
     /// A sentinal instance representing an uninitialized qdisc.
     /// </summary>
-    public static readonly NotifyWorkScheduledSentinel Uninitialized = new();
+    public static NotifyWorkScheduledSentinel Uninitialized { get; } = new();
 
     /// <summary>
     /// A sentinal instance representing a completed qdisc.
     /// </summary>
-    public static readonly NotifyWorkScheduledSentinel Completed = new();
+    public static NotifyWorkScheduledSentinel Completed { get; } = new();
 
     [DoesNotReturn]
     void INotifyWorkScheduled.OnWorkScheduled()

@@ -9,7 +9,6 @@ using System.Diagnostics;
 using Wkg.Logging;
 using Wkg.Logging.Configuration;
 using Wkg.Logging.Generators;
-using Wkg.Logging.Loggers;
 using Wkg.Logging.Sinks;
 using Wkg.Logging.Writers;
 using Wkg.Threading.Workloads;
@@ -91,13 +90,13 @@ using (ClassfulWorkloadFactory<QdiscType> clubmappFactory = WorkloadFactoryBuild
             .WithConstrainedPrioritizationOptions(ConstrainedPrioritizationOptions.MinimizeWorkloadCancellation)
             .WithCapacity(16))))
 {
-    const int loops = 10_000_000;
+    const int LOOPS = 10_000_000;
     SharedInt sharedInt = new()
     {
-        Value = loops
+        Value = LOOPS
     };
     ManualResetEventSlim mres = new(false);
-    for (int i = 0; i < loops; i++)
+    for (int i = 0; i < LOOPS; i++)
     {
         clubmappFactory.Schedule(() =>
         {
@@ -444,6 +443,6 @@ record EmergencyStopRequest();
 record HeartbeatRequest();
 record MotorRpmReading(int MotorId, int Rpm)
 {
-    public static int CRITICAL_RPM = 1000;
+    public const int CRITICAL_RPM = 1000;
 }
 record GyroReading(float X, float Y, float Z);

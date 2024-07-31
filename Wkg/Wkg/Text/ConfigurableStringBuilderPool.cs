@@ -24,14 +24,14 @@ internal sealed class ConfigurableStringBuilderPool : StringBuilderPool
 
         // Our bucketing algorithm has a min capactity of 2^4 and a max capactity of 2^30.
         // Constrain the actual max used to those values.
-        const int MinimumStringBuilderCapacity = 0x10, MaximumStringBuilderCapacity = 0x40000000;
-        if (maxStringBuilderCapacity > MaximumStringBuilderCapacity)
+        const int MINIMUM_STRING_BUILDER_CAPACITY = 0x10, MAXIMUM_STRING_BUILDER_CAPACITY = 0x40000000;
+        if (maxStringBuilderCapacity > MAXIMUM_STRING_BUILDER_CAPACITY)
         {
-            maxStringBuilderCapacity = MaximumStringBuilderCapacity;
+            maxStringBuilderCapacity = MAXIMUM_STRING_BUILDER_CAPACITY;
         }
-        else if (maxStringBuilderCapacity < MinimumStringBuilderCapacity)
+        else if (maxStringBuilderCapacity < MINIMUM_STRING_BUILDER_CAPACITY)
         {
-            maxStringBuilderCapacity = MinimumStringBuilderCapacity;
+            maxStringBuilderCapacity = MINIMUM_STRING_BUILDER_CAPACITY;
         }
 
         // Create the buckets.
@@ -56,7 +56,7 @@ internal sealed class ConfigurableStringBuilderPool : StringBuilderPool
         {
             // Search for a builder starting at the 'index' bucket. If the bucket is empty, bump up to the
             // next higher bucket and try that one, but only try at most a few buckets.
-            const int MaxBucketsToTry = 2;
+            const int MAX_BUCKETS_TO_TRY = 2;
             int i = index;
             do
             {
@@ -67,7 +67,7 @@ internal sealed class ConfigurableStringBuilderPool : StringBuilderPool
                     return builder;
                 }
             }
-            while (++i < _buckets.Length && i != index + MaxBucketsToTry);
+            while (++i < _buckets.Length && i != index + MAX_BUCKETS_TO_TRY);
 
             // The pool was exhausted for this builder size. Allocate a new builder with a size corresponding
             // to the appropriate bucket.

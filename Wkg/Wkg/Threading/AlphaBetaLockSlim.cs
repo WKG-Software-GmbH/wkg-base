@@ -33,7 +33,7 @@ public sealed class AlphaBetaLockSlim : IDisposable
 
     // Every lock instance has a unique ID, which is used by AlphaBetaCount to associate itself with the lock
     // without holding a reference to it.
-    private static long _globalNextLockId;
+    private static long s_globalNextLockId;
     private readonly long _lockId;
 
     [ThreadStatic]
@@ -71,7 +71,7 @@ public sealed class AlphaBetaLockSlim : IDisposable
     /// </summary>
     public AlphaBetaLockSlim()
     {
-        _lockId = Interlocked.Increment(ref _globalNextLockId);
+        _lockId = Interlocked.Increment(ref s_globalNextLockId);
     }
 
     private AlphaBetaOwner OwnerGroup

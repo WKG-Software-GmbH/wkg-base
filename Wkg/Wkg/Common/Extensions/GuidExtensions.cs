@@ -49,10 +49,9 @@ public static class GuidExtensions
             buffer[(2 * i) + skip] = ToHexCharBranchless(source[i] >>> 0x4);
             buffer[(2 * i) + skip + 1] = ToHexCharBranchless(source[i] & 0x0F);
         }
-
         // add dashes
-        const byte dash = (byte)'-';
-        buffer[8] = buffer[13] = buffer[18] = buffer[23] = dash;
+        const byte DASH = (byte)'-';
+        buffer[8] = buffer[13] = buffer[18] = buffer[23] = DASH;
     }
 
     /// <summary>

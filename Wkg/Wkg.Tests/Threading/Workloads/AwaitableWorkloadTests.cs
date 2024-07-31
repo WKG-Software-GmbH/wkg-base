@@ -512,26 +512,26 @@ public class AwaitableWorkloadTests
     public async Task TestFaultedWorkload1()
     {
         ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
-        const string message = "Test exception.";
-        Workload<int> workload = factory.ScheduleAsync<int>(_ => throw new Exception(message));
+        const string MESSAGE = "Test exception.";
+        Workload<int> workload = factory.ScheduleAsync<int>(_ => throw new Exception(MESSAGE));
         WorkloadResult<int> result = await workload;
         Assert.AreEqual<WorkloadStatus>(WorkloadStatus.Faulted | WorkloadStatus.ContinuationsInvoked, workload.Status);
         Assert.IsTrue(result.IsFaulted);
         Assert.IsFalse(result.TryGetResult(out _));
         Assert.IsNotNull(result.Exception);
-        Assert.AreEqual(message, result.Exception!.Message);
+        Assert.AreEqual(MESSAGE, result.Exception!.Message);
     }
 
     [TestMethod]
     public async Task TestFaultedWorkload2()
     {
         ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
-        const string message = "Test exception.";
-        Workload workload = factory.ScheduleAsync(_ => throw new Exception(message));
+        const string MESSAGE = "Test exception.";
+        Workload workload = factory.ScheduleAsync(_ => throw new Exception(MESSAGE));
         WorkloadResult result = await workload;
         Assert.AreEqual<WorkloadStatus>(WorkloadStatus.Faulted | WorkloadStatus.ContinuationsInvoked, workload.Status);
         Assert.IsTrue(result.IsFaulted);
         Assert.IsNotNull(result.Exception);
-        Assert.AreEqual(message, result.Exception!.Message);
+        Assert.AreEqual(MESSAGE, result.Exception!.Message);
     }
 }

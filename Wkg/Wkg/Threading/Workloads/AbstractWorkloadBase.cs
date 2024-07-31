@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics;
 using Wkg.Threading.Workloads.Queuing;
-using Wkg.Threading.Workloads.Scheduling;
 using Wkg.Threading.Workloads.DependencyInjection;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
@@ -22,7 +21,7 @@ public abstract class AbstractWorkloadBase
     internal volatile QueuingStateNode? SchedulerState;
 
     // continuations
-    private protected static readonly object _workloadCompletionSentinel = new();
+    private protected static readonly object s_workloadCompletionSentinel = new();
     private protected object? _continuation;
 
     private protected AbstractWorkloadBase(WorkloadStatus status)
@@ -45,7 +44,7 @@ public abstract class AbstractWorkloadBase
     /// </summary>
     public virtual bool IsCompleted => Status.IsOneOf(CommonFlags.Completed);
 
-    internal virtual bool ContinuationsInvoked => ReferenceEquals(Volatile.Read(in _continuation), _workloadCompletionSentinel);
+    internal virtual bool ContinuationsInvoked => ReferenceEquals(Volatile.Read(in _continuation), s_workloadCompletionSentinel);
 
     internal virtual void RegisterServiceProvider(IWorkloadServiceProvider serviceProvider) => Pass();
 
@@ -147,7 +146,7 @@ public abstract class AbstractWorkloadBase
 
         // we know that the current continuation is either an simple continuation action, a list of continuation actions, or the sentinel
         // if it's a simple continuation action, we'll have to upgrade it to a list of continuation actions
-        if (!ReferenceEquals(currentContinuation, _workloadCompletionSentinel) && currentContinuation is not List<object?>)
+        if (!ReferenceEquals(currentContinuation, s_workloadCompletionSentinel) && currentContinuation is not List<object?>)
         {
             DebugLog.WriteDiagnostic($"{this}: Upgrading continuation to list.", LogWriter.Blocking);
             // create a new list of continuation actions and try to CAS it in
@@ -160,7 +159,7 @@ public abstract class AbstractWorkloadBase
         // resample the current continuation
         currentContinuation = Volatile.Read(in _continuation);
 
-        Debug.Assert(ReferenceEquals(currentContinuation, _workloadCompletionSentinel) || currentContinuation is List<object?>);
+        Debug.Assert(ReferenceEquals(currentContinuation, s_workloadCompletionSentinel) || currentContinuation is List<object?>);
 
         // if it's a list, we'll try to add the continuation to it
         if (currentContinuation is List<object?> list)
@@ -168,7 +167,7 @@ public abstract class AbstractWorkloadBase
             lock (list)
             {
                 // it could be that the sentinel was set in the meantime while we were busy acquiring the lock
-                if (!ReferenceEquals(Volatile.Read(in _continuation), _workloadCompletionSentinel))
+                if (!ReferenceEquals(Volatile.Read(in _continuation), s_workloadCompletionSentinel))
                 {
                     if (list.Count == list.Capacity)
                     {
@@ -206,9 +205,9 @@ public abstract class AbstractWorkloadBase
         DebugLog.WriteDiagnostic($"{this}: Running async continuations for workload.", LogWriter.Blocking);
 
         // CAS the sentinel in to prevent further continuations from being added
-        object? continuations = Interlocked.Exchange(ref _continuation, _workloadCompletionSentinel);
+        object? continuations = Interlocked.Exchange(ref _continuation, s_workloadCompletionSentinel);
 
-        Debug.Assert(!ReferenceEquals(continuations, _workloadCompletionSentinel), "Continuation sentinel was already set. This should never happen.");
+        Debug.Assert(!ReferenceEquals(continuations, s_workloadCompletionSentinel), "Continuation sentinel was already set. This should never happen.");
         WorkloadStatus previousStatus = Interlocked.Or(ref _status, WorkloadStatus.ContinuationsInvoked);
         Debug.Assert(previousStatus.IsOneOf(CommonFlags.Completed), "Workload was not completed before running continuations.");
         Debug.Assert((previousStatus & WorkloadStatus.ContinuationsInvoked) == 0, "Continuations were already invoked.");
@@ -269,7 +268,7 @@ public abstract class AbstractWorkloadBase
     {
         DebugLog.WriteDiagnostic($"{this}: Attempting to remove continuation.", LogWriter.Blocking);
         object? currentContinuation = Volatile.Read(in _continuation);
-        if (ReferenceEquals(currentContinuation, _workloadCompletionSentinel))
+        if (ReferenceEquals(currentContinuation, s_workloadCompletionSentinel))
         {
             DebugLog.WriteDiagnostic($"{this}: Continuation sentinel was set, nothing to do.", LogWriter.Blocking);
             return;
@@ -292,12 +291,12 @@ public abstract class AbstractWorkloadBase
                 return;
             }
         }
-        Debug.Assert(list is not null || ReferenceEquals(Volatile.Read(in _continuation), _workloadCompletionSentinel));
+        Debug.Assert(list is not null || ReferenceEquals(Volatile.Read(in _continuation), s_workloadCompletionSentinel));
         if (list is not null)
         {
             lock (list)
             {
-                if (!ReferenceEquals(Volatile.Read(in _continuation), _workloadCompletionSentinel))
+                if (!ReferenceEquals(Volatile.Read(in _continuation), s_workloadCompletionSentinel))
                 {
                     DebugLog.WriteDiagnostic($"{this}: Removing continuation from list.", LogWriter.Blocking);
                     int index = list.IndexOf(continuation);
@@ -314,11 +313,11 @@ public abstract class AbstractWorkloadBase
 
 file static class WorkloadIdGenerator
 {
-    private static ulong _nextId;
+    private static ulong s_nextId;
 
     // this is a simple, fast, and thread-safe way to generate unique IDs.
     // it is possible for the IDs to be reused, but only after 2^64 IDs have been generated
     // and it is highly unlikely that someone keeps a workload alive for so long
     // that there are any collisions
-    public static ulong Generate() => Interlocked.Increment(ref _nextId);
+    public static ulong Generate() => Interlocked.Increment(ref s_nextId);
 }

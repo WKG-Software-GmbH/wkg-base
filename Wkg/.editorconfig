@@ -212,9 +212,21 @@ dotnet_naming_rule.non_public_field_should_be__camelcase.severity = warning
 dotnet_naming_rule.non_public_field_should_be__camelcase.symbols = non_public_field
 dotnet_naming_rule.non_public_field_should_be__camelcase.style = _camelcase
 
+dotnet_naming_rule.static_field_should_be_static_fields_begin_with_s_.severity = warning
+dotnet_naming_rule.static_field_should_be_static_fields_begin_with_s_.symbols = static_field
+dotnet_naming_rule.static_field_should_be_static_fields_begin_with_s_.style = static_fields_begin_with_s_
+
 dotnet_naming_rule.public_field_should_be_pascal_case.severity = warning
 dotnet_naming_rule.public_field_should_be_pascal_case.symbols = public_field
 dotnet_naming_rule.public_field_should_be_pascal_case.style = pascal_case
+
+dotnet_naming_rule.locals_should_be_camelcase.severity = warning
+dotnet_naming_rule.locals_should_be_camelcase.symbols = locals
+dotnet_naming_rule.locals_should_be_camelcase.style = camelcase
+
+dotnet_naming_rule.type_parameters_should_be_begins_with_t.severity = warning
+dotnet_naming_rule.type_parameters_should_be_begins_with_t.symbols = type_parameters
+dotnet_naming_rule.type_parameters_should_be_begins_with_t.style = begins_with_t
 
 dotnet_naming_rule.internal_field_should_be_pascal_case.severity = silent
 dotnet_naming_rule.internal_field_should_be_pascal_case.symbols = internal_field
@@ -226,6 +238,10 @@ dotnet_naming_symbols.interface.applicable_kinds = interface
 dotnet_naming_symbols.interface.applicable_accessibilities = public, internal, private, protected, protected_internal, private_protected
 dotnet_naming_symbols.interface.required_modifiers = 
 
+dotnet_naming_symbols.static_field.applicable_kinds = field
+dotnet_naming_symbols.static_field.applicable_accessibilities = public, internal, private, protected, protected_internal, private_protected
+dotnet_naming_symbols.static_field.required_modifiers = static
+
 dotnet_naming_symbols.types.applicable_kinds = class, struct, interface, enum
 dotnet_naming_symbols.types.applicable_accessibilities = public, internal, private, protected, protected_internal, private_protected
 dotnet_naming_symbols.types.required_modifiers = 
@@ -234,7 +250,7 @@ dotnet_naming_symbols.non_field_members.applicable_kinds = property, event, meth
 dotnet_naming_symbols.non_field_members.applicable_accessibilities = public, internal, private, protected, protected_internal, private_protected
 dotnet_naming_symbols.non_field_members.required_modifiers = 
 
-dotnet_naming_symbols.constants.applicable_kinds = field
+dotnet_naming_symbols.constants.applicable_kinds = field, local
 dotnet_naming_symbols.constants.applicable_accessibilities = *
 dotnet_naming_symbols.constants.required_modifiers = const
 
@@ -249,6 +265,14 @@ dotnet_naming_symbols.non_public_field.required_modifiers =
 dotnet_naming_symbols.internal_field.applicable_kinds = field
 dotnet_naming_symbols.internal_field.applicable_accessibilities = internal
 dotnet_naming_symbols.internal_field.required_modifiers = 
+
+dotnet_naming_symbols.locals.applicable_kinds = parameter, local
+dotnet_naming_symbols.locals.applicable_accessibilities = local
+dotnet_naming_symbols.locals.required_modifiers = 
+
+dotnet_naming_symbols.type_parameters.applicable_kinds = type_parameter
+dotnet_naming_symbols.type_parameters.applicable_accessibilities = *
+dotnet_naming_symbols.type_parameters.required_modifiers = 
 
 # Naming styles
 
@@ -271,3 +295,18 @@ dotnet_naming_style.constant_case.required_prefix =
 dotnet_naming_style.constant_case.required_suffix = 
 dotnet_naming_style.constant_case.word_separator = _
 dotnet_naming_style.constant_case.capitalization = all_upper
+
+dotnet_naming_style.static_fields_begin_with_s_.required_prefix = s_
+dotnet_naming_style.static_fields_begin_with_s_.required_suffix = 
+dotnet_naming_style.static_fields_begin_with_s_.word_separator = 
+dotnet_naming_style.static_fields_begin_with_s_.capitalization = camel_case
+
+dotnet_naming_style.camelcase.required_prefix = 
+dotnet_naming_style.camelcase.required_suffix = 
+dotnet_naming_style.camelcase.word_separator = 
+dotnet_naming_style.camelcase.capitalization = camel_case
+
+dotnet_naming_style.begins_with_t.required_prefix = T
+dotnet_naming_style.begins_with_t.required_suffix = 
+dotnet_naming_style.begins_with_t.word_separator = 
+dotnet_naming_style.begins_with_t.capitalization = pascal_case

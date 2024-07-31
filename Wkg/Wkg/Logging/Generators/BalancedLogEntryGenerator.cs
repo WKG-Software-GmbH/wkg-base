@@ -25,7 +25,7 @@ namespace Wkg.Logging.Generators;
 [RequiresUnreferencedCode("Requires reflective access to determine the assembly name of the caller.")]
 public class BalancedLogEntryGenerator : DetailedAotLogEntryGenerator, ILogEntryGenerator<BalancedLogEntryGenerator>
 {
-    private static readonly ConcurrentDictionary<int, string> _assemblyNameCallSiteCache = [];
+    private static readonly ConcurrentDictionary<int, string> s_assemblyNameCallSiteCache = [];
 
     /// <summary>
     /// Initializes a new instance of the <see cref="BalancedLogEntryGenerator"/> class.
@@ -57,10 +57,10 @@ public class BalancedLogEntryGenerator : DetailedAotLogEntryGenerator, ILogEntry
             if (entry.CallerInfo.FilePath.Length > 0 && entry.CallerInfo.MemberName.Length > 0)
             {
                 int hashCode = entry.CallerInfo.FilePath.GetHashCode() ^ entry.CallerInfo.MemberName.GetHashCode();
-                if (!_assemblyNameCallSiteCache.TryGetValue(hashCode, out string? assemblyName))
+                if (!s_assemblyNameCallSiteCache.TryGetValue(hashCode, out string? assemblyName))
                 {
                     assemblyName = GetAssemblyNameFromStackTrace();
-                    _assemblyNameCallSiteCache.TryAdd(hashCode, assemblyName);
+                    s_assemblyNameCallSiteCache.TryAdd(hashCode, assemblyName);
                 }
                 entry.AssemblyName = assemblyName;
             }

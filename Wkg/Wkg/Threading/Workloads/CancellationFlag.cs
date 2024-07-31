@@ -10,7 +10,7 @@ namespace Wkg.Threading.Workloads;
 /// </summary>
 public readonly struct CancellationFlag
 {
-    private static readonly AwaitableWorkload _neverCancelledWorkload = new WorkloadImpl(null!, WorkloadStatus.Invalid, null!, CancellationToken.None);
+    private static readonly AwaitableWorkload s_neverCancelledWorkload = new WorkloadImpl(null!, WorkloadStatus.Invalid, null!, CancellationToken.None);
     internal readonly AwaitableWorkload Workload;
 
     internal CancellationFlag(AwaitableWorkload workload)
@@ -47,7 +47,7 @@ public readonly struct CancellationFlag
     /// <summary>
     /// Gets a cancellation flag that will never be canceled.
     /// </summary>
-    public static CancellationFlag None => new(_neverCancelledWorkload);
+    public static CancellationFlag None => new(s_neverCancelledWorkload);
 
     /// <summary>
     /// Marks this workload as canceled.

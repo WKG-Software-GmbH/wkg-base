@@ -7,7 +7,7 @@ namespace Wkg.Logging.Generators.Helpers;
 /// </summary>
 public static class LogLevelNames
 {
-    private static readonly ImmutableArray<string> _logLevelNames;
+    private static readonly ImmutableArray<string> s_logLevelNames;
 
     static LogLevelNames()
     {
@@ -21,14 +21,14 @@ public static class LogLevelNames
                 logLevelNames[i] = logLevelNames[i].ToUpperInvariant();
             }
         }
-        _logLevelNames = [.. logLevelNames];
+        s_logLevelNames = [.. logLevelNames];
     }
 
     /// <summary>
     /// Retrieves the human-readable name for the specified <see cref="LogLevel"/>.
     /// </summary>
     /// <param name="logLevel">The <see cref="LogLevel"/> to retrieve the name for.</param>
-    public static string NameFor(LogLevel logLevel) => _logLevelNames[(int)logLevel];
+    public static string NameFor(LogLevel logLevel) => s_logLevelNames[(int)logLevel];
 
     /// <summary>
     /// Retrieves the human-readable name for the specified <see cref="LogLevel"/> or "UNKNOWN" if the value is not defined.

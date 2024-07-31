@@ -6,7 +6,7 @@ namespace Wkg.Data.Validation.Tests;
 [TestClass]
 public class DataValidationServiceTests : BaseTest
 {
-    private static readonly string[] _validEmailAddresses =
+    private static readonly string[] s_validEmailAddresses =
     [
         "email@example.com",
         "firstname.lastname@example.com",
@@ -23,7 +23,7 @@ public class DataValidationServiceTests : BaseTest
         "firstname-lastname@example.com",
     ];
 
-    private static readonly string?[] _invalidEmailAddresses =
+    private static readonly string?[] s_invalidEmailAddresses =
     [
         "    ",
         null,
@@ -51,7 +51,7 @@ public class DataValidationServiceTests : BaseTest
     [TestMethod]
     public void IsEmailAddressTest_ValidEmails()
     {
-        foreach (string mail in _validEmailAddresses)
+        foreach (string mail in s_validEmailAddresses)
         {
             Assert.IsTrue(DataValidationService.IsEmailAddress(mail), mail);
         }
@@ -60,13 +60,13 @@ public class DataValidationServiceTests : BaseTest
     [TestMethod]
     public void IsEmailAddressTest_InvalidEmails()
     {
-        foreach (string? mail in _invalidEmailAddresses)
+        foreach (string? mail in s_invalidEmailAddresses)
         {
             Assert.IsFalse(DataValidationService.IsEmailAddress(mail), mail);
         }
     }
 
-    private static readonly string[] _validPhoneNumbers =
+    private static readonly string[] s_validPhoneNumbers =
     [
         "+49 123 456 789",
         "+49 123 456",
@@ -82,7 +82,7 @@ public class DataValidationServiceTests : BaseTest
         "333-444-5555",
     ];
 
-    private static readonly string[] _invalidPhoneNumbers =
+    private static readonly string[] s_invalidPhoneNumbers =
     [
         "+1 (555) 123-4567-",
         "(555) 555-5555-",
@@ -101,7 +101,7 @@ public class DataValidationServiceTests : BaseTest
     [TestMethod]
     public void IsPhoneNumberTest_ValidPhoneNumbers()
     {
-        foreach (string phone in _validPhoneNumbers)
+        foreach (string phone in s_validPhoneNumbers)
         {
             Assert.IsTrue(DataValidationService.IsPhoneNumber(phone), phone);
         }
@@ -110,13 +110,13 @@ public class DataValidationServiceTests : BaseTest
     [TestMethod]
     public void IsPhoneNumberTest_InvalidPhoneNumbers()
     {
-        foreach (string phone in _invalidPhoneNumbers)
+        foreach (string phone in s_invalidPhoneNumbers)
         {
             Assert.IsFalse(DataValidationService.IsPhoneNumber(phone), phone);
         }
     }
 
-    private static readonly string[] _validUrls =
+    private static readonly string[] s_validUrls =
     [
         "https://www.example.com/",
         "https://www.example.com/path/to/resource",
@@ -142,7 +142,7 @@ public class DataValidationServiceTests : BaseTest
         "http://example.com/?param=value#fragment",
     ];
 
-    private static readonly string?[] _invalidUrls =
+    private static readonly string?[] s_invalidUrls =
     [
         string.Empty,
         null,
@@ -161,7 +161,7 @@ public class DataValidationServiceTests : BaseTest
     [TestMethod]
     public void IsUrlTest_ValidUrls()
     {
-        foreach (string url in _validUrls)
+        foreach (string url in s_validUrls)
         {
             Assert.IsTrue(DataValidationService.IsUrl(url), url);
         }
@@ -170,7 +170,7 @@ public class DataValidationServiceTests : BaseTest
     [TestMethod]
     public void IsUrlTest_InvalidUrls()
     {
-        foreach (string? url in _invalidUrls)
+        foreach (string? url in s_invalidUrls)
         {
             Assert.IsFalse(DataValidationService.IsUrl(url), url);
         }

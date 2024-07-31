@@ -567,14 +567,14 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         using ILockOwnership readLock = _childModificationLock.AcquireReadLock();
         using ILockOwnership enqueueLock = _schedulerLock.AcquireReadLock();
 
-        const int localQueueIndex = 0;
+        const int LOCAL_QUEUE_INDEX = 0;
         ChildClass[] childStates = _childClasses;
 
         UpdateWorkloadState(workload, childStates[0].Weight);
         // update the emptiness tracking
         // the actual reset happens in the OnWorkScheduled callback, but we need to
         // set up the index of the child that was just enqueued to for that
-        __LAST_ENQUEUED_CHILD_INDEX.Value = localQueueIndex;
+        __LAST_ENQUEUED_CHILD_INDEX.Value = LOCAL_QUEUE_INDEX;
         _localQueue.Enqueue(workload);
         DebugLog.WriteDiagnostic($"{this}: enqueued workload {workload} to local queue.", LogWriter.Blocking);
     }
@@ -663,8 +663,8 @@ internal class GfqQdisc<THandle> : ClassfulQdisc<THandle> where THandle : unmana
         if (childHasWorkloads)
         {
             // we just moved workloads from the child to the local queue
-            const int localQueueIndex = 0;
-            _hasDataMap.UpdateBit(localQueueIndex, value: true);
+            const int LOCAL_QUEUE_INDEX = 0;
+            _hasDataMap.UpdateBit(LOCAL_QUEUE_INDEX, value: true);
         }
 
         // remove the child and resize the buffers

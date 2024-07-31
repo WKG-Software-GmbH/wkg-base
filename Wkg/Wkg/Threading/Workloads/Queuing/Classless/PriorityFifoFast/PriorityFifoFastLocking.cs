@@ -1,5 +1,4 @@
-﻿using Wkg.Common.Extensions;
-using Wkg.Common.ThrowHelpers;
+﻿using Wkg.Common.ThrowHelpers;
 using Wkg.Threading.Workloads.Configuration;
 using Wkg.Threading.Workloads.Configuration.Classless;
 

@@ -13,13 +13,13 @@ namespace Wkg.Logging;
 /// </summary>
 public class Log : ILog
 {
-    internal static IProxyLogger ProxyLogger = Logger.CreateProxy(
+    /// <inheritdoc/>
+    public static ILogger CurrentLogger => ProxyLogger;
+
+    internal static IProxyLogger ProxyLogger { get; private set; } = Logger.CreateProxy(
         LoggerConfiguration.Create()
             .UseEntryGenerator(AotLogEntryGenerator.Create)
             .AddSink<ConsoleSink>());
-
-    /// <inheritdoc/>
-    public static ILogger CurrentLogger => ProxyLogger;
 
     /// <inheritdoc/>
     public static void UseLogger(IProxyLogger logger)

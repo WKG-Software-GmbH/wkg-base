@@ -1,5 +1,4 @@
-﻿using System;
-using System.Text;
+﻿using System.Text;
 using Wkg.Logging.Configuration;
 using Wkg.Logging.Generators.Helpers;
 using Wkg.Text;

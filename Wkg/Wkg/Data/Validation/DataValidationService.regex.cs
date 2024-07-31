@@ -41,7 +41,7 @@ public static partial class DataValidationService
     private static partial Regex GetUrlRegex();
 
     /// <summary>
-    /// From stack overflow: https://stackoverflow.com/a/44657292/14395043
+    /// From stackoverflow: https://stackoverflow.com/a/44657292/14395043
     /// </summary>
     [GeneratedRegex(IBAN_PATTERN, DEFAULT_OPTIONS, 2000)]
     private static partial Regex GetIbanRegex();

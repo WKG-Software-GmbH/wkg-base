@@ -1,5 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using Wkg.Versioning;
+﻿using Wkg.Versioning;
 
 namespace Wkg;
 

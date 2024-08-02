@@ -1,5 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace Wkg.Threading.Workloads.Queuing.Classless.ConstrainedFifo;
@@ -22,8 +21,7 @@ internal struct AtomicRingBufferStateUnion(ulong state)
     // people immediately start screaming when they see pointers in C# code, so we do
     // it like this instead.
     [FieldOffset(0)]
-    [SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "This is a union, so the underlying raw value is named __State.")]
-    public ulong __State = state;
+    public ulong UnderlyingStorage = state;
     // tail is accessed most frequently, so we put it first (aligned to 64 bits)
     [FieldOffset(0)]
     public ushort Tail;

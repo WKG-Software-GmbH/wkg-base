@@ -17,8 +17,7 @@ internal class PriorityFifoFastQdisc<THandle> : ClassifyingQdisc<THandle>, INoti
     // so static is fine here because this won't be set for multiple instances at the same time
     // => (no ThreadLocal required)
     [ThreadStatic]
-    [SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "thread-local variable")]
-    private static int? __LAST_ENQUEUED_CHILD_INDEX;
+    private static int? s_th_lastEnqueuedChildIndex;
 
     private readonly ConcurrentBitmap _dataMap;
     private readonly IClassifyingQdisc<THandle>[] _bands;
@@ -64,7 +63,7 @@ internal class PriorityFifoFastQdisc<THandle> : ClassifyingQdisc<THandle>, INoti
         Interlocked.Increment(ref _fuzzyCount);
         // update the data map. This must be done before notifying the scheduler
         // it doesn't matter if it happens before or after the enqueue
-        __LAST_ENQUEUED_CHILD_INDEX = band;
+        s_th_lastEnqueuedChildIndex = band;
         _bands[band].Enqueue(workload);
     }
 
@@ -200,13 +199,13 @@ internal class PriorityFifoFastQdisc<THandle> : ClassifyingQdisc<THandle>, INoti
     protected override void WillEnqueueFromRoutingPath(ref readonly RoutingPathNode<THandle> routingPathNode, AbstractWorkloadBase workload)
     {
         Interlocked.Increment(ref _fuzzyCount);
-        __LAST_ENQUEUED_CHILD_INDEX = routingPathNode.Offset;
+        s_th_lastEnqueuedChildIndex = routingPathNode.Offset;
     }
 
     void INotifyWorkScheduled.OnWorkScheduled()
     {
-        Debug.Assert(__LAST_ENQUEUED_CHILD_INDEX is not null);
-        _dataMap.UpdateBit(__LAST_ENQUEUED_CHILD_INDEX.Value, value: true);
+        Debug.Assert(s_th_lastEnqueuedChildIndex is not null);
+        _dataMap.UpdateBit(s_th_lastEnqueuedChildIndex.Value, value: true);
         ParentScheduler.OnWorkScheduled();
     }
 

@@ -20,8 +20,7 @@ namespace Wkg.Threading.Workloads.Queuing.Classful.RoundRobin;
 internal sealed class RoundRobinBitmapQdisc<THandle> : ClassfulQdisc<THandle>, IClassfulQdisc<THandle>
     where THandle : unmanaged
 {
-    [SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "thread-local variable")]
-    private readonly ThreadLocal<int?> __LAST_ENQUEUED_CHILD_INDEX = new();
+    private readonly ThreadLocal<int?> _th_lastEnqueuedChildIndex = new();
 
     private readonly IQdisc?[] _localLasts;
     private readonly IClassifyingQdisc<THandle> _localQueue;
@@ -213,7 +212,7 @@ internal sealed class RoundRobinBitmapQdisc<THandle> : ClassfulQdisc<THandle>, I
             if (child.Handle.Equals(handle))
             {
                 // set up the index of the child that we will enqueue to to allow emptiness tracking to update the correct bit
-                __LAST_ENQUEUED_CHILD_INDEX.Value = i;
+                _th_lastEnqueuedChildIndex.Value = i;
                 child.Enqueue(workload);
                 DebugLog.WriteDiagnostic($"Enqueued workload {workload} to child qdisc {child}.", LogWriter.Blocking);
                 goto SUCCESS;
@@ -231,7 +230,7 @@ internal sealed class RoundRobinBitmapQdisc<THandle> : ClassfulQdisc<THandle>, I
                 // update the emptiness tracking
                 // the actual reset happens in the OnWorkScheduled callback, but we need to
                 // set up the index of the child that was just enqueued to for that
-                __LAST_ENQUEUED_CHILD_INDEX.Value = i;
+                _th_lastEnqueuedChildIndex.Value = i;
 
                 // we need to call WillEnqueueFromRoutingPath on all nodes in the path
                 // failure to do so may result in incorrect emptiness tracking of the child qdiscs
@@ -270,7 +269,7 @@ internal sealed class RoundRobinBitmapQdisc<THandle> : ClassfulQdisc<THandle>, I
                     // update the emptiness tracking
                     // the actual reset happens in the OnWorkScheduled callback, but we need to
                     // set up the index of the child that was just enqueued to for that
-                    __LAST_ENQUEUED_CHILD_INDEX.Value = i;
+                    _th_lastEnqueuedChildIndex.Value = i;
                     if (!child.TryEnqueue(state, workload))
                     {
                         // this should never happen, as we already checked if the child can classify the workload
@@ -314,7 +313,7 @@ internal sealed class RoundRobinBitmapQdisc<THandle> : ClassfulQdisc<THandle>, I
     protected override void WillEnqueueFromRoutingPath(ref readonly RoutingPathNode<THandle> routingPathNode, AbstractWorkloadBase workload)
     {
         int index = routingPathNode.Offset;
-        __LAST_ENQUEUED_CHILD_INDEX.Value = index;
+        _th_lastEnqueuedChildIndex.Value = index;
         DebugLog.WriteDiagnostic($"{this}: expecting to enqueue workload {workload} to child {_children[index]} via routing path.", LogWriter.Blocking);
     }
 
@@ -334,8 +333,8 @@ internal sealed class RoundRobinBitmapQdisc<THandle> : ClassfulQdisc<THandle>, I
         // it will call back to us with OnWorkScheduled, so we can reset the empty counter there
         // we will never need a lock here, since the local queue itself is thread-safe and cannot
         // be removed from the children array.
-        const int localQueueIndex = 0;
-        __LAST_ENQUEUED_CHILD_INDEX.Value = localQueueIndex;
+        const int LOCAL_QUEUE_INDEX = 0;
+        _th_lastEnqueuedChildIndex.Value = LOCAL_QUEUE_INDEX;
         _localQueue.Enqueue(workload);
         DebugLog.WriteDiagnostic($"{this}: enqueued workload {workload} to local queue ({_localQueue}).", LogWriter.Blocking);
     }
@@ -352,11 +351,11 @@ internal sealed class RoundRobinBitmapQdisc<THandle> : ClassfulQdisc<THandle>, I
         }
         // we are inside a callback of an enqueuing thread
         // load the index of the child that was just enqueued to
-        int? lastEnqueuedChildIndex = __LAST_ENQUEUED_CHILD_INDEX.Value;
+        int? lastEnqueuedChildIndex = _th_lastEnqueuedChildIndex.Value;
         if (lastEnqueuedChildIndex is null)
         {
             // this should never happen, as this method can only be part of the enqueueing call stack
-            WorkloadSchedulingException exception = WorkloadSchedulingException.CreateVirtual($"Scheduler inconsistency: {nameof(__LAST_ENQUEUED_CHILD_INDEX)} is null.");
+            WorkloadSchedulingException exception = WorkloadSchedulingException.CreateVirtual($"Scheduler inconsistency: {nameof(_th_lastEnqueuedChildIndex)} is null.");
             DebugLog.WriteException(exception, LogWriter.Blocking);
             // we can actually just throw here, since we aren't in a worker thread
             throw new NotSupportedException("This scheduler does not support scheduling workloads directly onto child qdiscs. Please use the methods provided by the parent workload factory.", exception);
@@ -368,7 +367,7 @@ internal sealed class RoundRobinBitmapQdisc<THandle> : ClassfulQdisc<THandle>, I
         // so no ABA problem here (not empty -> worker finds no workload -> we set it to not empty -> worker tries to set it to empty -> worker fails)
         _dataMap.UpdateBitUnsafe(index, isSet: true);
         // reset the last enqueued child index
-        __LAST_ENQUEUED_CHILD_INDEX.Value = null;
+        _th_lastEnqueuedChildIndex.Value = null;
         DebugLog.WriteDebug($"{this}: cleared empty flag for {(index == 0 ? this : _children[index])}.", LogWriter.Blocking);
         base.OnWorkScheduled();
     }
@@ -451,8 +450,8 @@ internal sealed class RoundRobinBitmapQdisc<THandle> : ClassfulQdisc<THandle>, I
         if (childHasWorkloads)
         {
             // we just moved workloads from the child to the local queue
-            const int localQueueIndex = 0;
-            _dataMap.UpdateBitUnsafe(localQueueIndex, isSet: true);
+            const int LOCAL_QUEUE_INDEX = 0;
+            _dataMap.UpdateBitUnsafe(LOCAL_QUEUE_INDEX, isSet: true);
         }
 
         IClassifyingQdisc<THandle>[] oldChildren = _children;

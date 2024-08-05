@@ -11,7 +11,7 @@ namespace Wkg.Versioning;
 /// This value should be injected by the continuous integration pipeline.
 /// Ensure that your implementation contains the following line verbatim and that your implementation file is referenced in the gitlab-ci.yml file.
 /// <code>
-/// private const string __CI_DEPLOYMENT_VERSION_PREFIX = "0.0.0";
+/// private const string CI_DEPLOYMENT__VERSION_PREFIX = "0.0.0";
 /// </code>
 /// </para>
 /// </param>
@@ -21,7 +21,7 @@ namespace Wkg.Versioning;
 /// This value should be injected by the continuous integration pipeline.
 /// Ensure that your implementation contains the following line verbatim and that your implementation file is referenced in the gitlab-ci.yml file.
 /// <code>
-/// private const string __CI_DEPLOYMENT_VERSION_SUFFIX = "CI-INJECTED";
+/// private const string CI_DEPLOYMENT__VERSION_SUFFIX = "CI-INJECTED";
 /// </code>
 /// </para>
 /// </param>
@@ -31,7 +31,7 @@ namespace Wkg.Versioning;
 /// This value should be injected by the continuous integration pipeline.
 /// Ensure that your implementation contains the following line verbatim and that your implementation file is referenced in the gitlab-ci.yml file.
 /// <code>
-/// private const string __CI_DEPLOYMENT_DATETIME_UTC = "1970-01-01 00:00:00";
+/// private const string CI_DEPLOYMENT__DATETIME_UTC = "1970-01-01 00:00:00";
 /// </code>
 /// </para>
 /// </param>
@@ -63,4 +63,9 @@ public abstract class DeploymentVersionInfo(string versionPrefix, string version
     public string VersionString { get; } = string.IsNullOrWhiteSpace(versionSuffix)
         ? versionPrefix
         : $"{versionPrefix}-{versionSuffix}";
+
+    /// <summary>
+    /// Indicates whether the deployment has been built in debug mode.
+    /// </summary>
+    public bool IsDebugBuild => versionSuffix is "diag" or "debug";
 }

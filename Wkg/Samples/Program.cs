@@ -80,7 +80,7 @@ using (ClassfulWorkloadFactory<QdiscType> clubmappFactory = WorkloadFactoryBuild
     // the root scheduler will fairly dequeue workloads alternating between the two child schedulers (Round Robin)
     // a classifying root scheduler can have children and also allows dynamic assignment of workloads to child schedulers
     // based on some state object
-    .UseClassfulRoot<RoundRobinBitmap>(QdiscType.RoundRobin, roundRobinClassBuilder => roundRobinClassBuilder
+    .UseClassfulRoot<RoundRobin>(QdiscType.RoundRobin, roundRobinClassBuilder => roundRobinClassBuilder
         .ConfigureClassificationPredicates(classificationBuilder => classificationBuilder
             .AddPredicate<State>(state => state.QdiscType == QdiscType.RoundRobin))
         // one child scheduler will dequeue workloads in a First In First Out manner

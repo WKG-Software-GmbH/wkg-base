@@ -32,7 +32,7 @@ internal sealed class ConstrainedLifoQdisc<THandle>(THandle handle, Predicate<ob
             state.Tail = (ushort)MathExtensions.Modulo(state.Tail - 1, _workloads.Length);
             workload = Volatile.Read(ref _workloads[state.Tail]);
             state.IsEmpty = state.Head == state.Tail;
-            newState = state.__State;
+            newState = state.UnderlyingStorage;
         } while (Interlocked.CompareExchange(ref _state, newState, currentState) != currentState);
         Debug.Assert(workload is not null);
         return true;

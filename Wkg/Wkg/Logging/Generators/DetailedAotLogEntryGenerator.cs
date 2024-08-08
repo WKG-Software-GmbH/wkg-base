@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Text;
 using Wkg.Logging.Configuration;
 using Wkg.Logging.Generators.Helpers;
@@ -9,36 +9,37 @@ namespace Wkg.Logging.Generators;
 /// <summary>
 /// An AOT compatible <see cref="ILogEntryGenerator"/> implementation with detailed log entries enumerated on compile time that generates log entries in the following format:
 /// <code>
-/// 2023-05-31 14:14:24.626 (UTC) [Info->Thread_0x1(MAIN THREAD)] (MyClass.cs:L69->MyMethod) ==> Output: 'Hello world! :)'
-/// 2023-05-31 14:14:24.626 (UTC) [ERROR->Thread_0x1(MAIN THREAD)] (MyClass.cs:L69->MyMethod) ==> [NullReferenceException] info: 'while trying to do a thing' original: 'Exception message' at:
+/// 2023-05-31 14:14:24.626 (UTC) [Info->Thread_0x1(MAIN THREAD)] (MyClass.cs:L69->MyMethod) ==> Output: 'This is a log message'
+/// 2023-05-31 14:14:24.626 (UTC) [ERROR->Thread_0x1(MAIN THREAD)] (MyClass.cs:L240->MyMethod) ==> [NullReferenceException] info: 'while trying to do a thing' original: 'Object reference not set to an instance of an object.' at:
 ///   StackTrace line 1
-/// 2023-05-31 14:14:24.626 (UTC) [Event->Thread_0x1(MAIN THREAD)] (MyClass.cs:L69->MyMethod) ==> MyAssembly::MyClass::MyButtonInstance::OnClick(MyEventType: eventArgs)
+/// 2023-05-31 14:14:24.626 (UTC) [Event->Thread_0x1(MAIN THREAD)] (MyClass.cs:L1337->MyMethod) ==> MyAssembly::MyClass::MyButtonInstance::OnClick(MyEventType: eventArgs)
 /// </code>
 /// </summary>
 /// <remarks>
 /// This class does not require reflective enumeration of target site information or stack unwinding, making it a good candidate for use in production environments.
 /// </remarks>
-public class DetailedLogEntryGenerator : ILogEntryGenerator<DetailedLogEntryGenerator>
+public class DetailedAotLogEntryGenerator : ILogEntryGenerator<DetailedAotLogEntryGenerator>
 {
     private const int DEFAULT_STRING_BUILDER_CAPACITY = 512;
 
     /// <summary>
-    /// The <see cref="CompiledLoggerConfiguration"/> used to create this <see cref="DetailedLogEntryGenerator"/>
+    /// The <see cref="CompiledLoggerConfiguration"/> used to create this <see cref="DetailedAotLogEntryGenerator"/>
     /// </summary>
     protected readonly CompiledLoggerConfiguration _config;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="DetailedLogEntryGenerator"/> class.
+    /// Initializes a new instance of the <see cref="DetailedAotLogEntryGenerator"/> class.
     /// </summary>
-    /// <param name="config">The <see cref="CompiledLoggerConfiguration"/> used to create this <see cref="DetailedLogEntryGenerator"/></param>
-    protected DetailedLogEntryGenerator(CompiledLoggerConfiguration config) => 
+    /// <param name="config">The <see cref="CompiledLoggerConfiguration"/> used to create this <see cref="DetailedAotLogEntryGenerator"/></param>
+    protected DetailedAotLogEntryGenerator(CompiledLoggerConfiguration config) => 
         _config = config;
 
     /// <inheritdoc/>
-    public static DetailedLogEntryGenerator Create(CompiledLoggerConfiguration config) => 
+    public static DetailedAotLogEntryGenerator Create(CompiledLoggerConfiguration config) => 
         new(config);
 
     /// <inheritdoc/>
+    [StackTraceHidden]
     public virtual void Generate(ref LogEntry entry, string title, string message)
     {
         // 2023-05-31 14:14:24.626 (UTC) [Info->Thread_0x1(MAIN THREAD)] (MyClass.cs:L69->MyMethod) ==> Output: 'Hello world! :)'
@@ -54,6 +55,7 @@ public class DetailedLogEntryGenerator : ILogEntryGenerator<DetailedLogEntryGene
     }
 
     /// <inheritdoc/>
+    [StackTraceHidden]
     public virtual void Generate(ref LogEntry entry, Exception exception, string? additionalInfo)
     {
         // 2023-05-31 14:14:24.626 (UTC) [ERROR->Thread_0x1(MAIN THREAD)] (MyClass.cs:L69->MyMethod) ==> [NullReferenceException] info: 'while trying to do a thing' original: 'Exception message' at:
@@ -130,16 +132,17 @@ public class DetailedLogEntryGenerator : ILogEntryGenerator<DetailedLogEntryGene
     }
 
     /// <inheritdoc/>
-    public virtual void Generate<TEventArgs>(ref LogEntry entry, string? assemblyName, string? className, string instanceName, string eventName, TEventArgs eventArgs)
+    [StackTraceHidden]
+    public virtual void Generate<TEventArgs>(ref LogEntry entry, string? className, string instanceName, string eventName, TEventArgs eventArgs)
     {
         // 2023-05-31 14:14:24.626 (UTC) [Event->Thread_0x1(MAIN THREAD)] (MyClass.cs:L69->MyMethod) ==> MyAssembly::MyClass::MyButtonInstance::OnClick(MyEventType: eventArgs)
         StringBuilder builder = StringBuilderPool.Shared.Rent(DEFAULT_STRING_BUILDER_CAPACITY).Clear();
 
         AddHeader(ref entry, builder);
 
+        string? assemblyName = entry.AssemblyName;
         if (assemblyName is not null && className is not null)
         {
-            entry.AssemblyName = assemblyName;
             entry.ClassName = className;
             builder.Append(assemblyName)
                 .Append("::")
@@ -170,6 +173,7 @@ public class DetailedLogEntryGenerator : ILogEntryGenerator<DetailedLogEntryGene
     /// </remarks>
     /// <param name="entry">The <see cref="LogEntry"/> to generate the header for.</param>
     /// <param name="builder">The <see cref="StringBuilder"/> to append the header to.</param>
+    [StackTraceHidden]
     protected virtual void AddHeader(ref LogEntry entry, StringBuilder builder)
     {
         string textLogLevel = LogLevelNames.NameForOrUnknown(entry.LogLevel);

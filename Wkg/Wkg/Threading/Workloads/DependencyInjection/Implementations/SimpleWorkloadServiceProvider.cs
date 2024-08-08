@@ -6,7 +6,7 @@ internal class SimpleWorkloadServiceProvider : WorkloadServiceProviderBase
 {
     private protected readonly Dictionary<Type, Func<object>> _servicesFactories = [];
     private protected readonly Dictionary<Type, object> _services = [];
-    private bool disposedValue;
+    private bool _disposedValue;
 
     public SimpleWorkloadServiceProvider(IEnumerable<KeyValuePair<Type, Func<object>>> serviceFactories)
     {
@@ -73,7 +73,7 @@ internal class SimpleWorkloadServiceProvider : WorkloadServiceProviderBase
 
     protected virtual void Dispose(bool disposing)
     {
-        if (!disposedValue)
+        if (!_disposedValue)
         {
             if (disposing)
             {
@@ -88,7 +88,7 @@ internal class SimpleWorkloadServiceProvider : WorkloadServiceProviderBase
 
             _services.Clear();
             _servicesFactories.Clear();
-            disposedValue = true;
+            _disposedValue = true;
         }
     }
 

@@ -12,34 +12,34 @@ namespace Wkg.Threading.Workloads.Queuing.Classful.PrioFast;
 /// <summary>
 /// A classful qdisc that implements a simple priority scheduling algorithm to dequeue workloads from its children.
 /// </summary>
-public sealed class PrioFastLockingBitmap<THandle> : CustomClassfulQdiscBuilder<THandle, PrioFastLockingBitmap<THandle>>, ICustomClassfulQdiscBuilder<THandle, PrioFastLockingBitmap<THandle>>
+public sealed class PrioFast<THandle> : CustomClassfulQdiscBuilder<THandle, PrioFast<THandle>>, ICustomClassfulQdiscBuilder<THandle, PrioFast<THandle>>
     where THandle : unmanaged
 {
     private IClasslessQdiscBuilder? _localQueueBuilder;
     private Predicate<object?>? _predicate;
-
+    private bool _expectHighContention;
     private readonly Dictionary<int, IClassifyingQdisc<THandle>> _children = [];
 
-    private PrioFastLockingBitmap(THandle handle, IQdiscBuilderContext context) : base(handle, context) => Pass();
+    private PrioFast(THandle handle, IQdiscBuilderContext context) : base(handle, context) => Pass();
 
-    public static PrioFastLockingBitmap<THandle> CreateBuilder(THandle handle, IQdiscBuilderContext context) =>
+    public static PrioFast<THandle> CreateBuilder(THandle handle, IQdiscBuilderContext context) =>
        new(handle, context);
 
-    public PrioFastLockingBitmap<THandle> WithClassificationPredicate(Predicate<object?> predicate)
+    public PrioFast<THandle> WithClassificationPredicate(Predicate<object?> predicate)
     {
         _predicate = predicate;
         return this;
     }
 
-    public PrioFastLockingBitmap<THandle> WithLocalQueue<TLocalQueue>()
+    public PrioFast<THandle> WithLocalQueue<TLocalQueue>()
         where TLocalQueue : ClasslessQdiscBuilder<TLocalQueue>, IClasslessQdiscBuilder<TLocalQueue> =>
             WithLocalQueueCore<TLocalQueue>(null);
 
-    public PrioFastLockingBitmap<THandle> WithLocalQueue<TLocalQueue>(Action<TLocalQueue> configureLocalQueue)
+    public PrioFast<THandle> WithLocalQueue<TLocalQueue>(Action<TLocalQueue> configureLocalQueue)
         where TLocalQueue : ClasslessQdiscBuilder<TLocalQueue>, IClasslessQdiscBuilder<TLocalQueue> =>
             WithLocalQueueCore(configureLocalQueue);
 
-    private PrioFastLockingBitmap<THandle> WithLocalQueueCore<TLocalQueue>(Action<TLocalQueue>? configureLocalQueue)
+    private PrioFast<THandle> WithLocalQueueCore<TLocalQueue>(Action<TLocalQueue>? configureLocalQueue)
         where TLocalQueue : ClasslessQdiscBuilder<TLocalQueue>, IClasslessQdiscBuilder<TLocalQueue>
     {
         if (_localQueueBuilder is not null)
@@ -54,19 +54,30 @@ public sealed class PrioFastLockingBitmap<THandle> : CustomClassfulQdiscBuilder<
         return this;
     }
 
-    public PrioFastLockingBitmap<THandle> AddClasslessChild<TChild>(THandle childHandle, int priority)
+    /// <summary>
+    /// Optimizes the qdisc for high contention scenarios with a large number of workers and workloads.
+    /// </summary>
+    /// <param name="expectHighContention">Whether to optimize for high contention scenarios.</param>
+    /// <returns>The current instance of the builder.</returns>
+    public PrioFast<THandle> OptimizeForHighContention(bool expectHighContention = true)
+    {
+        _expectHighContention = expectHighContention;
+        return this;
+    }
+
+    public PrioFast<THandle> AddClasslessChild<TChild>(THandle childHandle, int priority)
         where TChild : ClasslessQdiscBuilder<TChild>, IClasslessQdiscBuilder<TChild> => AddClasslessChildCore<TChild>(childHandle, priority, null, null);
 
-    public PrioFastLockingBitmap<THandle> AddClasslessChild<TChild>(THandle childHandle, int priority, Action<TChild> configureChild)
+    public PrioFast<THandle> AddClasslessChild<TChild>(THandle childHandle, int priority, Action<TChild> configureChild)
         where TChild : ClasslessQdiscBuilder<TChild>, IClasslessQdiscBuilder<TChild> => AddClasslessChildCore(childHandle, priority, null, configureChild);
 
-    public PrioFastLockingBitmap<THandle> AddClasslessChild<TChild>(THandle childHandle, int priority, Action<SimplePredicateBuilder> configureClassification)
+    public PrioFast<THandle> AddClasslessChild<TChild>(THandle childHandle, int priority, Action<SimplePredicateBuilder> configureClassification)
         where TChild : ClasslessQdiscBuilder<TChild>, IClasslessQdiscBuilder<TChild> => AddClasslessChildCore<TChild>(childHandle, priority, configureClassification, null);
 
-    public PrioFastLockingBitmap<THandle> AddClasslessChild<TChild>(THandle childHandle, int priority, Action<SimplePredicateBuilder> configureClassification, Action<TChild> configureChild)
+    public PrioFast<THandle> AddClasslessChild<TChild>(THandle childHandle, int priority, Action<SimplePredicateBuilder> configureClassification, Action<TChild> configureChild)
         where TChild : ClasslessQdiscBuilder<TChild>, IClasslessQdiscBuilder<TChild> => AddClasslessChildCore(childHandle, priority, configureClassification, configureChild);
 
-    private PrioFastLockingBitmap<THandle> AddClasslessChildCore<TChild>(THandle childHandle, int priority, Action<SimplePredicateBuilder>? configureClassification, Action<TChild>? configureChild)
+    private PrioFast<THandle> AddClasslessChildCore<TChild>(THandle childHandle, int priority, Action<SimplePredicateBuilder>? configureClassification, Action<TChild>? configureChild)
         where TChild : ClasslessQdiscBuilder<TChild>, IClasslessQdiscBuilder<TChild>
     {
         if (_children.ContainsKey(priority))
@@ -91,7 +102,7 @@ public sealed class PrioFastLockingBitmap<THandle> : CustomClassfulQdiscBuilder<
         return this;
     }
 
-    public PrioFastLockingBitmap<THandle> AddClassfulChild<TChild>(THandle childHandle, int priority)
+    public PrioFast<THandle> AddClassfulChild<TChild>(THandle childHandle, int priority)
         where TChild : ClassfulQdiscBuilder<TChild>, IClassfulQdiscBuilder<TChild>
     {
         if (_children.ContainsKey(priority))
@@ -105,7 +116,7 @@ public sealed class PrioFastLockingBitmap<THandle> : CustomClassfulQdiscBuilder<
         return this;
     }
 
-    public PrioFastLockingBitmap<THandle> AddClassfulChild<TChild>(THandle childHandle, int priority, Action<TChild> configureChild)
+    public PrioFast<THandle> AddClassfulChild<TChild>(THandle childHandle, int priority, Action<TChild> configureChild)
         where TChild : CustomClassfulQdiscBuilder<THandle, TChild>, ICustomClassfulQdiscBuilder<THandle, TChild>
     {
         if (_children.ContainsKey(priority))
@@ -120,7 +131,7 @@ public sealed class PrioFastLockingBitmap<THandle> : CustomClassfulQdiscBuilder<
         return this;
     }
 
-    public PrioFastLockingBitmap<THandle> AddClassfulChild<TChild>(THandle childHandle, int priority, Action<ClassfulBuilder<THandle, SimplePredicateBuilder, TChild>> configureChild)
+    public PrioFast<THandle> AddClassfulChild<TChild>(THandle childHandle, int priority, Action<ClassfulBuilder<THandle, SimplePredicateBuilder, TChild>> configureChild)
         where TChild : ClassfulQdiscBuilder<TChild>, IClassfulQdiscBuilder<TChild>
     {
         if (_children.ContainsKey(priority))
@@ -139,6 +150,8 @@ public sealed class PrioFastLockingBitmap<THandle> : CustomClassfulQdiscBuilder<
     {
         _localQueueBuilder ??= Fifo.CreateBuilder(_context);
         IClassifyingQdisc<THandle>[] children = _children.OrderBy(kvp => kvp.Key).Select(kvp => kvp.Value).ToArray();
-        return new PrioFastLockingBitmapQdisc<THandle>(handle, _predicate, _localQueueBuilder, children, _context.MaximumConcurrency);
+        return _expectHighContention
+            ? new PrioFastBitmapQdisc<THandle>(handle, _predicate, _localQueueBuilder, children, _context.MaximumConcurrency)
+            : new PrioFastLockingBitmapQdisc<THandle>(handle, _predicate, _localQueueBuilder, children, _context.MaximumConcurrency);
     }
 }

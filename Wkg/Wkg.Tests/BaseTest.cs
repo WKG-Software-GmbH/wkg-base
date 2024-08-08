@@ -7,17 +7,17 @@ namespace Wkg.Tests;
 
 public abstract class BaseTest
 {
-    private static readonly object _lock = new();
-    private static bool _isInitialized = false;
+    private static readonly object s_lock = new();
+    private static bool s_isInitialized = false;
 
     private protected BaseTest()
     {
-        lock (_lock)
+        lock (s_lock)
         {
-            if (!_isInitialized)
+            if (!s_isInitialized)
             {
                 MemoryManager.UseImplementation<ThreadLocalAllocationTracker<NativeMemoryManager>>();
-                _isInitialized = true;
+                s_isInitialized = true;
             }
         }
     }

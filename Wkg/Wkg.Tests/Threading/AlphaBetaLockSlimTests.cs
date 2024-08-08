@@ -1,7 +1,4 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System;
-using System.Threading;
-using Wkg.Threading;
 
 namespace Wkg.Threading.Tests;
 

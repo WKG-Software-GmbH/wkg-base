@@ -1,17 +1,13 @@
 ﻿namespace Wkg.Threading.Workloads.DependencyInjection.Configuration;
 
-public class WorkloadServiceProviderBuilder
+public class WorkloadServiceProviderBuilder(IWorkloadServiceProviderFactory factory)
 {
-    private readonly IWorkloadServiceProviderFactory _factory;
-
-    public WorkloadServiceProviderBuilder(IWorkloadServiceProviderFactory factory) => _factory = factory;
-
     public WorkloadServiceProviderBuilder AddService<T>(Func<T> serviceFactory) where T : class =>
         AddService<T, T>(serviceFactory);
 
     public WorkloadServiceProviderBuilder AddService<TInterface, TImplementation>(Func<TImplementation> serviceFactory) where TImplementation : class, TInterface
     {
-        _factory.AddService<TInterface, TImplementation>(serviceFactory);
+        factory.AddService<TInterface, TImplementation>(serviceFactory);
         return this;
     }
 
@@ -22,9 +18,9 @@ public class WorkloadServiceProviderBuilder
     {
         ArgumentNullException.ThrowIfNull(singleton, nameof(singleton));
 
-        _factory.AddService<TInterface, TImplementation>(() => singleton);
+        factory.AddService<TInterface, TImplementation>(() => singleton);
         return this;
     }
 
-    internal IWorkloadServiceProviderFactory Build() => _factory;
+    internal IWorkloadServiceProviderFactory Build() => factory;
 }

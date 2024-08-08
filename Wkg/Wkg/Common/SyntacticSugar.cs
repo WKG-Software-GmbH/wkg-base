@@ -99,5 +99,5 @@ public static class SyntacticSugar
     /// <returns>The provided <paramref name="value"/> but with the Code Analysis hint that it is nullable.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [return: MaybeNull]
-    public static T? Nullable<T>(T? value) => value;
+    public static T? NullableOf<T>(T? value) => value;
 }

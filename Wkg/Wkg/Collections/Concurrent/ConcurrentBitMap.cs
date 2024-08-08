@@ -50,10 +50,10 @@ public sealed class ConcurrentBitmap : IDisposable, IParentNode
     internal const int SEGMENTS_PER_CLUSTER = SEGMENT_BIT_SIZE / 2;
     internal const int CLUSTER_BIT_SIZE = SEGMENTS_PER_CLUSTER * SEGMENT_BIT_SIZE;
     internal const int INTERNAL_NODE_BIT_LIMIT = SEGMENTS_PER_CLUSTER * CLUSTER_BIT_SIZE;
-    internal readonly ReaderWriterLockSlim _syncRoot;
+    internal readonly ReaderWriterLockSlim SyncRoot;
     private volatile ConcurrentBitmapNode _root;
     private int _depth;
-    private bool disposedValue;
+    private bool _disposedValue;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ConcurrentBitmap"/> class.
@@ -61,7 +61,7 @@ public sealed class ConcurrentBitmap : IDisposable, IParentNode
     public ConcurrentBitmap(int bitSize)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(bitSize, nameof(bitSize));
-        _syncRoot = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
+        SyncRoot = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
 
         // do we need an internal root node, or can we just create a cluster directly?
         if (bitSize > CLUSTER_BIT_SIZE)
@@ -102,7 +102,7 @@ public sealed class ConcurrentBitmap : IDisposable, IParentNode
     {
         get
         {
-            using ILockOwnership readLock = _syncRoot.AcquireReadLock();
+            using ILockOwnership readLock = SyncRoot.AcquireReadLock();
             return _root.UnsafePopCount();
         }
     }
@@ -123,7 +123,7 @@ public sealed class ConcurrentBitmap : IDisposable, IParentNode
         Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, Length - 1, nameof(index));
 
         // sync root is only used in write mode only when restructuring the tree or operating on cross-node boundaries
-        using ILockOwnership readLock = _syncRoot.AcquireReadLock();
+        using ILockOwnership readLock = SyncRoot.AcquireReadLock();
         return _root.GetToken(index);
     }
 
@@ -147,7 +147,7 @@ public sealed class ConcurrentBitmap : IDisposable, IParentNode
         Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, Length - 1, nameof(index));
 
         // sync root is only used in write mode only when restructuring the tree or operating on cross-node boundaries
-        using ILockOwnership readLock = _syncRoot.AcquireReadLock();
+        using ILockOwnership readLock = SyncRoot.AcquireReadLock();
         return _root.GetBitInfo(index);
     }
 
@@ -173,7 +173,7 @@ public sealed class ConcurrentBitmap : IDisposable, IParentNode
     {
         get
         {
-            using ILockOwnership readLock = _syncRoot.AcquireReadLock();
+            using ILockOwnership readLock = SyncRoot.AcquireReadLock();
             return _root.IsFull;
         }
     }
@@ -191,7 +191,7 @@ public sealed class ConcurrentBitmap : IDisposable, IParentNode
     {
         get
         {
-            using ILockOwnership readLock = _syncRoot.AcquireReadLock();
+            using ILockOwnership readLock = SyncRoot.AcquireReadLock();
             return _root.IsEmpty;
         }
     }
@@ -212,7 +212,7 @@ public sealed class ConcurrentBitmap : IDisposable, IParentNode
         Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, Length - 1, nameof(index));
 
         // sync root is only used in write mode only when restructuring the tree or operating on cross-node boundaries
-        using ILockOwnership readLock = _syncRoot.AcquireReadLock();
+        using ILockOwnership readLock = SyncRoot.AcquireReadLock();
         return _root.IsBitSet(index);
     }
 
@@ -236,7 +236,7 @@ public sealed class ConcurrentBitmap : IDisposable, IParentNode
         Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, Length - 1, nameof(index));
 
         // sync root is only used in write mode only when restructuring the tree or operating on cross-node boundaries
-        using ILockOwnership readLock = _syncRoot.AcquireReadLock();
+        using ILockOwnership readLock = SyncRoot.AcquireReadLock();
         _root.UpdateBit(index, value, out _);
     }
 
@@ -265,7 +265,7 @@ public sealed class ConcurrentBitmap : IDisposable, IParentNode
         Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, Length - 1, nameof(index));
 
         // sync root is only used in write mode when restructuring the tree or operating on cross-node boundaries
-        using ILockOwnership readLock = _syncRoot.AcquireWriteLock();
+        using ILockOwnership readLock = SyncRoot.AcquireWriteLock();
         return _root.TryUpdateBit(index, token, value, out _);
     }
 
@@ -292,7 +292,7 @@ public sealed class ConcurrentBitmap : IDisposable, IParentNode
         Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, grow ? Length : Length - 1, nameof(index));
 
         // requires global write lock
-        using ILockOwnership writeLock = _syncRoot.AcquireWriteLock();
+        using ILockOwnership writeLock = SyncRoot.AcquireWriteLock();
         if (grow)
         {
             GrowCore(1);
@@ -312,7 +312,7 @@ public sealed class ConcurrentBitmap : IDisposable, IParentNode
         Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, Length - 1, nameof(index));
 
         // requires global write lock
-        using ILockOwnership writeLock = _syncRoot.AcquireWriteLock();
+        using ILockOwnership writeLock = SyncRoot.AcquireWriteLock();
         _root.RemoveBitAt(index);
         if (shrink)
         {
@@ -330,7 +330,7 @@ public sealed class ConcurrentBitmap : IDisposable, IParentNode
     {
         ArgumentOutOfRangeException.ThrowIfNegative(additionalSize, nameof(additionalSize));
 
-        using ILockOwnership writeLock = _syncRoot.AcquireWriteLock();
+        using ILockOwnership writeLock = SyncRoot.AcquireWriteLock();
         GrowCore(additionalSize);
     }
 
@@ -366,7 +366,7 @@ public sealed class ConcurrentBitmap : IDisposable, IParentNode
         ArgumentOutOfRangeException.ThrowIfNegative(removalSize, nameof(removalSize));
         ArgumentOutOfRangeException.ThrowIfGreaterThan(removalSize, Length, nameof(removalSize));
 
-        using ILockOwnership writeLock = _syncRoot.AcquireWriteLock();
+        using ILockOwnership writeLock = SyncRoot.AcquireWriteLock();
         ShrinkCoreUnsafe(removalSize);
     }
 
@@ -395,10 +395,10 @@ public sealed class ConcurrentBitmap : IDisposable, IParentNode
 
     private void Dispose(bool disposing)
     {
-        if (disposing && !disposedValue)
+        if (disposing && !_disposedValue)
         {
             _root.Dispose();
-            disposedValue = true;
+            _disposedValue = true;
         }
     }
 
@@ -426,7 +426,7 @@ public readonly struct GuardedBitInfo
     public readonly bool IsSet;
     // kinda whatever, not oftenly accessed
     [FieldOffset(2)]
-    private readonly ushort IndexLow;
+    private readonly ushort _indexLow;
     /// <summary>
     /// The guard token of the segment that contains the bit.
     /// </summary>
@@ -435,18 +435,18 @@ public readonly struct GuardedBitInfo
     public readonly byte Token;
     // also who cares, not oftenly accessed
     [FieldOffset(6)]
-    private readonly ushort IndexHigh;
+    private readonly ushort _indexHigh;
 
     internal GuardedBitInfo(bool isSet, byte token, int index)
     {
         IsSet = isSet;
         Token = token;
-        IndexLow = (ushort)index;
-        IndexHigh = (ushort)(index >> 16);
+        _indexLow = (ushort)index;
+        _indexHigh = (ushort)(index >> 16);
     }
 
     /// <summary>
     /// The index of the bit.
     /// </summary>
-    public int Index => (IndexHigh << 16) | IndexLow;
+    public int Index => (_indexHigh << 16) | _indexLow;
 }

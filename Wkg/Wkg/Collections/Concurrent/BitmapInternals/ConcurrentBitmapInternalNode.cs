@@ -58,7 +58,7 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
                     {
                         childBitSize = childStepSize;
                     }
-                    children[i] = new ConcurrentBitmapInternalNode(i, baseAddress + i * childStepSize, remainingDepth - 1, childBitSize, this, null);
+                    children[i] = new ConcurrentBitmapInternalNode(i, baseAddress + (i * childStepSize), remainingDepth - 1, childBitSize, this, null);
                 }
             }
             _childMaxBitSize = childStepSize;
@@ -90,7 +90,7 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
                     {
                         childBitSize = CLUSTER_BIT_SIZE;
                     }
-                    children[i] = new ConcurrentBitmapClusterNode(i, baseAddress + i * CLUSTER_BIT_SIZE, childBitSize, this);
+                    children[i] = new ConcurrentBitmapClusterNode(i, baseAddress + (i * CLUSTER_BIT_SIZE), childBitSize, this);
                 }
             }
             _childMaxBitSize = CLUSTER_BIT_SIZE;
@@ -364,7 +364,7 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
                         childBitSize = _childMaxBitSize;
                     }
                     // what type of child do we need?
-                    int baseAddress = _baseAddress + i * _childMaxBitSize;
+                    int baseAddress = _baseAddress + (i * _childMaxBitSize);
                     if (_childIsInternalNode)
                     {
                         children[i] = new ConcurrentBitmapInternalNode(i, baseAddress, _depth - 1, childBitSize, this, null);
@@ -417,7 +417,7 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
             int removedChildCount = children.Length - newTotalChildCount;
             Debug.Assert(removedChildCount > 0);
             int newLastChildIndex = newTotalChildCount - 1;
-            int newLastChildSize = newTotalBitSize - newLastChildIndex * _childMaxBitSize;
+            int newLastChildSize = newTotalBitSize - (newLastChildIndex * _childMaxBitSize);
             ConcurrentBitmap56 nodeStateSnapshot = ConcurrentBitmap56.VolatileRead(ref _nodeState);
             for (int i = FastMath.Max(newLastChildIndex, 0); i < children.Length; i++)
             {

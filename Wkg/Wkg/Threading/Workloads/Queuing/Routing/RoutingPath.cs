@@ -2,14 +2,12 @@
 using Wkg.Data.Pooling;
 using Wkg.Threading.Workloads.Exceptions;
 using Wkg.Threading.Workloads.Queuing.Classless;
-using Wkg.Threading.Workloads.Scheduling;
 
 namespace Wkg.Threading.Workloads.Queuing.Routing;
 
 public ref struct RoutingPath<THandle> where THandle : unmanaged
 {
     private PooledArray<RoutingPathNode<THandle>> _path;
-    private IClassifyingQdisc<THandle>? _leaf;
 
     internal RoutingPath(int capacity)
     {
@@ -32,7 +30,7 @@ public ref struct RoutingPath<THandle> where THandle : unmanaged
     /// <summary>
     /// Gets the leaf qdisc of the path. This is the qdisc that will be used to enqueue workloads.
     /// </summary>
-    public readonly IClassifyingQdisc<THandle>? Leaf => _leaf;
+    public IClassifyingQdisc<THandle>? Leaf { get; private set; }
 
     /// <summary>
     /// Adds a node to the path.
@@ -58,12 +56,12 @@ public ref struct RoutingPath<THandle> where THandle : unmanaged
     /// <param name="leaf">The leaf qdisc. This is the qdisc that will be used to enqueue workloads.</param>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="leaf"/> is <see langword="null"/>.</exception>
     /// <exception cref="InvalidOperationException">Thrown if the routing path has already been completed.</exception>
-    [MemberNotNull(nameof(_leaf))]
+    [MemberNotNull(nameof(Leaf))]
     public void Complete(IClassifyingQdisc<THandle> leaf)
     {
         ArgumentNullException.ThrowIfNull(leaf, nameof(leaf));
-        WorkloadSchedulingException.ThrowIfRoutingPathLeafIsCompleted(_leaf);
-        _leaf = leaf;
+        WorkloadSchedulingException.ThrowIfRoutingPathLeafIsCompleted(Leaf);
+        Leaf = leaf;
     }
 
     public readonly Enumerator GetEnumerator() => new(this);

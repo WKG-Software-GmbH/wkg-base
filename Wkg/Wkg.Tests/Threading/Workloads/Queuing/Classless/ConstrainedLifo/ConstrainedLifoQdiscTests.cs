@@ -9,11 +9,11 @@ namespace Wkg.Threading.Workloads.Queuing.Classless.ConstrainedLifo.Tests;
 [TestClass]
 public class ConstrainedLifoQdiscTests
 {
-    private static readonly IQdiscBuilderContext _context = new QdiscBuilderContext();
+    private static readonly IQdiscBuilderContext s_context = new QdiscBuilderContext();
 
     private static IClassifyingQdisc<int> CreateDefaultQdisc(int capacity)
     {
-        IClassifyingQdisc<int> qdisc = ConstrainedLifo.CreateBuilder(_context)
+        IClassifyingQdisc<int> qdisc = ConstrainedLifo.CreateBuilder(s_context)
             .WithCapacity(capacity)
             .To<IClasslessQdiscBuilder>()
             .BuildUnsafe<int>();
@@ -25,21 +25,21 @@ public class ConstrainedLifoQdiscTests
     public void TestBuilder()
     {
         Assert.ThrowsException<InvalidOperationException>(() =>
-            ConstrainedLifo.CreateBuilder(_context).To<IClasslessQdiscBuilder>().Build(1, null));
+            ConstrainedLifo.CreateBuilder(s_context).To<IClasslessQdiscBuilder>().Build(1, null));
 
         Assert.ThrowsException<ArgumentOutOfRangeException>(() =>
-            ConstrainedLifo.CreateBuilder(_context).WithCapacity(0).To<IClasslessQdiscBuilder>().Build(1, null));
+            ConstrainedLifo.CreateBuilder(s_context).WithCapacity(0).To<IClasslessQdiscBuilder>().Build(1, null));
 
         Assert.ThrowsException<ArgumentOutOfRangeException>(() =>
-            ConstrainedLifo.CreateBuilder(_context).WithCapacity(1).WithCapacity(0).To<IClasslessQdiscBuilder>().Build(1, null));
+            ConstrainedLifo.CreateBuilder(s_context).WithCapacity(1).WithCapacity(0).To<IClasslessQdiscBuilder>().Build(1, null));
 
         Assert.ThrowsException<InvalidOperationException>(() =>
-            ConstrainedLifo.CreateBuilder(_context).WithCapacity(1).WithCapacity(3).To<IClasslessQdiscBuilder>().Build(1, null));
+            ConstrainedLifo.CreateBuilder(s_context).WithCapacity(1).WithCapacity(3).To<IClasslessQdiscBuilder>().Build(1, null));
 
         Assert.ThrowsException<ArgumentOutOfRangeException>(() => 
-            ConstrainedLifo.CreateBuilder(_context).WithCapacity(-1).To<IClasslessQdiscBuilder>().Build(1, null));
+            ConstrainedLifo.CreateBuilder(s_context).WithCapacity(-1).To<IClasslessQdiscBuilder>().Build(1, null));
 
-        IClassifyingQdisc<int> qdisc = ConstrainedLifo.CreateBuilder(_context).WithCapacity(8).To<IClasslessQdiscBuilder>().Build(1, null);
+        IClassifyingQdisc<int> qdisc = ConstrainedLifo.CreateBuilder(s_context).WithCapacity(8).To<IClasslessQdiscBuilder>().Build(1, null);
         Assert.IsNotNull(qdisc);
         Assert.IsInstanceOfType<ConstrainedLifoQdisc<int>>(qdisc);
     }

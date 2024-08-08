@@ -10,8 +10,8 @@ public class GuidExtensionsTests : BaseTest
     [TestMethod]
     public void ToStringBigEndianTest()
     {
-        const string expected = "2e2aff92-b697-40f0-9f5e-107999392b51";
-        Guid guid = new(Convert.FromHexString(expected.Replace("-", string.Empty)));
-        Assert.AreEqual(expected, guid.ToStringBigEndian());
+        const string EXPECTED = "2e2aff92-b697-40f0-9f5e-107999392b51";
+        Guid guid = new(Convert.FromHexString(EXPECTED.Replace("-", string.Empty)));
+        Assert.AreEqual(EXPECTED, guid.ToStringBigEndian());
     }
 }

@@ -1,6 +1,4 @@
-﻿using System.Diagnostics;
-using System.Threading;
-using Wkg.Internals.Diagnostic;
+﻿using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
 using Wkg.Threading.Workloads.Continuations;
 

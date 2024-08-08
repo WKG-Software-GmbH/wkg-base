@@ -30,12 +30,11 @@ public interface ILogEntryGenerator
     /// </summary>
     /// <typeparam name="TEventArgs">The type of the event arguments.</typeparam>
     /// <param name="entry">The <see cref="LogEntry"/> to write the log entry to.</param>
-    /// <param name="assemblyName">The name of the assembly that raised the event.</param>
     /// <param name="className">The name of the class that raised the event.</param>
     /// <param name="instanceName">The name of the instance that raised the event.</param>
     /// <param name="eventName">The name of the event that was raised.</param>
     /// <param name="eventArgs">The event arguments.</param>
-    void Generate<TEventArgs>(ref LogEntry entry, string? assemblyName, string? className, string instanceName, string eventName, TEventArgs eventArgs);
+    void Generate<TEventArgs>(ref LogEntry entry, string? className, string instanceName, string eventName, TEventArgs eventArgs);
 }
 
 /// <summary>

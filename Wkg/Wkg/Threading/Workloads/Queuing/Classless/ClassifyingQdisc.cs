@@ -6,7 +6,6 @@ using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
 using Wkg.Threading.Workloads.Exceptions;
 using Wkg.Threading.Workloads.Queuing.Routing;
-using Wkg.Threading.Workloads.Scheduling;
 
 namespace Wkg.Threading.Workloads.Queuing.Classless;
 
@@ -14,28 +13,21 @@ namespace Wkg.Threading.Workloads.Queuing.Classless;
 /// Base class for qdiscs.
 /// </summary>
 /// <typeparam name="THandle">The type of the handle.</typeparam>
-public abstract class ClassifyingQdisc<THandle> : IClassifyingQdisc<THandle> where THandle : unmanaged
+/// <remarks>
+/// Initializes a new instance of the <see cref="ClassifyingQdisc{THandle}"/> class.
+/// </remarks>
+/// <param name="handle">The handle uniquely identifying this qdisc in this scheduling hierarchy.</param>
+/// <param name="predicate">The predicate that determines whether a workload with a given state can be enqueued into this qdisc, or <see langword="null"/> to match nothing by default.</param>
+public abstract class ClassifyingQdisc<THandle>(THandle handle, Predicate<object?>? predicate) : IClassifyingQdisc<THandle> where THandle : unmanaged
 {
-    private readonly THandle _handle;
-    private INotifyWorkScheduled _parentScheduler;
+    private readonly THandle _handle = handle;
+    private INotifyWorkScheduled _parentScheduler = NotifyWorkScheduledSentinel.Uninitialized;
     private protected bool _disposedValue;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="ClassifyingQdisc{THandle}"/> class.
-    /// </summary>
-    /// <param name="handle">The handle uniquely identifying this qdisc in this scheduling hierarchy.</param>
-    /// <param name="predicate">The predicate that determines whether a workload with a given state can be enqueued into this qdisc, or <see langword="null"/> to match nothing by default.</param>
-    protected ClassifyingQdisc(THandle handle, Predicate<object?>? predicate)
-    {
-        _handle = handle;
-        _parentScheduler = NotifyWorkScheduledSentinel.Uninitialized;
-        Predicate = predicate ?? MatchNothingPredicate;
-    }
 
     /// <summary>
     /// The predicate that determines whether a workload can be enqueued into this qdisc.
     /// </summary>
-    protected Predicate<object?> Predicate { get; }
+    protected Predicate<object?> Predicate { get; } = predicate ?? MatchNothingPredicate;
 
     /// <summary>
     /// The parent scheduler of this qdisc.

@@ -12,7 +12,7 @@ namespace Wkg.Threading.Workloads.Queuing.Routing;
 public readonly struct RoutingPathNode<THandle>(IClassifyingQdisc<THandle> qdisc, THandle handle, int offset) where THandle : unmanaged
 {
     internal readonly IClassifyingQdisc<THandle> Qdisc = qdisc;
-
+    
     /// <summary>
     /// The handle of the child qdisc.
     /// </summary>

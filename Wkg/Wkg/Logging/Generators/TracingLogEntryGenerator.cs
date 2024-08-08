@@ -12,9 +12,12 @@ using Wkg.Text;
 namespace Wkg.Logging.Generators;
 
 /// <summary>
-/// A log entry generator that generates log entries in the format of:
+/// A diagnostic log entry generator that generates log entries in the format of:
 /// <code>
-/// 2023-05-31 14:14:24.626 (UTC) Wkg: [Info->Thread_0x1(MAIN THREAD)] (MyClass::MyMethod(String[], Boolean)) ==> Output: 'Hello world! :)'
+/// 2023-05-31 14:14:24.626 (UTC) MyAssembly: [Info->Thread_0x1(MAIN THREAD)] (MyClass::MyMethod(String[], Boolean)) ==> Output: 'This is a log message'
+/// 2023-05-31 14:14:24.626 (UTC) MyAssembly: [ERROR->Thread_0x1(MAIN THREAD)] (MyClass::MyMethod(String[], Boolean)) ==> [NullReferenceException] info: 'while trying to do a thing' original: 'Object reference not set to an instance of an object.' at: 
+///    StackTrace line 1
+/// 2023-05-31 14:14:24.626 (UTC) MyAssembly: [Info->Thread_0x1(MAIN THREAD)] (MyClass::ByButton) ==> OnClick(MyEventType: { "Property": "JSON serialized model", "foo": 1234 })
 /// </code>
 /// </summary>
 /// <remarks>
@@ -75,8 +78,9 @@ public class TracingLogEntryGenerator : ILogEntryGenerator<TracingLogEntryGenera
 
         GenerateHeader(ref entry, builder, null, out MethodBase? method);
         AddTargetSite(ref entry, builder, method);
-        builder.Append(exception.GetType().Name)
-            .Append(": ");
+        builder.Append('[')
+            .Append(exception.GetType().Name)
+            .Append("] ");
         entry.Exception = exception;
         if (additionalInfo is not null)
         {
@@ -142,11 +146,11 @@ public class TracingLogEntryGenerator : ILogEntryGenerator<TracingLogEntryGenera
 
     /// <inheritdoc/>
     [StackTraceHidden]
-    public virtual void Generate<TEventArgs>(ref LogEntry entry, string? assemblyName, string? className, string instanceName, string eventName, TEventArgs eventArgs)
+    public virtual void Generate<TEventArgs>(ref LogEntry entry, string? className, string instanceName, string eventName, TEventArgs eventArgs)
     {
         StringBuilder builder = StringBuilderPool.Shared.Rent(DEFAULT_STRING_BUILDER_CAPACITY);
 
-        GenerateHeader(ref entry, builder, assemblyName, out MethodBase? method);
+        GenerateHeader(ref entry, builder, entry.AssemblyName, out MethodBase? method);
         builder.Append('(');
         className ??= method?.DeclaringType?.Name ?? "<UnknownType>";
         entry.ClassName = className;
@@ -156,12 +160,13 @@ public class TracingLogEntryGenerator : ILogEntryGenerator<TracingLogEntryGenera
             .Append(instanceName)
             .Append(") ==> ")
             .Append(eventName)
-            .Append(": ");
+            .Append('(');
 
         entry.InstanceName = instanceName;
         entry.EventName = eventName;
         entry.EventArgs = eventArgs;
         AddEventArgs(eventArgs, builder);
+        builder.Append(')');
 
         entry.LogMessage = builder.ToString();
 
@@ -176,12 +181,12 @@ public class TracingLogEntryGenerator : ILogEntryGenerator<TracingLogEntryGenera
     /// <param name="builder">The <see cref="StringBuilder"/> to add the <paramref name="args"/> to.</param>
     protected virtual void AddEventArgs<TEventArgs>(TEventArgs args, StringBuilder builder)
     {
-        const string nullString = "null";
+        const string NULL_STRING = "null";
 
         builder.Append(typeof(TEventArgs).Name).Append(": ");
         if (args is null)
         {
-            builder.Append(nullString);
+            builder.Append(NULL_STRING);
         }
         else
         {

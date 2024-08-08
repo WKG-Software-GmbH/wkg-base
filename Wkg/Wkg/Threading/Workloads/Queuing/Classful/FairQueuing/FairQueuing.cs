@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using Wkg.Internals.Diagnostic;
+﻿using Wkg.Internals.Diagnostic;
 using Wkg.Threading.Workloads.Configuration;
 using Wkg.Threading.Workloads.Configuration.Classful;
 using Wkg.Threading.Workloads.Configuration.Classless;

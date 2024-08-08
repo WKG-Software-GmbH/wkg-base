@@ -13,13 +13,13 @@ using Wkg.Threading.Workloads.Queuing.Routing;
 namespace Wkg.Threading.Workloads.Queuing.Classful.RoundRobin;
 
 /// <summary>
-/// A classful qdisc that implements a simple priority scheduling algorithm to dequeue workloads from its children.
+/// A classful qdisc that implements a simple priority scheduling algorithm to dequeue workloads from its children. Works best for high contention and deep hierarchies.
 /// </summary>
 /// <typeparam name="THandle">The type of the handle.</typeparam>
 internal sealed class PrioFastBitmapQdisc<THandle> : ClassfulQdisc<THandle>, IClassfulQdisc<THandle>
     where THandle : unmanaged
 {
-    private readonly ThreadLocal<int?> __LAST_ENQUEUED_CHILD_INDEX = new();
+    private readonly ThreadLocal<int?> _th_lastEnqueuedChildIndex = new();
 
     private readonly ConcurrentBitmap _dataMap;
     private readonly IQdisc?[] _localLasts;
@@ -184,7 +184,7 @@ internal sealed class PrioFastBitmapQdisc<THandle> : ClassfulQdisc<THandle>, ICl
             if (child.Handle.Equals(handle))
             {
                 // set up the index of the child that we will enqueue to to allow emptiness tracking to update the correct bit
-                __LAST_ENQUEUED_CHILD_INDEX.Value = i;
+                _th_lastEnqueuedChildIndex.Value = i;
                 child.Enqueue(workload);
                 DebugLog.WriteDiagnostic($"Enqueued workload {workload} to child qdisc {child}.", LogWriter.Blocking);
                 goto SUCCESS;
@@ -199,7 +199,7 @@ internal sealed class PrioFastBitmapQdisc<THandle> : ClassfulQdisc<THandle>, ICl
                 // update the emptiness tracking
                 // the actual reset happens in the OnWorkScheduled callback, but we need to
                 // set up the index of the child that was just enqueued to for that
-                __LAST_ENQUEUED_CHILD_INDEX.Value = i;
+                _th_lastEnqueuedChildIndex.Value = i;
 
                 // we need to call WillEnqueueFromRoutingPath on all nodes in the path
                 // failure to do so may result in incorrect emptiness tracking of the child qdiscs
@@ -236,7 +236,7 @@ internal sealed class PrioFastBitmapQdisc<THandle> : ClassfulQdisc<THandle>, ICl
                 // update the emptiness tracking
                 // the actual reset happens in the OnWorkScheduled callback, but we need to
                 // set up the index of the child that was just enqueued to for that
-                __LAST_ENQUEUED_CHILD_INDEX.Value = i;
+                _th_lastEnqueuedChildIndex.Value = i;
                 if (!child.TryEnqueue(state, workload))
                 {
                     // this should never happen, as we already checked if the child can classify the workload
@@ -283,7 +283,7 @@ internal sealed class PrioFastBitmapQdisc<THandle> : ClassfulQdisc<THandle>, ICl
     protected override void WillEnqueueFromRoutingPath(ref readonly RoutingPathNode<THandle> routingPathNode, AbstractWorkloadBase workload)
     {
         int index = routingPathNode.Offset;
-        __LAST_ENQUEUED_CHILD_INDEX.Value = index;
+        _th_lastEnqueuedChildIndex.Value = index;
         DebugLog.WriteDiagnostic($"{this}: expecting to enqueue workload {workload} to child {_children[index]} via routing path.", LogWriter.Blocking);
     }
 
@@ -299,8 +299,8 @@ internal sealed class PrioFastBitmapQdisc<THandle> : ClassfulQdisc<THandle>, ICl
 
     protected override void EnqueueDirect(AbstractWorkloadBase workload)
     {
-        const int localQueueIndex = 0;
-        __LAST_ENQUEUED_CHILD_INDEX.Value = localQueueIndex;
+        const int LOCAL_QUEUE_INDEX = 0;
+        _th_lastEnqueuedChildIndex.Value = LOCAL_QUEUE_INDEX;
         _localQueue.Enqueue(workload);
         DebugLog.WriteDiagnostic($"{this}: enqueued workload {workload} to local queue ({_localQueue}).", LogWriter.Blocking);
     }
@@ -310,7 +310,7 @@ internal sealed class PrioFastBitmapQdisc<THandle> : ClassfulQdisc<THandle>, ICl
     {
         // we are inside a callback of an enqueuing thread
         // load the index of the child that was just enqueued to
-        int? lastEnqueuedChildIndex = __LAST_ENQUEUED_CHILD_INDEX.Value;
+        int? lastEnqueuedChildIndex = _th_lastEnqueuedChildIndex.Value;
         if (lastEnqueuedChildIndex is null)
         {
             // this should never happen, as this method can only be part of the enqueueing call stack
@@ -322,7 +322,7 @@ internal sealed class PrioFastBitmapQdisc<THandle> : ClassfulQdisc<THandle>, ICl
         // so no ABA problem here (not empty -> worker finds no workload -> we set it to not empty -> worker tries to set it to empty -> worker fails)
         _dataMap.UpdateBitUnsafe(index, isSet: true);
         // reset the last enqueued child index
-        __LAST_ENQUEUED_CHILD_INDEX.Value = null;
+        _th_lastEnqueuedChildIndex.Value = null;
         DebugLog.WriteDebug($"{this}: cleared empty flag for {(index == 0 ? this : _children[index])}.", LogWriter.Blocking);
         base.OnWorkScheduled();
     }
@@ -330,7 +330,7 @@ internal sealed class PrioFastBitmapQdisc<THandle> : ClassfulQdisc<THandle>, ICl
     [DoesNotReturn]
     private static void ThrowLastEnqueuedChildIndexNull()
     {
-        WorkloadSchedulingException exception = WorkloadSchedulingException.CreateVirtual($"Scheduler inconsistency: {nameof(__LAST_ENQUEUED_CHILD_INDEX)} is null.");
+        WorkloadSchedulingException exception = WorkloadSchedulingException.CreateVirtual($"Scheduler inconsistency: {nameof(_th_lastEnqueuedChildIndex)} is null.");
         DebugLog.WriteException(exception, LogWriter.Blocking);
         // we can actually just throw here, since we aren't in a worker thread
         throw new NotSupportedException("This scheduler does not support scheduling workloads directly onto child qdiscs. Please use the methods provided by the parent workload factory.", exception);

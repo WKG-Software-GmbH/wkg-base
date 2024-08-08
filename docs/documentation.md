@@ -20,6 +20,8 @@
       - [Interface Overview](#interface-overview)
       - [Default `Logger` Implementation](#default-logger-implementation)
       - [Configuration](#configuration)
+      - [Built-In `ILogEntryGenerator` Implementations](#built-in-ilogentrygenerator-implementations)
+      - [Logging Levels](#logging-levels)
       - [Extending Logging](#extending-logging)
     - [`Wkg.Unmanaged` Namespace](#wkgunmanaged-namespace)
       - [Memory Management](#memory-management)
@@ -29,6 +31,8 @@
           - [MemoryManager APIs](#memorymanager-apis)
       - [`TypeReinterpreter` Class](#typereinterpreter-class)
     - [`Wkg.Reflection` Namespace](#wkgreflection-namespace)
+    - [`Wkg.Web` Namespace](#wkgweb-namespace)
+      - [Simple URI Manipulation](#simple-uri-manipulation)
     - [`Wkg.SyntacticSugar` Class](#wkgsyntacticsugar-class)
       - [`Pass()` Method](#pass-method)
         - [Examples](#examples-3)
@@ -205,6 +209,7 @@ The `Logging` namespace contains utilities used for debugging and logging during
 | --- | --- |
 `ILog` | A collection of static methods representing the global entry point for logging messages and events to a configured `ILogger`.
 `ILogger` | Represents a logger that can be used to log messages at different `LogLevels` and events. A logger can be configured to log to one or more `ILogSink`s and there can be multiple loggers used in parallel. One of these loggers may be used by an implementation of `ILog` to act as a global entry point for logging messages and events.
+`IProxyLogger` | An `ILogger` exposing internal methods to allow for call site information to manually be passed to the logger. This is useful for custom loggers that want to use their own implementation to gather call site information.
 `ILogSink` | Represents a sink that can be used to log messages and events to a specific target. A sink may write to a file, the console, the debug output, a remote server or any other target. A sink may be used by one or more `ILogger`s.
 `ILogWriter` | An `ILogWriter` specifies *how* a message or event is written to the `ILogSink`s. It may write the message directly to the sink, or schedule it for writing in the background on a different thread. It may also write every message as soon as it is received or opt to buffer messages and write them in batches. Some common implementations of `ILogWriter` are provided via the static `LogWriter` class.
 `ILogEntryGenerator` | An `ILogEntryGenerator` specifies how the data written to the sinks is formatted. It may format the data as plain text, JSON, XML or any other format. It may also enumerate additional data to be written to the sinks, such as the current timestamp, the thread ID, the process ID, and can even use reflection and call stack unwinding to gather information about the caller.
@@ -219,9 +224,12 @@ Logging can be configured and customized using the `LoggerConfiguration` builder
 
 ```csharp
 ILogger logger = Logger.Create(LoggerConfiguration.Create()
-    .AddSink<ConsoleSink>()                         // write to the console
-    .UseDefaultLogWriter(LogWriter.Blocking)        // write messages directly to the sinks, potentially blocking the current thread
-    .UseEntryGenerator<SimpleLogEntryGenerator>()); // a simple log entry generator that adds some useful extra information
+    // write to the console
+    .AddSink<ConsoleSink>()
+    // write messages directly to the sinks, potentially blocking the current thread
+    .UseDefaultLogWriter(LogWriter.Blocking)
+    // a simple AOT-friendy log entry generator that adds some useful extra information
+    .UseEntryGenerator(AotLogEntryGenerator.Create));
 
 logger.Log("Hello World!", LogLevel.Info);
 // 2023-05-30 14:35:42.185 (UTC) Info on Thread_0x1 --> Output: 'Hello World!';
@@ -229,26 +237,90 @@ logger.Log("Hello World!", LogLevel.Info);
 // or register the logger as the global logger using the default ILog implementation "Log"
 Log.UseLogger(logger);
 Log.WriteInfo("Hello World!");
+// 2023-05-30 14:35:42.185 (UTC) Info on Thread_0x1 --> Output: 'Hello World!';
 ```
 
 A more complex example that demonstrates how to configure a logger to log to the debug console, a file, the console using colors to highlight different log levels, and how to use a log entry generator more suitable for debugging:
 
 ```csharp
 ILogger logger = Logger.Create(LoggerConfiguration.Create()
-    .AddSink<ColoredConsoleSink>()                  // write to the console using colors
-    .AddSink<DebugSink>()                           // write to the debug output
-    .UseLogFile("log.txt")                          // write to a file
-        .WithMaxFileSize(1024 * 1024 * 10)          // truncate after 10 MB
+    .AddSink<ColoredConsoleSink>()                      // write to the console using colors
+    .AddSink<DebugSink>()                               // write to the debug output
+    .UseLogFile("log.txt")                              // write to a file
+        .WithMaxFileSize(1024 * 1024 * 10)              // truncate after 10 MB
         .BuildToConfig()
-    .UseDefaultLogWriter(LogWriter.Background)      // write to sinks in the background
-    .UseEntryGenerator<TracingLogEntryGenerator>()  // enumerate additional data from the call stack
-    .RegisterMainThread(Thread.CurrentThread));     // the configured log entry generator adds "(MAIN THREAD)" for this thread
+    .UseDefaultLogWriter(LogWriter.Background)          // write to sinks in the background
+    .UseEntryGenerator(TracingLogEntryGenerator.Create) // enumerate additional data from the call stack
+    .RegisterMainThread(Thread.CurrentThread));         // the configured log entry generator adds "(MAIN THREAD)" for this thread
 
 logger.Log("Hello World!", LogLevel.Info);
 // 2023-05-31 14:14:24.626 (UTC) MyAssembly: [Info->Thread_0x1(MAIN THREAD)] (Program::Main(String[])) ==> Output: 'Hello World!'
 ```
 
 Custom `ILogSink`s, `ILogWriter`s and `ILogEntryGenerator`s can be registered using the `AddSink<T>()`, `UseDefaultLogWriter(ILogWriter)` and `UseEntryGenerator<T>()` methods respectively. The `UseLogFile()` method can be used to configure a file sink and the `RegisterMainThread()` method can be used to register the main thread to be used by the configured log entry generator.
+
+#### Built-In `ILogEntryGenerator` Implementations
+
+The `Logging.Generators` namespace provides a set of built-in `ILogEntryGenerator` implementations that can be used to gather different kinds of information about the caller, formatting the log entries in different ways. The following built-in implementations are provided:
+
+- `AotLogEntryGenerator` - The default log entry generator that is used when no other log entry generator is specified. It is AOT-friendly and formats log entries in a minimalistic way:
+    ```text
+    2023-05-30 14:35:42.185 (UTC) Info on Thread_0x1 (Main Thread) --> Output: 'This is a log message';
+    2023-05-30 14:35:42.185 (UTC) ERROR: NullReferenceException on Thread_0x1 (Main Thread) --> info: 'while trying to do a thing' original: 'Object reference not set to an instance of an object.' at:
+      StackTrace line 1
+    2023-05-30 14:35:42.185 (UTC) Event on Thread_0x1 (Main Thread) --> (MyAssembly) (MyClass::MyButtonInstance) ==> OnClick(MyEventType: eventArgs)
+    ```
+- `DetailedAotLogEntryGenerator` - An AOT-compatible log entry generator that uses compiler-evaluated [caller information attributes](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/attributes/caller-information) to gather additional information about the location the log entry originated from. It is more detailed than the default `AotLogEntryGenerator`:
+    ```text
+    2023-05-31 14:14:24.626 (UTC) [Info->Thread_0x1(MAIN THREAD)] (MyClass.cs:L69->MyMethod) ==> Output: 'This is a log message'
+    2023-05-31 14:14:24.626 (UTC) [ERROR->Thread_0x1(MAIN THREAD)] (MyClass.cs:L240->MyMethod) ==> [NullReferenceException] info: 'while trying to do a thing' original: 'Object reference not set to an instance of an object.' at:
+      StackTrace line 1
+    2023-05-31 14:14:24.626 (UTC) [Event->Thread_0x1(MAIN THREAD)] (MyClass.cs:L1337->MyMethod) ==> MyAssembly::MyClass::MyButtonInstance::OnClick(MyEventType: eventArgs)
+    ```
+- `BalancedLogEntryGenerator` - A production-ready log entry generator implementation balancing runtime reflection requirements through caching with detailed log entries enumerated on compile time. It extends the `DetailedAotLogEntryGenerator` through the dynamically determined assembly name of the caller. Reflection is used sparingly during the first call to the generator from each call site, making it suitable in production scenarios that don't rely on AOT compilation.
+    ```text
+    2023-05-31 14:14:24.626 (UTC) MyAssembly: [Info->Thread_0x1(MAIN THREAD)] (MyClass.cs:L69->MyMethod) ==> Output: 'This is a log message'
+    2023-05-31 14:14:24.626 (UTC) MyAssembly: [ERROR->Thread_0x1(MAIN THREAD)] (MyClass.cs:L240->MyMethod) ==> [NullReferenceException] info: 'while trying to do a thing' original: 'Object reference not set to an instance of an object.' at:
+      StackTrace line 1
+    2023-05-31 14:14:24.626 (UTC) MyAssembly: [Event->Thread_0x1(MAIN THREAD)] (MyClass.cs:L1337->MyMethod) ==> MyAssembly::MyClass::MyButtonInstance::OnClick(MyEventType: eventArgs)
+    ```
+    > :warning: **Warning**
+    > Assembly information is cached after the first call to the generator from each call site. As the call site is identified through the compiler-provided attribute information (file name and member name), hash collisions may occur for identical call sites in different assemblies, causing potentially incorrect assembly information to be written in these edge cases.
+- `TracingLogEntryGenerator` - A diagnostic log entry generator that liberally uses reflection to gather additional information about the caller. It is neither AOT-compatible nor resource-efficient and should only be used in development or debugging scenarios.
+    ```text
+    2023-05-31 14:14:24.626 (UTC) MyAssembly: [Info->Thread_0x1(MAIN THREAD)] (MyClass::MyMethod(String[], Boolean)) ==> Output: 'This is a log message'
+    2023-05-31 14:14:24.626 (UTC) MyAssembly: [ERROR->Thread_0x1(MAIN THREAD)] (MyClass::MyMethod(String[], Boolean)) ==> [NullReferenceException] info: 'while trying to do a thing' original: 'Object reference not set to an instance of an object.' at: 
+       StackTrace line 1
+    2023-05-31 14:14:24.626 (UTC) MyAssembly: [Info->Thread_0x1(MAIN THREAD)] (MyClass::ByButton) ==> OnClick(MyEventType: { "Property": "JSON serialized model", "foo": 1234 })
+    ```
+- `TracingLogEntryGeneratorWithParamNames` - The most detailed log entry generator that uses reflection to gather additional information about the caller. It is neither AOT-compatible nor resource-efficient and should only be used in development or debugging scenarios. It extends the `TracingLogEntryGenerator` by including parameter names in the log entries.
+    ```text
+    2023-05-31 14:14:24.626 (UTC) MyAssembly: [Info->Thread_0x1(MAIN THREAD)] (MyClass::MyMethod(String[] args, Boolean myFlag)) ==> Output: 'This is a log message'
+    2023-05-31 14:14:24.626 (UTC) MyAssembly: [ERROR->Thread_0x1(MAIN THREAD)] (MyClass::MyMethod(String[] args, Boolean myFlag)) ==> [NullReferenceException] info: 'while trying to do a thing' original: 'Object reference not set to an instance of an object.' at: 
+       StackTrace line 1
+    2023-05-31 14:14:24.626 (UTC) MyAssembly: [Info->Thread_0x1(MAIN THREAD)] (MyClass::ByButton) ==> OnClick(MyEventType: { "Property": "JSON serialized model", "foo": 1234 })
+    ```
+
+#### Logging Levels
+
+The `LogLevel` enum provides different levels of logging with the following recommended use cases:
+
+0. `Diagnostic` :mag: - _Function-Level Debugging and Unit Intrinsics_: 
+   The most verbose logging level. Use this level for internal system events that may be useful for debugging of application intrinsics. Relevance of these events is often limited to the immediate scope of the call site, and is likely not of interest outside of the immediate method or class.
+1. `Debug` :bug: - _Component-Level Debugging and Integration Intrinsics_: 
+   Use this level for debugging information. This level is used for debugging information that may be useful to developers. This level is typically used for logging of debugging information that is relevant for debugging the integration of different components of the application. As such, no highly specific component intrinsics should be logged at this level.
+2. `Event` :point_up_2: - _Input Event Logging_: 
+   Use this level for logging of events that are relevant to the overall program flow. Event-level log entries often correspond to external events or user activity, such as button clicks, form submissions, or other user interactions that may be relevant to tracing back the user's actions in the application in post-mortem analysis. In multi-user applications, event-level log entries are often exchanged with `Diagnostic` or `Debug` log entries to reduce the amount of log data generated. `Event` log entries may also be used to log non-interactive events in the application, as long as they are relevant to the overall program flow and do not qualify as `Diagnostic` application intrinsics.
+3. `Info` :information_source: - _Informational Logging with Global Relevance_: 
+   Use this level for logging of informational messages. Informational log entries are used to provide information about the application's state, configuration, or other relevant information that may be useful outside of debugging scenarios. Entries of this level often include initialization messages, the loaded configurations, and other information that may be useful for understanding the application's behavior. The desciminating factor between `Info` and and lower log entries is that `Info` log entries have a higher relavance to the system and should not require intricate knowledge of the application's flow or structure to be understood.
+4. `Warning` :warning: - _Service is Degraded or Endangered_: 
+   Use this level for logging of warning messages. Log messages of the warning level indicate that an unexpected condition has occurred that may not be critical to the application's operation, but may require attention. Warning messages _should not occur_ during normal operation of the application, and indicate that the application has entered a state that may be undesirable or that may lead to unexpected behavior. Warning messages are often used to indicate that a fallback mechanism has been used, that a deprecated feature has been used, or that a non-critical error has occurred.
+5. `Error` :x: - _Functionality is Unavailable_: 
+   Use this level for logging of unhandled exceptions, errors, and other critical messages. Error messages indicate that a critical error has occurred that may prevent the application from functioning correctly. Messages of this level indicate a need for triage and may require immediate attention. Alerting and monitoring systems should be configured accordingly and integrated through `ILogSink` implementations.
+6. `Fatal` :skull: - _Application is Unusable_: 
+   Fatal messages indicate that the application has entered a state that is unrecoverable, often logged right before an undesired termination of the application with a non-zero exit code. Ensure to use `LogWriter.Blocking` to prolong the application's lifetime to allow for the log entry to be written to the sink before its untimely demise.
+7. `System` :gear: - _Global, Unconditional Logging_: 
+   System messages ignore the configured log level and are always logged. Use this level for logging of system messages that are always relevant, such as startup and shutdown messages, or messages that are always relevant, such as the application's version number or version control information of the application's components. For obvious reasons, use this level sparingly.
 
 #### Extending Logging
 
@@ -346,6 +418,65 @@ The `Reflection` namespace provides easy access to common reflective operations,
 - `TypeExtensions` - Provides extension methods for the `Type` class. Primarily used for enumerating generic type arguments or checking whether a type implements or extends a generic type with specific generic type arguments.
 - `TypeArray` - A factory class for creating `Type[]` arrays using the `TypeArray.Of<T1, T2, ...>()` method, which is more concise than the usual `new Type[] { typeof(T1), typeof(T2), ... }` syntax.
 - `UnsafeReflection` - A factory class for creating concrete `MethodInfo` instances for the generic `Unsafe.As<...>()` methods. This is primarily used for dynamic code generation, such as IL-emission, or when building performance-oriented `Expression` trees. 
+
+### `Wkg.Web` Namespace
+
+The `Web` namespace provides utilities for working with web technologies, such as HTTP, HTML, and URLs.
+
+#### Simple URI Manipulation
+
+The `SimpleUriParser` and `SimpleUriBuilder` structures provide a very lightweight and simple way to parse and build trusted URIs. These structures are designed to be used in scenarios where the full power of the `System.Uri` class is not required, such as when working with URIs that are expected to be well-formed and do not require extensive validation. The `SimpleUriParser` structure provides a simple way to parse a URI into its components, while the `SimpleUriBuilder` structure provides a simple way to build a URI from its components.
+
+```csharp
+string uri = "https://example.com/foo?key1=value1&key2=value2";
+SimpleUriParser parser = SimpleUriParser.Parse(uri);
+Console.WriteLine(parser.Scheme);           // "https"
+Console.WriteLine(parser.Host);             // "example.com"
+Console.WriteLine(parser.Path);             // "/foo"
+Console.WriteLine(parser.Query);            // "key1=value1&key2=value2"
+Console.WriteLine(parser.SchemaHost);       // "https://example.com"
+Console.WriteLine(parser.SchemaHostPath);   // "https://example.com/foo"
+Console.WriteLine(parser.Uri);              // "https://example.com/foo?key1=value1&key2=value2"
+foreach (RouteDataRef query in parser.QueryParameters)
+{
+    Console.WriteLine($"{query.Key}: {query.Value}");
+}
+// key1: value1
+// key2: value2
+```
+
+As shown in the example above, the `SimpleUriParser` structure provides properties for accessing parsed URI components, such as the scheme, host, and path, as well as for enumerating query parameters. Because the `SimpleUriParser` structure is designed to be very lightweight, all properties are `ReadOnlySpan<char>` instances over the original URI string. As such, the `SimpleUriParser` structure is a `ref struct` and and cannot be used in scenarios where the URI string may fall out of scope. Similarly, as implied by the name, the `RouteDataRef` query parameters are also restricted to stack-only usage, but can be copied to heap memory using the `CreateDeepCopy()` method, which returns a `RouteData` instance with key and value properties allocated as normal managed strings.
+
+The `SimpleUriBuilder` structure provides a simple way to build a URI from its components:
+
+```csharp
+using SimpleUriBuilder builder = SimpleUriBuilder.Create("https://example.com", capacity: 256);
+builder.AppendPath("foo/");
+builder.AppendPath("/bar");
+builder.AppendQuery("key1", "value1&value2");
+builder.AppendQuery("key2", "value2");
+string uri = builder.ToString(); // "https://example.com/foo/bar?key1=value1&amp;value2&key2=value2"
+```
+
+As shown in the example above, the `SimpleUriBuilder` structure provides methods for appending path segments and query parameters to the URI. Query parameters are automatically URL-encoded, and the `ToString()` method returns the built URI as a `string`. The `capacity` parameter of the `SimpleUriBuilder.Create()` method specifies the initial capacity of the internal pooled string builder used to build the URI. The overall length of the uri may grow beyond the initial capacity, but once the capacity is exceeded, the internal string builder will become ineligible for pooling and can no longer be reused.
+
+`SimpleUriParser` and `SimpleUriBuilder` are designed to be compatible with each other, and can be used together to perform transformations on URIs. For example, the following code snippet demonstrates how to remove a query parameter from a URI:
+
+```csharp
+string uri = "https://example.com/foo?key1=value1&key2=value2&key3=value3&amp;4";
+SimpleUriParser parser = SimpleUriParser.Parse(uri);
+using SimpleUriBuilder builder = SimpleUriBuilder.Create(parser.SchemaHostPath, capacity: 256);
+foreach (RouteDataRef query in parser.QueryParameters)
+{
+    if (query.Key != "key2")
+    {
+        builder.AppendQuery(query, urlEncode: false);
+    }
+}
+string newUri = builder.ToString(); // "https://example.com/foo?key1=value1&key3=value3&amp;4"
+```
+
+In the example above, the `SimpleUriParser` structure is used to parse the original URI, and the `SimpleUriBuilder` structure is used to build a new URI without the `key2` query parameter. The `urlEncode` parameter of the `SimpleUriBuilder.AppendQuery()` method specifies whether the query parameter should be URL-encoded. By setting `urlEncode` to `false`, the query parameter is appended as-is, preventing double-encoding of the query parameter with `key3`.
 
 ### `Wkg.SyntacticSugar` Class
 

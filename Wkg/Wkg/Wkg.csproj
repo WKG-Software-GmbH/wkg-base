@@ -7,11 +7,11 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-		<IsTrimmable>true</IsTrimmable>
-		<NeutralLanguage>en</NeutralLanguage>
-		<!-- CI injected versioning -->
-		<VersionPrefix>0.0.0</VersionPrefix>
-		<VersionSuffix>CI-INJECTED</VersionSuffix>
+        <IsTrimmable>true</IsTrimmable>
+        <NeutralLanguage>en</NeutralLanguage>
+        <!-- CI injected versioning -->
+        <VersionPrefix>0.0.0</VersionPrefix>
+        <VersionSuffix>CI-INJECTED</VersionSuffix>
     </PropertyGroup>
     
     <!--Nuget packaging-->

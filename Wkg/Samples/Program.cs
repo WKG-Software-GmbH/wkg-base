@@ -9,7 +9,6 @@ using System.Diagnostics;
 using Wkg.Logging;
 using Wkg.Logging.Configuration;
 using Wkg.Logging.Generators;
-using Wkg.Logging.Loggers;
 using Wkg.Logging.Sinks;
 using Wkg.Logging.Writers;
 using Wkg.Threading.Workloads;
@@ -40,7 +39,7 @@ Log.UseConfiguration(LoggerConfiguration.Create()
     //.AddSink<ColoredThreadBasedConsoleSink>()
     .AddSink<ColoredConsoleSink>()
     .SetMinimumLogLevel(LogLevel.Diagnostic)
-    .UseEntryGenerator(DetailedLogEntryGenerator.Create)
+    .UseEntryGenerator(DetailedAotLogEntryGenerator.Create)
     .RegisterMainThread(Thread.CurrentThread)
     .UseDefaultLogWriter(LogWriter.Blocking));
 
@@ -81,7 +80,7 @@ using (ClassfulWorkloadFactory<QdiscType> clubmappFactory = WorkloadFactoryBuild
     // the root scheduler will fairly dequeue workloads alternating between the two child schedulers (Round Robin)
     // a classifying root scheduler can have children and also allows dynamic assignment of workloads to child schedulers
     // based on some state object
-    .UseClassfulRoot<RoundRobinBitmap>(QdiscType.RoundRobin, roundRobinClassBuilder => roundRobinClassBuilder
+    .UseClassfulRoot<RoundRobin>(QdiscType.RoundRobin, roundRobinClassBuilder => roundRobinClassBuilder
         .ConfigureClassificationPredicates(classificationBuilder => classificationBuilder
             .AddPredicate<State>(state => state.QdiscType == QdiscType.RoundRobin))
         // one child scheduler will dequeue workloads in a First In First Out manner
@@ -91,13 +90,13 @@ using (ClassfulWorkloadFactory<QdiscType> clubmappFactory = WorkloadFactoryBuild
             .WithConstrainedPrioritizationOptions(ConstrainedPrioritizationOptions.MinimizeWorkloadCancellation)
             .WithCapacity(16))))
 {
-    const int loops = 10_000_000;
+    const int LOOPS = 10_000_000;
     SharedInt sharedInt = new()
     {
-        Value = loops
+        Value = LOOPS
     };
     ManualResetEventSlim mres = new(false);
-    for (int i = 0; i < loops; i++)
+    for (int i = 0; i < LOOPS; i++)
     {
         clubmappFactory.Schedule(() =>
         {
@@ -167,10 +166,7 @@ using ClassfulWorkloadFactoryWithDI<int> factory = WorkloadFactoryBuilder.Create
         .AddClasslessChild<ConstrainedFifo>(8, qdisc => qdisc
             .WithCapacity(8)));
 
-factory.ScheduleAsync(1, flag => Log.WriteInfo("Hello from the root scheduler!")).ContinueWith(_ =>
-{
-    Log.WriteInfo("Hello from the root scheduler again!");
-});
+factory.ScheduleAsync(1, flag => Log.WriteInfo("Hello from the root scheduler!")).ContinueWith(_ => Log.WriteInfo("Hello from the root scheduler again!"));
 
 List<int> myData = Enumerable.Range(0, 10000).ToList();
 int sum = myData.Sum();
@@ -447,6 +443,6 @@ record EmergencyStopRequest();
 record HeartbeatRequest();
 record MotorRpmReading(int MotorId, int Rpm)
 {
-    public static int CRITICAL_RPM = 1000;
+    public const int CRITICAL_RPM = 1000;
 }
 record GyroReading(float X, float Y, float Z);

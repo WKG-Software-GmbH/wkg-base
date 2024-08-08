@@ -7,13 +7,13 @@ namespace Wkg.Text;
 internal sealed class ConfigurableStringBuilderPool : StringBuilderPool
 {
     /// <summary>The default maximum capacity of each string builder in the pool (2^16 = 64 KiB).</summary>
-    private const int DefaultMaxStringBuilderCapactity = 1024 * 64;
+    private const int DEFAULT_MAX_STRING_BUILDER_CAPACTITY = 1024 * 64;
     /// <summary>The default maximum number of builders per bucket that are available for rent.</summary>
-    private const int DefaultMaxNumberOfStringBuildersPerBucket = 50;
+    private const int DEFAULT_MAX_NUMBER_OF_STRING_BUILDERS_PER_BUCKET = 50;
 
     private readonly Bucket[] _buckets;
 
-    internal ConfigurableStringBuilderPool() : this(DefaultMaxStringBuilderCapactity, DefaultMaxNumberOfStringBuildersPerBucket)
+    internal ConfigurableStringBuilderPool() : this(DEFAULT_MAX_STRING_BUILDER_CAPACTITY, DEFAULT_MAX_NUMBER_OF_STRING_BUILDERS_PER_BUCKET)
     {
     }
 
@@ -24,14 +24,14 @@ internal sealed class ConfigurableStringBuilderPool : StringBuilderPool
 
         // Our bucketing algorithm has a min capactity of 2^4 and a max capactity of 2^30.
         // Constrain the actual max used to those values.
-        const int MinimumStringBuilderCapacity = 0x10, MaximumStringBuilderCapacity = 0x40000000;
-        if (maxStringBuilderCapacity > MaximumStringBuilderCapacity)
+        const int MINIMUM_STRING_BUILDER_CAPACITY = 0x10, MAXIMUM_STRING_BUILDER_CAPACITY = 0x40000000;
+        if (maxStringBuilderCapacity > MAXIMUM_STRING_BUILDER_CAPACITY)
         {
-            maxStringBuilderCapacity = MaximumStringBuilderCapacity;
+            maxStringBuilderCapacity = MAXIMUM_STRING_BUILDER_CAPACITY;
         }
-        else if (maxStringBuilderCapacity < MinimumStringBuilderCapacity)
+        else if (maxStringBuilderCapacity < MINIMUM_STRING_BUILDER_CAPACITY)
         {
-            maxStringBuilderCapacity = MinimumStringBuilderCapacity;
+            maxStringBuilderCapacity = MINIMUM_STRING_BUILDER_CAPACITY;
         }
 
         // Create the buckets.
@@ -56,7 +56,7 @@ internal sealed class ConfigurableStringBuilderPool : StringBuilderPool
         {
             // Search for a builder starting at the 'index' bucket. If the bucket is empty, bump up to the
             // next higher bucket and try that one, but only try at most a few buckets.
-            const int MaxBucketsToTry = 2;
+            const int MAX_BUCKETS_TO_TRY = 2;
             int i = index;
             do
             {
@@ -67,11 +67,11 @@ internal sealed class ConfigurableStringBuilderPool : StringBuilderPool
                     return builder;
                 }
             }
-            while (++i < _buckets.Length && i != index + MaxBucketsToTry);
+            while (++i < _buckets.Length && i != index + MAX_BUCKETS_TO_TRY);
 
             // The pool was exhausted for this builder size. Allocate a new builder with a size corresponding
             // to the appropriate bucket.
-            builder = new StringBuilder(_buckets[index]._builderCapacity);
+            builder = new StringBuilder(_buckets[index].BuilderCapacity);
         }
         else
         {
@@ -107,7 +107,7 @@ internal sealed class ConfigurableStringBuilderPool : StringBuilderPool
     /// <summary>Provides a thread-safe bucket containing builders that can be Rent'd and Return'd.</summary>
     private sealed class Bucket
     {
-        internal readonly int _builderCapacity;
+        internal readonly int BuilderCapacity;
         private readonly StringBuilder?[] _builders;
 
         private SpinLock _lock; // do not make this readonly; it's a mutable struct
@@ -120,7 +120,7 @@ internal sealed class ConfigurableStringBuilderPool : StringBuilderPool
         {
             _lock = new SpinLock(Debugger.IsAttached); // only enable thread tracking if debugger is attached; it adds non-trivial overheads to Enter/Exit
             _builders = new StringBuilder[numberOfBuilders];
-            _builderCapacity = builderCapacity;
+            BuilderCapacity = builderCapacity;
         }
 
         /// <summary>Gets an ID for the bucket to use with events.</summary>
@@ -161,7 +161,7 @@ internal sealed class ConfigurableStringBuilderPool : StringBuilderPool
             // for that slot, in which case we should do so now.
             if (allocateBuilder)
             {
-                builder = new StringBuilder(_builderCapacity);
+                builder = new StringBuilder(BuilderCapacity);
             }
 
             return builder;
@@ -175,7 +175,7 @@ internal sealed class ConfigurableStringBuilderPool : StringBuilderPool
         internal bool TryReturn(StringBuilder builder)
         {
             // Check to see if the builder is the correct size for this bucket
-            if (builder.Capacity < _builderCapacity)
+            if (builder.Capacity < BuilderCapacity)
             {
                 // It's not. Don't put it back in this pool.
                 return false;

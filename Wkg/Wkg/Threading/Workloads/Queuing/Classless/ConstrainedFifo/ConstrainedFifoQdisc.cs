@@ -2,7 +2,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
-using Wkg.Threading.Workloads.Exceptions;
 using Wkg.Threading.Workloads.Queuing.Routing;
 
 namespace Wkg.Threading.Workloads.Queuing.Classless.ConstrainedFifo;
@@ -31,7 +30,7 @@ internal class ConstrainedFifoQdisc<THandle> : ClasslessQdisc<THandle>, IClassif
             Tail = 0,
             IsEmpty = TRUE
         };
-        Volatile.Write(ref _state, initialState.__State);
+        Volatile.Write(ref _state, initialState.UnderlyingStorage);
         _workloads = new AbstractWorkloadBase[maxCount];
         _abls = new AlphaBetaLockSlim();
         _constrainedOptions = options;
@@ -92,7 +91,7 @@ internal class ConstrainedFifoQdisc<THandle> : ClasslessQdisc<THandle>, IClassif
                 overriddenWorkload = null;
             }
             state.IsEmpty = false;
-            newState = state.__State;
+            newState = state.UnderlyingStorage;
         } while (Interlocked.CompareExchange(ref _state, newState, currentState) != currentState);
         // we have a new tail, so we can safely write to it
         Volatile.Write(ref _workloads[tail], workload);
@@ -125,7 +124,7 @@ internal class ConstrainedFifoQdisc<THandle> : ClasslessQdisc<THandle>, IClassif
             workload = Volatile.Read(ref _workloads[state.Head]);
             state.Head = (ushort)((state.Head + 1) % _workloads.Length);
             state.IsEmpty = state.Head == state.Tail;
-            newState = state.__State;
+            newState = state.UnderlyingStorage;
         } while (Interlocked.CompareExchange(ref _state, newState, currentState) != currentState);
         Debug.Assert(workload is not null);
         return true;

@@ -7,16 +7,14 @@ namespace Wkg.Threading.Workloads.Queuing.Classless;
 /// A leaf qdisc with no child-management capabilities.
 /// </summary>
 /// <typeparam name="THandle">The type of the handle.</typeparam>
-public abstract class ClasslessQdisc<THandle> : ClassifyingQdisc<THandle> where THandle : unmanaged
+/// <remarks>
+/// Initializes a new instance of the <see cref="ClasslessQdisc{THandle}"/> class.
+/// </remarks>
+/// <param name="handle">The handle of the qdisc.</param>
+/// <param name="predicate">The predicate used to determine if a workload can be scheduled.</param>
+public abstract class ClasslessQdisc<THandle>(THandle handle, Predicate<object?>? predicate) 
+    : ClassifyingQdisc<THandle>(handle, predicate) where THandle : unmanaged
 {
-    /// <summary>
-    /// Initializes a new instance of the <see cref="ClasslessQdisc{THandle}"/> class.
-    /// </summary>
-    /// <param name="handle">The handle of the qdisc.</param>
-    /// <param name="predicate">The predicate used to determine if a workload can be scheduled.</param>
-    protected ClasslessQdisc(THandle handle, Predicate<object?>? predicate) : base(handle, predicate)
-    {
-    }
 
     /// <summary>
     /// Enqueues the <paramref name="workload"/> onto the local queue, without additional checks or setup.

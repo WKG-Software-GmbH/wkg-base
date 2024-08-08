@@ -393,9 +393,9 @@ public ref struct ConcurrentBitmap56
             ulong lower = oldState & splitMask;
             // we don't want to shift the token
             ulong upper = oldState & ~splitMask & GetFullMaskUnsafe(56);
-            ulong expandedState = upper << 1 | lower;
+            ulong expandedState = (upper << 1) | lower;
             // we can expand the boolean mask to 64 for true => ulong.MaxValue and false => 0
-            map._state = expandedState | isInitiallySet.As64BitMask() & 1uL << index;
+            map._state = expandedState | (isInitiallySet.As64BitMask() & (1uL << index));
             // write the new guard token to prevent ABA issues
             map._guardToken = (byte)(token + 1);
             // the guard token is included in the state, so we can simply write it back
@@ -423,7 +423,7 @@ public ref struct ConcurrentBitmap56
             ulong splitMask = (1uL << index) - 1;
             ulong lower = withUnsetBit & splitMask;
             ulong upper = withUnsetBit & ~splitMask & GetFullMaskUnsafe(56);
-            map._state = upper >> 1 | lower;
+            map._state = (upper >> 1) | lower;
             // write the new guard token to prevent ABA issues
             map._guardToken = (byte)(token + 1);
             // the guard token is included in the state, so we can simply write it back
@@ -444,7 +444,7 @@ public ref struct ConcurrentBitmap56
             // if the bit was 0 the result is '0' itself, otherwise
             // if the bit was 1 then the result is '0' | 1 (0x30 | 1) which 
             // yields 0x31 which is also conveniently the ASCII code for '1'.
-            ascii[i] = (byte)((s & (1uL << i)) >> i | '0');
+            ascii[i] = (byte)(((s & (1uL << i)) >> i) | '0');
         }
         return $"(Token: {_guardToken}, Value: {Encoding.ASCII.GetString(ascii)})";
     }
@@ -486,7 +486,7 @@ public ref struct ConcurrentBitmap56
         ulong flag = 1uL << index;
         // if isSet == TRUE, then the first or is applied (s | flag), if isSet == FALSE, then (s | 0) = s
         // if isSet == FALSE, then the part after the and is applied (s & ~flag) (clear the bit at the index), if isSet == TRUE, then (s & 0xFFFFFFFFFFFFFFFF) = s
-        return (state | flag & isSetMask) & (~flag | isSetMask);
+        return (state | (flag & isSetMask)) & (~flag | isSetMask);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

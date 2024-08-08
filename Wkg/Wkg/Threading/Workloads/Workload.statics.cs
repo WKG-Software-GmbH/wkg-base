@@ -43,8 +43,8 @@ public partial class Workload
 
     private class WhenAllAwaiterState
     {
-        public readonly TaskCompletionSource _tcs = new();
-        public int _count;
+        internal readonly TaskCompletionSource _tcs = new();
+        internal int _count;
 
         public WhenAllAwaiterState(int count)
         {
@@ -103,7 +103,7 @@ public partial class Workload
 
     private class WhenAnyAwaiterState(IList<AwaitableWorkload> _workloads) : IWorkloadContinuation
     {
-        public readonly TaskCompletionSource<AwaitableWorkload> _tcs = new();
+        internal readonly TaskCompletionSource<AwaitableWorkload> _tcs = new();
         private readonly IList<AwaitableWorkload> _workloads = _workloads;
         private uint _completed;
         private volatile AwaitableWorkload? _completedWorkload;

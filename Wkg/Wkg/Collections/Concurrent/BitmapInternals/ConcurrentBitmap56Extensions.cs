@@ -20,19 +20,19 @@ internal static class ConcurrentBitmap56Extensions
     public static bool AreChildrenFull(this ConcurrentBitmap56 bmp, int numberOfChildren)
     {
         // we are only interested in the upper 28 bits
-        ulong mask = (1ul << numberOfChildren) - 1 << 28;
+        ulong mask = ((1ul << numberOfChildren) - 1) << 28;
         return (bmp.GetRawData() & mask) == mask;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsChildEmpty(this ConcurrentBitmap56 bmp, int childIndex) =>
         // read the childIndex-th bit in the lower 28 bits
-        (bmp.GetRawData() & 1ul << childIndex) != 0;
+        (bmp.GetRawData() & (1ul << childIndex)) != 0;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsChildFull(this ConcurrentBitmap56 bmp, int childIndex) =>
         // read the childIndex-th bit in the upper 28 bits
-        (bmp.GetRawData() & 1ul << 28 + childIndex) != 0;
+        (bmp.GetRawData() & (1ul << (28 + childIndex))) != 0;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static ConcurrentBitmap56 SetChildEmpty(this ConcurrentBitmap56 bmp, int childIndex)
@@ -49,7 +49,7 @@ internal static class ConcurrentBitmap56Extensions
         // write 1 to the childIndex-th bit in the upper 28 bits and 0 to the childIndex-th bit in the lower 28 bits
         ulong mask = 1ul << childIndex;
         // important: we need to preserve the full state (including the guard token).
-        return new ConcurrentBitmap56(bmp.GetFullState() & ~mask | mask << 28);
+        return new ConcurrentBitmap56((bmp.GetFullState() & ~mask) | (mask << 28));
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

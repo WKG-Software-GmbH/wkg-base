@@ -21,7 +21,7 @@ internal struct AtomicRingBufferStateUnion(ulong state)
     // people immediately start screaming when they see pointers in C# code, so we do
     // it like this instead.
     [FieldOffset(0)]
-    public ulong __State = state;
+    public ulong UnderlyingStorage = state;
     // tail is accessed most frequently, so we put it first (aligned to 64 bits)
     [FieldOffset(0)]
     public ushort Tail;

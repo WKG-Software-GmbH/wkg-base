@@ -19,7 +19,7 @@ internal sealed class ParameterizedGfqVirtualTimeFunction(WfqSchedulingParams sc
             VirtualTimeModel.WorstCase => timingInfo.WorstCaseAverageExecutionTime,
             VirtualTimeModel.Average or _ => timingInfo.AverageExecutionTime,
         };
-        return virtualBaseTime + assumedExecutionTime * weight.ExecutionPunishmentFactor;
+        return virtualBaseTime + (assumedExecutionTime * weight.ExecutionPunishmentFactor);
     }
 
     public double CalculateVirtualExecutionTime(GfqWeight weight, IVirtualTimeTable timeTable, EventuallyConsistentVirtualTimeTableEntry timingInfo) => _schedulerTimeModel switch

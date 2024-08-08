@@ -9,7 +9,6 @@ namespace Wkg.Data.Pooling;
 /// <typeparam name="T">The type of the elements in the array.</typeparam>"
 public readonly struct PooledArray<T>
 {
-    private readonly T[] _array;
     private readonly int _start;
     private readonly int _end;
 
@@ -25,7 +24,7 @@ public readonly struct PooledArray<T>
         ArgumentNullException.ThrowIfNull(array, nameof(array));
         Throw.ArgumentOutOfRangeException.IfNotInRange(actualLength, 0, array.Length, nameof(actualLength));
 
-        _array = array;
+        Array = array;
         _start = 0;
         _end = actualLength;
     }
@@ -37,7 +36,7 @@ public readonly struct PooledArray<T>
         Debug.Assert(actualLength >= 0 && actualLength <= array.Length);
 
         _start = start;
-        _array = array;
+        Array = array;
         _end = start + actualLength;
     }
 
@@ -49,7 +48,7 @@ public readonly struct PooledArray<T>
     /// <summary>
     /// Gets the underlying array.
     /// </summary>
-    public T[] Array => _array;
+    public T[] Array { get; }
 
     /// <summary>
     /// Gets or sets the element at the specified index.
@@ -65,7 +64,7 @@ public readonly struct PooledArray<T>
         get
         {
             Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, _end - _start - 1, nameof(index));
-            return ref _array[_start + index];
+            return ref Array[_start + index];
         }
     }
 
@@ -80,13 +79,13 @@ public readonly struct PooledArray<T>
     {
         Throw.ArgumentOutOfRangeException.IfNotInRange(start, 0, _end - _start, nameof(start));
         Throw.ArgumentOutOfRangeException.IfNotInRange(length, 0, _end - _start - start, nameof(length));
-        return new PooledArray<T>(_array, _start + start, length, noChecks: true);
+        return new PooledArray<T>(Array, _start + start, length, noChecks: true);
     }
 
     /// <summary>
     /// Returns a <see cref="Span{T}"/> that represents the usable portion of the array.
     /// </summary>
-    public Span<T> AsSpan() => _array.AsSpan(_start, _end);
+    public Span<T> AsSpan() => Array.AsSpan(_start, _end);
 
     /// <summary>
     /// Attempts to resize the usable portion of the array to the specified length.
@@ -98,13 +97,13 @@ public readonly struct PooledArray<T>
     /// <exception cref="ArgumentOutOfRangeException">Thrown if <paramref name="newLength"/> is negative.</exception>"
     public bool TryResize(int newLength, out PooledArray<T> resized)
     {
-        if (_start + newLength > _array.Length)
+        if (_start + newLength > Array.Length)
         {
             resized = this;
             return false;
         }
         ArgumentOutOfRangeException.ThrowIfNegative(newLength, nameof(newLength));
-        resized = new PooledArray<T>(_array, _start, newLength, noChecks: true);
+        resized = new PooledArray<T>(Array, _start, newLength, noChecks: true);
         return true;
     }
 
@@ -120,12 +119,12 @@ public readonly struct PooledArray<T>
     /// <returns><see langword="true"/> if the operation was successful; otherwise, <see langword="false"/>.</returns>
     public bool TryResizeUnsafe(int newLength, out PooledArray<T> resized)
     {
-        if (_start + newLength > _array.Length)
+        if (_start + newLength > Array.Length)
         {
             resized = this;
             return false;
         }
-        resized = new PooledArray<T>(_array, _start, newLength, noChecks: true);
+        resized = new PooledArray<T>(Array, _start, newLength, noChecks: true);
         return true;
     }
 

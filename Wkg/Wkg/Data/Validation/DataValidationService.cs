@@ -66,4 +66,24 @@ public static partial class DataValidationService
     /// Retrieves a regular expression to validate HTTP, HTTPS, or FTP URLs against the URL format specified in RFC 3986.
     /// </summary>
     public static RegexDescriptor Url => new(GetUrlRegex(), URL_PATTERN);
+
+    /// <summary>
+    /// Checks if the given string is a valid iban conforming to the ISO 13616 standard.
+    /// </summary>
+    /// <param name="iban">The iban to validate.</param>
+    /// <returns><see langword="true"/> if the given string is a valid iban; otherwise, <see langword="false"/>.</returns>
+    public static bool IsIban(string? iban)
+    {
+        if (string.IsNullOrWhiteSpace(iban))
+        {
+            return false;
+        }
+        Regex regex = GetIbanRegex();
+        return regex.IsMatch(iban);
+    }
+
+    /// <summary>
+    /// Retrieves a regular expression to validate ibans against the iban format specified in ISO 13616.
+    /// </summary>
+    public static RegexDescriptor Iban => new(GetIbanRegex(), IBAN_PATTERN);
 }

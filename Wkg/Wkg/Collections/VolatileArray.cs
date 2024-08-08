@@ -54,5 +54,5 @@ public class VolatileArray<T>(int length) : IEnumerable<T>, IEnumerator<T> where
     public void Reset() => _index = -1;
 
     /// <inheritdoc/>
-    public void Dispose() => Pass(); 
+    public void Dispose() => GC.SuppressFinalize(this);
 }

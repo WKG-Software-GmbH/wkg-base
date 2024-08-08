@@ -19,7 +19,7 @@ namespace Wkg.Unmanaged.MemoryManagement;
 /// <param name="initialize">Whether to zero-initialize the allocated memory.</param>
 public unsafe struct Unmanaged<T>(int count, bool initialize = true) : IDisposable where T : unmanaged
 {
-    private bool disposedValue;
+    private bool _disposedValue;
     private T* _ptr = initialize
         ? (T*)MemoryManager.Calloc(count, sizeof(T))
         : (T*)MemoryManager.Malloc(count * sizeof(T));
@@ -34,7 +34,7 @@ public unsafe struct Unmanaged<T>(int count, bool initialize = true) : IDisposab
     /// </summary>
     public readonly T* GetPointer()
     {
-        ObjectDisposedException.ThrowIf(disposedValue, nameof(Unmanaged<T>));
+        ObjectDisposedException.ThrowIf(_disposedValue, nameof(Unmanaged<T>));
         return _ptr;
     }
 
@@ -47,7 +47,7 @@ public unsafe struct Unmanaged<T>(int count, bool initialize = true) : IDisposab
     {
         get
         {
-            Debug.Assert(!disposedValue);
+            Debug.Assert(!_disposedValue);
             Debug.Assert(index >= 0 && index < Length);
             return _ptr[index];
         }
@@ -67,7 +67,7 @@ public unsafe struct Unmanaged<T>(int count, bool initialize = true) : IDisposab
     public readonly ref T GetRefUnsafe(int index)
     {
 #if DEBUG
-        ObjectDisposedException.ThrowIf(disposedValue, nameof(Unmanaged<T>));
+        ObjectDisposedException.ThrowIf(_disposedValue, nameof(Unmanaged<T>));
         Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, Length - 1, nameof(index));
 #endif
         return ref Unsafe.AsRef<T>(_ptr + index);
@@ -81,7 +81,7 @@ public unsafe struct Unmanaged<T>(int count, bool initialize = true) : IDisposab
     /// <returns>A reference to the element at the specified index.</returns>
     public readonly ref T GetRef(int index)
     {
-        ObjectDisposedException.ThrowIf(disposedValue, nameof(Unmanaged<T>));
+        ObjectDisposedException.ThrowIf(_disposedValue, nameof(Unmanaged<T>));
         Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, Length - 1, nameof(index));
         return ref GetRefUnsafe(index);
     }
@@ -92,7 +92,7 @@ public unsafe struct Unmanaged<T>(int count, bool initialize = true) : IDisposab
     /// <param name="newCount">The new total number of elements to hold after the reallocation.</param>
     public void Realloc(int newCount)
     {
-        ObjectDisposedException.ThrowIf(disposedValue, nameof(Unmanaged<T>));
+        ObjectDisposedException.ThrowIf(_disposedValue, nameof(Unmanaged<T>));
         Throw.ArgumentOutOfRangeException.IfNotInRange(newCount, 0, int.MaxValue, nameof(newCount));
 
         if (newCount <= Length)
@@ -113,11 +113,11 @@ public unsafe struct Unmanaged<T>(int count, bool initialize = true) : IDisposab
     /// </summary>
     public void Dispose()
     {
-        if (!disposedValue)
+        if (!_disposedValue)
         {
             MemoryManager.Free(_ptr);
             _ptr = null;
-            disposedValue = true;
+            _disposedValue = true;
         }
     }
 }

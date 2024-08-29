@@ -150,7 +150,7 @@ public class FairQueuing : ClassfulQdiscBuilder<FairQueuing>, IClassfulQdiscBuil
     }
 
     /// <inheritdoc/>
-    protected internal override IClassfulQdisc<THandle> BuildInternal<THandle>(THandle handle, Predicate<object?>? predicate)
+    internal protected override IClassfulQdisc<THandle> BuildInternal<THandle>(THandle handle, Predicate<object?>? predicate)
     {
         _params.Inner ??= Fifo.CreateBuilder(_context);
         _params.Predicate = predicate;

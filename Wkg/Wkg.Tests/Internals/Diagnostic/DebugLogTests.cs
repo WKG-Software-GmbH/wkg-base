@@ -1,8 +1,9 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Reflection;
+using Wkg.Internals.Diagnostic;
 using Wkg.Logging;
 
-namespace Wkg.Internals.Diagnostic.Tests;
+namespace Wkg.Tests.Internals.Diagnostic;
 
 [TestClass]
 public class DebugLogTests

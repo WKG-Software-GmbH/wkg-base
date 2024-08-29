@@ -1,7 +1,8 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Text;
+using Wkg.Text;
 
-namespace Wkg.Text.Tests;
+namespace Wkg.Tests.Text;
 
 [TestClass]
 public class Base64StringTests

@@ -1,4 +1,4 @@
-﻿namespace Wkg.Threading.Workloads;
+﻿namespace Wkg.Threading.Workloads.WorkloadTypes;
 
 internal class WorkloadImpl<TResult> : Workload<TResult>
 {

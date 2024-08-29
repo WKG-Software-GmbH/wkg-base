@@ -1,8 +1,9 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Linq.Expressions;
 using System.Reflection;
+using Wkg.Reflection;
 
-namespace Wkg.Reflection.Tests;
+namespace Wkg.Tests.Reflection;
 
 [TestClass]
 public class ExpressionExtensionsTests

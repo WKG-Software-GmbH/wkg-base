@@ -1,7 +1,8 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Wkg.Data.Validation;
 using Wkg.Tests;
 
-namespace Wkg.Data.Validation.Tests;
+namespace Wkg.Tests.Data.Validation;
 
 [TestClass]
 public class DataValidationServiceTests : BaseTest

@@ -1,7 +1,8 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Wkg.Collections.Concurrent;
 using Wkg.Tests;
 
-namespace Wkg.Collections.Concurrent.Tests;
+namespace Wkg.Tests.Collections.Concurrent;
 
 using static ConcurrentBitmap;
 

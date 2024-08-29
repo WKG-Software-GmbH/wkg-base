@@ -1,16 +1,17 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Wkg.Threading.Workloads;
 using Wkg.Threading.Workloads.Configuration;
 using Wkg.Threading.Workloads.DependencyInjection;
 using Wkg.Threading.Workloads.DependencyInjection.Implementations;
 using Wkg.Threading.Workloads.Factories;
 using Wkg.Threading.Workloads.Queuing.Classless.Fifo;
 
-namespace Wkg.Threading.Workloads.Tests;
+namespace Wkg.Tests.Threading.Workloads;
 
 [TestClass]
 public class WorkloadServiceProviderTests
 {
-    private static ClasslessWorkloadFactoryWithDI<int> CreateDefaultFactory<TServiceProviderFactory>() 
+    private static ClasslessWorkloadFactoryWithDI<int> CreateDefaultFactory<TServiceProviderFactory>()
         where TServiceProviderFactory : class, IWorkloadServiceProviderFactory, new() => WorkloadFactoryBuilder.Create<int>()
         .UseAnonymousWorkloadPooling(4)
         .UseMaximumConcurrency(1)
@@ -23,7 +24,7 @@ public class WorkloadServiceProviderTests
     public async Task TestSimpleServiceProvider1()
     {
         ClasslessWorkloadFactoryWithDI<int> factory = CreateDefaultFactory<SimpleWorkloadServiceProviderFactory>();
-        WorkloadResult<int> result = await factory.ScheduleAsync((services, flag) => 
+        WorkloadResult<int> result = await factory.ScheduleAsync((services, flag) =>
         {
             IMyService service = services.GetRequiredService<IMyService>();
             return service.GetNext();

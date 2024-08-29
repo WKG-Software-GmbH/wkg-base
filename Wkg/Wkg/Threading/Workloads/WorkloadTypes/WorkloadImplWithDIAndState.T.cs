@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics;
 using Wkg.Threading.Workloads.DependencyInjection;
 
-namespace Wkg.Threading.Workloads;
+namespace Wkg.Threading.Workloads.WorkloadTypes;
 
 internal class WorkloadImplWithDIAndState<TState, TResult> : Workload<TResult>
 {
@@ -19,7 +19,7 @@ internal class WorkloadImplWithDIAndState<TState, TResult> : Workload<TResult>
         _state = state;
     }
 
-    internal override void RegisterServiceProvider(IWorkloadServiceProvider serviceProvider) => 
+    internal override void RegisterServiceProvider(IWorkloadServiceProvider serviceProvider) =>
         _serviceProvider = serviceProvider;
 
     private protected override TResult ExecuteCore()

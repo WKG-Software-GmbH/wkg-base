@@ -2,7 +2,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Wkg.Threading.Workloads.Queuing.Routing;
 
-namespace Wkg.Threading.Workloads.Queuing.Classless.Random;
+namespace Wkg.Threading.Workloads.Queuing.Classless.WorkStealing;
 
 internal class WorkStealingQdisc<THandle>(THandle handle, Predicate<object?>? predicate) : ClasslessQdisc<THandle>(handle, predicate) where THandle : unmanaged
 {

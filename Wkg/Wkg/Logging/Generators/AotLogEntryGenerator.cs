@@ -6,7 +6,7 @@ using Wkg.Text;
 namespace Wkg.Logging.Generators;
 
 /// <summary>
-/// A AOT compatible, simple, and lightweight <see cref="ILogEntryGenerator"/> implementation that generates log entries in the following format:
+/// An AOT compatible, simple, and lightweight <see cref="ILogEntryGenerator"/> implementation that generates log entries in the following format:
 /// <code>
 /// 2023-05-30 14:35:42.185 (UTC) Info on Thread_0x1 (Main Thread) --> Output: 'This is a log message';
 /// 2023-05-30 14:35:42.185 (UTC) ERROR: NullReferenceException on Thread_0x1 (Main Thread) --> info: 'while trying to do a thing' original: 'Object reference not set to an instance of an object.' at:

@@ -86,5 +86,5 @@ public struct LogEntry
     public string? AdditionalInfo { get; set; }
 
     /// <inheritdoc/>
-    public override readonly string ToString() => LogMessage;
+    public readonly override string ToString() => LogMessage;
 }

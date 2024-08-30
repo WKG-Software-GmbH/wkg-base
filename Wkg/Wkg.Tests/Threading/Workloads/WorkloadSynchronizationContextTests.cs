@@ -4,7 +4,7 @@ using Wkg.Threading.Workloads.Configuration;
 using Wkg.Common.Extensions;
 using Wkg.Threading.Workloads.Queuing.Classless.Fifo;
 
-namespace Wkg.Threading.Workloads.Tests;
+namespace Wkg.Tests.Threading.Workloads;
 
 [TestClass]
 public class WorkloadSynchronizationContextTests
@@ -53,7 +53,7 @@ public class WorkloadSynchronizationContextTests
             Assert.AreNotEqual(1, SynchronizationContext.Current.As<MySynchronizationContext>()?.State);
             Assert.AreNotEqual(1, asyncLocal.Value);
             mres.Set();
-        }); 
+        });
         mres.Wait();
     }
 
@@ -124,7 +124,7 @@ public class WorkloadSynchronizationContextTests
     {
         public int State { get; set; }
 
-        public override void Post(SendOrPostCallback d, object? state) => base.Post(state => 
+        public override void Post(SendOrPostCallback d, object? state) => base.Post(state =>
         {
             SetSynchronizationContext(this);
             d.Invoke(state);

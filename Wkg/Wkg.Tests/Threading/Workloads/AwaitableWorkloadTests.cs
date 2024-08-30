@@ -5,8 +5,9 @@ using Wkg.Threading.Workloads.Queuing.Classless.Fifo;
 using System.Diagnostics;
 using Wkg.Threading.Workloads.Scheduling;
 using Wkg.Threading.Workloads.Exceptions;
+using Wkg.Threading.Workloads;
 
-namespace Wkg.Threading.Workloads.Tests;
+namespace Wkg.Tests.Threading.Workloads;
 
 [TestClass]
 public class AwaitableWorkloadTests

@@ -2,7 +2,7 @@
 using Wkg.Common.Extensions;
 using Wkg.Tests;
 
-namespace Wkg.Extensions.Common.Tests;
+namespace Wkg.Tests.Extensions.Common;
 
 [TestClass]
 public class GuidExtensionsTests : BaseTest

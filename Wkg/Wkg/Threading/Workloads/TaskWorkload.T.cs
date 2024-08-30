@@ -16,7 +16,7 @@ public abstract class TaskWorkload<TResult> : AsyncWorkload, IWorkload<TResult>
 
     private protected abstract Task<TResult> ExecuteCoreAsync();
 
-    private protected override async Task<WorkloadStatus> TryExecuteUnsafeCoreAsync()
+    private protected async override Task<WorkloadStatus> TryExecuteUnsafeCoreAsync()
     {
         // execute the workload
         TResult result = await ExecuteCoreAsync();

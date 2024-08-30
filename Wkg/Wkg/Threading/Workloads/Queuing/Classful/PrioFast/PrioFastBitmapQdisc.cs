@@ -10,7 +10,7 @@ using Wkg.Threading.Workloads.Exceptions;
 using Wkg.Threading.Workloads.Queuing.Classless;
 using Wkg.Threading.Workloads.Queuing.Routing;
 
-namespace Wkg.Threading.Workloads.Queuing.Classful.RoundRobin;
+namespace Wkg.Threading.Workloads.Queuing.Classful.PrioFast;
 
 /// <summary>
 /// A classful qdisc that implements a simple priority scheduling algorithm to dequeue workloads from its children. Works best for high contention and deep hierarchies.

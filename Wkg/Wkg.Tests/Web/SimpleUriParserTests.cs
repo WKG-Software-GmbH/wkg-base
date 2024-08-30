@@ -1,6 +1,7 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Wkg.Web;
 
-namespace Wkg.Web.Tests;
+namespace Wkg.Tests.Web;
 
 [TestClass]
 public class SimpleUriParserTests

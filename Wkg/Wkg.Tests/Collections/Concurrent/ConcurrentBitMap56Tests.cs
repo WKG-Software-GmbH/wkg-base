@@ -1,6 +1,7 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Wkg.Collections.Concurrent;
 
-namespace Wkg.Collections.Concurrent.Tests;
+namespace Wkg.Tests.Collections.Concurrent;
 
 #pragma warning disable CS0618 // Type or member is obsolete
 

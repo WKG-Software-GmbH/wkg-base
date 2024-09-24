@@ -17,8 +17,8 @@
     <!--Nuget packaging-->
     <PropertyGroup>
         <IsPackable>true</IsPackable>
-        <RepositoryUrl>https://git.wkg.lan/WKG/components/wkg-base.git</RepositoryUrl>
-        <PackageProjectUrl>https://git.wkg.lan/WKG/components/wkg-base.git</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/WKG-Software-GmbH/wkg-base</RepositoryUrl>
+        <PackageProjectUrl>https://github.com/WKG-Software-GmbH/wkg-base</PackageProjectUrl>
         <Description>Internal WKG library containing reusable cross-platform frameworks for all projects.</Description>
         <Company>WKG Software GmbH</Company>
         <Authors>WKG Software GmbH</Authors>

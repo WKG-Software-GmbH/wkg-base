@@ -11,6 +11,8 @@
       - [Examples](#examples)
     - [`Wkg.Data.Validation` Namespace](#wkgdatavalidation-namespace)
       - [Examples](#examples-1)
+    - [`Wkg.IO` Namespace](#wkgio-namespace)
+      - [`CachingStream` Class](#cachingstream-class)
     - [`Wkg.Extensions` Namespace](#wkgextensions-namespace)
       - [`GuidExtensions` Class](#guidextensions-class)
         - [Examples](#examples-2)
@@ -68,7 +70,7 @@ When the size of the allocated memory is exceeded a new block will automatically
 
 #### Examples
 
-An excellent example of code free of managed allocations for buffering using the `ResizableBuffer<T>` can be seen in the network code of _Clubmapp_ that reads a response stream into a UTF-8 JSON string:
+The following example demonstrates how to use the `ResizableBuffer<T>` to read a network stream chunk by chunk and append the contents to the buffer:
 
 ```csharp
 private static string ReadResponseStreamHelper(Stream responseStream)
@@ -102,6 +104,27 @@ if (!isValidEmail)
 }
 ```
 
+### `Wkg.IO` Namespace
+
+The `IO` namespace provides utilities for working with streams and files.
+
+#### `CachingStream` Class
+
+The `CachingStream` class is a read-only stream that caches the data read from the source stream, allowing random access to non-seekable source streams. This functionality may be required for use cases such as server-side data validation of uploaded files, where the provided stream must match a specific file signature or structure before being accepted and written to disk. As such, the `CachingStream` class can be used as an efficient way to buffer and process data without having to load the entire input stream into memory, but rather only the parts that are actually needed. Note that in the worst case scenario the entire stream will be read into memory, if read access to the end of the stream is required.
+
+```csharp
+IFormFile formFile = Request.Form.Files[0];
+await using Stream source = formFile.OpenReadStream();
+await using CachingStream buffer = new(source, leaveOpen: true);
+// do some validation on the buffer, e.g. check the file signature, structure, etc.
+...
+// and if everything is fine write the buffer to disk
+await using Stream destination = File.OpenWrite("output");
+buffer.Seek(0, SeekOrigin.Begin);
+await buffer.CopyToAsync(destination);
+```
+
+
 ### `Wkg.Extensions` Namespace
 
 The `Extensions` namespace provides a set of common extension methods for various types.
@@ -109,6 +132,9 @@ The `Extensions` namespace provides a set of common extension methods for variou
 #### `GuidExtensions` Class
 
 A common issue with .NET's `Guid` type is that its `ToString()` method returns a mixed-endian string representation of the `Guid` which is not compatible with the string representation used by most databases. In order to mitigate this issue the `GuidExtensions` class provides the performance-optimized `ToStringBigEndian()` extension method which returns a big-endian string representation of the `Guid` that can be used for database operations.
+
+> :link: **See also** 
+> If true UUIDs are required, consider using the `Uuid` structure provided through the `Wkg.EntityFrameworkCore` package.
 
 ##### Examples
 

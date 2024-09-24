@@ -41,6 +41,9 @@
       - [Switch Expression Helpers](#switch-expression-helpers)
       - [The Double-Discard Object](#the-double-discard-object)
 
+> :warning: **Warning**
+> This documentation is a work in progress and may not be complete or up-to-date. For the most accurate and up-to-date information, please refer to the source code and the XML documentation comments.
+
 ## Components
 
 ### `Wkg.Collections` Namespace

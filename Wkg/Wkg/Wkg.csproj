@@ -16,18 +16,20 @@
     
     <!--Nuget packaging-->
     <PropertyGroup>
+		<PackageId>Wkg</PackageId>
+        <Title>WKG Core</Title>
         <IsPackable>true</IsPackable>
+        <Description>Company-internal WKG library containing reusable cross-platform frameworks and utilities for all project types.</Description>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
         <RepositoryUrl>https://github.com/WKG-Software-GmbH/wkg-base</RepositoryUrl>
         <PackageProjectUrl>https://github.com/WKG-Software-GmbH/wkg-base</PackageProjectUrl>
-        <Description>Internal WKG library containing reusable cross-platform frameworks for all projects.</Description>
         <Company>WKG Software GmbH</Company>
         <Authors>WKG Software GmbH</Authors>
         <Copyright>Copyright (c) WKG Software GmbH 2024</Copyright>
         <PackageIcon>logo.png</PackageIcon>
-        <Title>WKG Library Core</Title>
         <PackageType>Dependency</PackageType>
         <PackageTags>
-            Unmanaged;Collections;Threading;QoS-Scheduling;Logging;Utilities;Versioning
+            performance;reflection;collections;threading;QoS;task-scheduling;logging;utilities;versioning
         </PackageTags>
     </PropertyGroup>
     
@@ -41,6 +43,7 @@
     
     <ItemGroup>
         <None Include="Assets\logo.png" Pack="true" PackagePath="\" />
+		<None Include="..\..\README.md" Pack="true" PackagePath="\" />
     </ItemGroup>
     
     <ItemGroup>

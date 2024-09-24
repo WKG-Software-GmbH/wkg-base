@@ -4,7 +4,7 @@
 
 ---
 
-`Wkg` is a company-internal library providing reusable components for the development of any .NET project.
+`Wkg` is a company-internal library providing reusable components and utilities for the development of any .NET project. Its core features include QoS-aware task scheduling, lightweight logging, and a set of reflection, threading, and performance utilities.
 
 ## Installation
 
@@ -21,4 +21,4 @@ Install the `Wkg` NuGet package by adding the following package reference to you
 
 ## Usage
 
-For technical documentation and usage examples, please refer to the [documentation](/docs/documentation.md).
+For technical documentation and usage examples, please refer to the [documentation](https://github.com/WKG-Software-GmbH/wkg-base/tree/main/docs/documentation.md).

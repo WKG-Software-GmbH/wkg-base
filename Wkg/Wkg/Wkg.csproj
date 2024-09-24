@@ -16,7 +16,6 @@
     
     <!--Nuget packaging-->
     <PropertyGroup>
-		<PackageId>b8d6ce2ef9804aadbac482cff39513ed</PackageId>
         <IsPackable>true</IsPackable>
         <RepositoryUrl>https://github.com/WKG-Software-GmbH/wkg-base</RepositoryUrl>
         <PackageProjectUrl>https://github.com/WKG-Software-GmbH/wkg-base</PackageProjectUrl>

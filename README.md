@@ -1,24 +1,16 @@
 # WKG Base
 
-![](https://git.wkg.lan/WKG/components/wkg-base/badges/main/pipeline.svg)
+[![NuGet version (Wkg)](https://img.shields.io/nuget/v/Wkg.svg?style=flat-square)](https://www.nuget.org/packages/Wkg/)
 
 ---
 
-`Wkg` is a company-internal library providing reusable components for the development of any .NET project.
+`Wkg` is a company-internal library providing reusable components and utilities for the development of any .NET application in our projects. Its core features include QoS-aware task scheduling, lightweight logging, and a set of reflection, threading, and performance utilities.
+
+As part of our commitment to open-source software, we are making this library available to the public under the GNU General Public License v3.0. We hope that it will be useful to other developers and that the community will contribute to its further development.
 
 ## Installation
 
-The `Wkg` library is available as a NuGet package from our internal nuget feed. To install it, add the following package source to your NuGet configuration:
-
-```xml
-<PropertyGroup>
-    <RestoreAdditionalProjectSources>
-        https://baget.wkg.lan/v3/index.json
-    </RestoreAdditionalProjectSources>
-</PropertyGroup>
-```
-
-Then, install the package by adding the following package reference to your project file:
+Install the `Wkg` NuGet package by adding the following package reference to your project file:
 
 ```xml
 <ItemGroup>
@@ -27,8 +19,8 @@ Then, install the package by adding the following package reference to your proj
 ```
 
 > :warning: **Warning**
-> Replace `X.X.X` with the latest stable version available on the [nuget feed](https://baget.wkg.lan/packages/wkg/latest), where **the major version must match the major version of your targeted .NET runtime**.
+> Replace `X.X.X` with the latest stable version available on the [nuget feed](https://www.nuget.org/packages/Wkg), where **the major version must match the major version of your targeted .NET runtime**.
 
 ## Usage
 
-For technical documentation and usage examples, please refer to the [documentation](/docs/documentation.md).
+For technical documentation and usage examples, please refer to the [documentation](https://github.com/WKG-Software-GmbH/wkg-base/tree/main/docs/documentation.md).

@@ -13,12 +13,12 @@ variables:
 
 include:
   - project: 'wkg/gitlab-templates'
-    ref: 'v1.2.11'
+    ref: 'v1.2.18'
     file:
       - '/jobs/build_dotnet_8.yml'
       - '/jobs/test_dotnet_8.yml'
       - '/jobs/increase_version.yml'
-      - '/jobs/deploy_baget_dotnet_8.yml'
+      - '/jobs/deploy_nuget_dotnet_8.yml'
 
 build:
   extends: .build
@@ -38,4 +38,4 @@ increase-version:
     - /^diag-.*$/ 
 
 deploy:
-  extends: .deploy-baget
+  extends: .deploy-nuget-public

@@ -20,7 +20,7 @@
         <Title>WKG Base</Title>
 		<PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
         <IsPackable>true</IsPackable>
-        <Description>Wkg is a company-internal library providing reusable components and utilities for the development of any .NET application in our projects. Its core features include QoS-aware task scheduling, lightweight logging, and a set of reflection, threading, and performance utilities.</Description>
+        <Description>The WKG Base library provides general components and utilities for developing any .NET project type at WKG Software GmbH. Its core features include QoS-aware task scheduling, lightweight logging, and a set of reflection, threading, and performance utilities.</Description>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
         <RepositoryUrl>https://github.com/WKG-Software-GmbH/wkg-base</RepositoryUrl>
         <PackageProjectUrl>https://github.com/WKG-Software-GmbH/wkg-base</PackageProjectUrl>
@@ -43,7 +43,7 @@
     </PropertyGroup>
     
     <ItemGroup>
-        <None Include="Assets\logo.png" Pack="true" PackagePath="\" />
+        <None Include="_Assets\logo.png" Pack="true" PackagePath="\" />
 		<None Include="..\..\README.md" Pack="true" PackagePath="\" />
     </ItemGroup>
     

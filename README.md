@@ -1,6 +1,6 @@
 # WKG Base
 
-[![NuGet version (Wkg)](https://img.shields.io/nuget/v/Wkg.svg?style=flat-square)](https://www.nuget.org/packages/Wkg/)
+[![NuGet](https://img.shields.io/badge/NuGet-555555?style=for-the-badge&logo=nuget)![NuGet version (Wkg)](https://img.shields.io/nuget/v/Wkg.svg?style=for-the-badge&label=Wkg)![NuGet downloads (Wkg)](https://img.shields.io/nuget/dt/Wkg?style=for-the-badge)](https://www.nuget.org/packages/Wkg/)
 
 ---
 

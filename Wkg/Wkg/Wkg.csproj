@@ -16,12 +16,12 @@
     
     <!--Nuget packaging-->
     <PropertyGroup>
-		<PackageId>Wkg</PackageId>
+        <PackageId>Wkg</PackageId>
         <Title>WKG Base</Title>
-		<PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
+        <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
         <IsPackable>true</IsPackable>
         <Description>The WKG Base library provides general components and utilities for developing any .NET project type at WKG Software GmbH. Its core features include QoS-aware task scheduling, lightweight logging, and a set of reflection, threading, and performance utilities.</Description>
-		<PackageReadmeFile>README.md</PackageReadmeFile>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
         <RepositoryUrl>https://github.com/WKG-Software-GmbH/wkg-base</RepositoryUrl>
         <PackageProjectUrl>https://github.com/WKG-Software-GmbH/wkg-base</PackageProjectUrl>
         <Company>WKG Software GmbH</Company>
@@ -44,7 +44,7 @@
     
     <ItemGroup>
         <None Include="_Assets\logo.png" Pack="true" PackagePath="\" />
-		<None Include="..\..\README.md" Pack="true" PackagePath="\" />
+        <None Include="..\..\README.md" Pack="true" PackagePath="\" />
     </ItemGroup>
     
     <ItemGroup>

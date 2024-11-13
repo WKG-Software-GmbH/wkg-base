@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
 
 namespace Wkg.Reflection;
 
@@ -12,6 +13,7 @@ public static class BackingFieldResolver
     /// </summary>
     /// <param name="propertyInfo">The <see cref="PropertyInfo"/> of the property to get the backing field of.</param>
     /// <returns>The backing field of the property represented by the specified <paramref name="propertyInfo"/> or <see langword="null"/> if the property is not compiler-generated or the backing field is not found.</returns>
+    [RequiresUnreferencedCode("Requires reflective access to backing fields.")]
     public static FieldInfo? GetBackingField(this PropertyInfo propertyInfo) =>
         propertyInfo.DeclaringType?.GetField($"<{propertyInfo.Name}>k__BackingField",
             BindingFlags.Instance | BindingFlags.NonPublic);

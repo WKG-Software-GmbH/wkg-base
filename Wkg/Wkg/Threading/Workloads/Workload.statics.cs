@@ -15,9 +15,11 @@ public partial class Workload
         return WhenAllCore(new WhenAllAwaiterState(array.Length), array);
     }
 
-    public static ValueTask WhenAll(params AwaitableWorkload[] workloads) => WhenAllCore(new WhenAllAwaiterState(workloads.Length), workloads);
+    public static ValueTask WhenAll(AwaitableWorkload[] workloads) => WhenAllCore(new WhenAllAwaiterState(workloads.Length), workloads);
 
-    private static ValueTask WhenAllCore(WhenAllAwaiterState state, AwaitableWorkload[] workloads)
+    public static ValueTask WhenAll(params ReadOnlySpan<AwaitableWorkload> workloads) => WhenAllCore(new WhenAllAwaiterState(workloads.Length), workloads);
+
+    private static ValueTask WhenAllCore(WhenAllAwaiterState state, ReadOnlySpan<AwaitableWorkload> workloads)
     {
         for (int i = 0; i < workloads.Length; i++)
         {
@@ -101,10 +103,10 @@ public partial class Workload
         return new ValueTask<AwaitableWorkload>(state._tcs.Task);
     }
 
-    private class WhenAnyAwaiterState(IList<AwaitableWorkload> _workloads) : IWorkloadContinuation
+    private class WhenAnyAwaiterState(IReadOnlyList<AwaitableWorkload> _workloads) : IWorkloadContinuation
     {
         internal readonly TaskCompletionSource<AwaitableWorkload> _tcs = new();
-        private readonly IList<AwaitableWorkload> _workloads = _workloads;
+        private readonly IReadOnlyList<AwaitableWorkload> _workloads = _workloads;
         private uint _completed;
         private volatile AwaitableWorkload? _completedWorkload;
 

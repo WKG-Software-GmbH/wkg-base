@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Wkg.Reflection.Aot.TrimmingSupport;
 
 namespace Wkg.Reflection.Extensions;
@@ -8,8 +9,7 @@ public static partial class TypeExtensions
     {
         Type[] allInterfaces = type.GetInterfaces();
         return allInterfaces
-            .Except(allInterfaces.Select(t => new DynamicallyAccessedInterfacesTypeDescriptor(t))
-                .SelectMany(i => i.Type.GetInterfaces()))                           // Remove all interfaces that are inherited from other interfaces
+            .Except(allInterfaces.SelectMany(t => t.GetInterfaces()))               // Remove all interfaces that are inherited from other interfaces
             .Except(type.BaseType?.GetInterfaces() ?? Enumerable.Empty<Type>());    // Remove all interfaces that are inherited from the base type
     }
 
@@ -96,19 +96,33 @@ public static partial class TypeExtensions
         .GetDirectInterfaces()
         .ImplementsGenericInterfaceWithTypeParametersCore(interfaceType, typeParam);
 
-    public static partial bool ImplementsGenericInterfaceWithTypeParameters(this Type type, Type interfaceType, params Type[] typeParams) => type
+    public static partial bool ImplementsGenericInterfaceWithTypeParameters(this Type type, Type interfaceType, Type[] typeParams) =>
+        type.ImplementsGenericInterfaceWithTypeParameters(interfaceType, typeParams.AsSpan());
+
+    public static partial bool ImplementsDirectGenericInterfaceWithTypeParameters(this Type type, Type interfaceType, Type[] typeParams) =>
+        type.ImplementsDirectGenericInterfaceWithTypeParameters(interfaceType, typeParams.AsSpan());
+
+    public static partial bool ImplementsGenericInterfaceWithTypeParameters(this Type type, Type interfaceType, params ReadOnlySpan<Type> typeParams) => type
         .GetInterfaces()
         .ImplementsGenericInterfaceWithTypeParametersCore(interfaceType, typeParams);
 
-    public static partial bool ImplementsDirectGenericInterfaceWithTypeParameters(this Type type, Type interfaceType, params Type[] typeParams) => type
+    public static partial bool ImplementsDirectGenericInterfaceWithTypeParameters(this Type type, Type interfaceType, params ReadOnlySpan<Type> typeParams) => type
         .GetDirectInterfaces()
         .ImplementsGenericInterfaceWithTypeParametersCore(interfaceType, typeParams);
 
-    private static bool ImplementsGenericInterfaceWithTypeParametersCore(this IEnumerable<Type> interfaces, Type interfaceType, params Type[] argumentTypes) => interfaces
-        .Any(i =>
-            i.IsGenericType
-            && i.GetGenericTypeDefinition() == interfaceType
-            && i.GetGenericArguments().SequenceEqual(argumentTypes));
+    private static bool ImplementsGenericInterfaceWithTypeParametersCore(this IEnumerable<Type> interfaces, Type interfaceType, params ReadOnlySpan<Type> argumentTypes)
+    {
+        foreach (Type iface in interfaces)
+        {
+            if (iface.IsGenericType
+                && iface.GetGenericTypeDefinition() == interfaceType
+                && iface.GetGenericArguments().AsSpan().SequenceEqual(argumentTypes))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
 
     public static partial bool ExtendsGenericBaseClass(this Type type, Type genericBaseClass)
     {
@@ -245,6 +259,7 @@ public static partial class TypeExtensions
         return typeArgument;
     }
 
+    [SuppressMessage("Usage", "CA2263:Prefer generic overload when type is known", Justification = "Delegates to non-generic overload.")]
     public static partial bool ImplementsInterfaceDirectly<TInteface>(this Type type) => 
         type.ImplementsInterfaceDirectly(typeof(TInteface));
 
@@ -260,6 +275,7 @@ public static partial class TypeExtensions
         return type.GetDirectInterfaces().Contains(interfaceType);
     }
 
+    [SuppressMessage("Usage", "CA2263:Prefer generic overload when type is known", Justification = "Delegates to non-generic overload.")]
     public static partial bool ImplementsInterface<TInteface>(this Type type) => 
         type.ImplementsInterface(typeof(TInteface));
 
@@ -276,10 +292,10 @@ public static partial class TypeExtensions
     }
 
     public static partial bool ImplementsGenericInterface(this Type type, Type genericInterfaceType) =>
-        ImplementsGenericInterfaceCore(type, genericInterfaceType, t => new DynamicallyAccessedInterfacesTypeDescriptor(t).Type.GetInterfaces());
+        ImplementsGenericInterfaceCore(type, genericInterfaceType, t => t.GetInterfaces());
 
     public static partial bool ImplementsGenericInterfaceDirectly(this Type type, Type genericInterfaceType) =>
-        ImplementsGenericInterfaceCore(type, genericInterfaceType, t => new DynamicallyAccessedInterfacesTypeDescriptor(t).Type.GetDirectInterfaces());
+        ImplementsGenericInterfaceCore(type, genericInterfaceType, t => t.GetDirectInterfaces());
 
     private static bool ImplementsGenericInterfaceCore(Type type, Type genericInterfaceType, Func<Type, IEnumerable<Type>> getInterfaces)
     {

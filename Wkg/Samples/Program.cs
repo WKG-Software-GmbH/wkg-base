@@ -380,7 +380,7 @@ static void DoStuffShort(CancellationFlag cancellationFlag)
     Log.WriteInfo("Done doing stuff.");
 }
 
-enum QdiscType : int
+internal enum QdiscType : int
 {
     Unspecified,
     Fifo,
@@ -388,17 +388,18 @@ enum QdiscType : int
     RoundRobin
 }
 
-class SharedInt
+internal class SharedInt
 {
     public int Value;
 }
 
-record Wrapper(int Value);
+internal record Wrapper(int Value);
 
-record State(QdiscType QdiscType);
-record SomeOtherState();
+internal record State(QdiscType QdiscType);
 
-class MySynchronizationContext : SynchronizationContext
+internal record SomeOtherState();
+
+internal class MySynchronizationContext : SynchronizationContext
 {
     public override void Post(SendOrPostCallback d, object? state) => base.Post(state =>
     {
@@ -407,12 +408,12 @@ class MySynchronizationContext : SynchronizationContext
     }, state);
 }
 
-interface IMyService
+internal interface IMyService
 {
     int GetNext();
 }
 
-class MyService : IMyService
+internal class MyService : IMyService
 {
     private int _counter;
 
@@ -424,7 +425,7 @@ class MyService : IMyService
     public int GetNext() => Interlocked.Increment(ref _counter);
 }
 
-enum SensorToS
+internal enum SensorToS
 {
     Root,
     Critical,
@@ -439,10 +440,13 @@ enum SensorToS
     ProcessOnIdle
 }
 
-record EmergencyStopRequest();
-record HeartbeatRequest();
-record MotorRpmReading(int MotorId, int Rpm)
+internal record EmergencyStopRequest();
+
+internal record HeartbeatRequest();
+
+internal record MotorRpmReading(int MotorId, int Rpm)
 {
     public const int CRITICAL_RPM = 1000;
 }
-record GyroReading(float X, float Y, float Z);
+
+internal record GyroReading(float X, float Y, float Z);

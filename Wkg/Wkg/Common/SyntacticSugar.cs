@@ -30,7 +30,7 @@ public static class SyntacticSugar
     /// Executes the provided <paramref name="action"/> and returns an empty dummy value. Useful for using <see langword="void"/> methods in switch expressions.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-    public static object? Do<T>(Action<T> action, T arg)
+    public static object? Do<T>(Action<T> action, scoped T arg) where T : allows ref struct
     {
         action(arg);
         return __;
@@ -40,7 +40,7 @@ public static class SyntacticSugar
     /// Executes the provided <paramref name="action"/> and returns an empty dummy value. Useful for using <see langword="void"/> methods in switch expressions.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-    public static object? Do<T1, T2>(Action<T1, T2> action, T1 arg1, T2 arg2)
+    public static object? Do<T1, T2>(Action<T1, T2> action, scoped T1 arg1, scoped T2 arg2) where T1 : allows ref struct where T2 : allows ref struct
     {
         action(arg1, arg2);
         return __;
@@ -50,7 +50,8 @@ public static class SyntacticSugar
     /// Executes the provided <paramref name="action"/> and returns an empty dummy value. Useful for using <see langword="void"/> methods in switch expressions.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-    public static object? Do<T1, T2, T3>(Action<T1, T2, T3> action, T1 arg1, T2 arg2, T3 arg3)
+    public static object? Do<T1, T2, T3>(Action<T1, T2, T3> action, scoped T1 arg1, scoped T2 arg2, scoped T3 arg3) 
+        where T1 : allows ref struct where T2 : allows ref struct where T3 : allows ref struct
     {
         action(arg1, arg2, arg3);
         return __;
@@ -60,7 +61,9 @@ public static class SyntacticSugar
     /// Executes the provided <paramref name="action"/> and returns an empty dummy value. Useful for using <see langword="void"/> methods in switch expressions.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-    public static object? Do<T1, T2, T3, T4>(Action<T1, T2, T3, T4> action, T1 arg1, T2 arg2, T3 arg3, T4 arg4)
+    public static object? Do<T1, T2, T3, T4>(Action<T1, T2, T3, T4> action, scoped T1 arg1, scoped T2 arg2, scoped T3 arg3, scoped T4 arg4) 
+        where T1 : allows ref struct where T2 : allows ref struct 
+        where T3 : allows ref struct where T4 : allows ref struct
     {
         action(arg1, arg2, arg3, arg4);
         return __;
@@ -74,19 +77,24 @@ public static class SyntacticSugar
 
     /// <inheritdoc cref="Pass()"/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void Pass<T>(T _) { }
+    public static void Pass<T>(scoped T _) where T : allows ref struct { }
 
     /// <inheritdoc cref="Pass()"/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void Pass<T1, T2>(T1 _1, T2 _2) { }
+    public static void Pass<T1, T2>(scoped T1 _1, scoped T2 _2) 
+        where T1 : allows ref struct where T2 : allows ref struct { }
 
     /// <inheritdoc cref="Pass()"/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void Pass<T1, T2, T3>(T1 _1, T2 _2, T3 _3) { }
+    public static void Pass<T1, T2, T3>(scoped T1 _1, scoped T2 _2, scoped T3 _3) 
+        where T1 : allows ref struct where T2 : allows ref struct where T3 : allows ref struct { }
 
     /// <inheritdoc cref="Pass()"/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void Pass<T1, T2, T3, T4>(T1 _1, T2 _2, T3 _3, T4 _4) { }
+    public static void Pass<T1, T2, T3, T4>(scoped T1 _1, scoped T2 _2, scoped T3 _3, scoped T4 _4)
+        where T1 : allows ref struct where T2 : allows ref struct 
+        where T3 : allows ref struct where T4 : allows ref struct
+    { }
 
     /// <summary>
     /// Converts the provided <paramref name="value"/> to its nullable equivalent.
@@ -99,5 +107,5 @@ public static class SyntacticSugar
     /// <returns>The provided <paramref name="value"/> but with the Code Analysis hint that it is nullable.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [return: MaybeNull]
-    public static T? NullableOf<T>(T? value) => value;
+    public static T? NullableOf<T>(T? value) where T : allows ref struct => value;
 }

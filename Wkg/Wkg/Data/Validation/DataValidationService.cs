@@ -18,14 +18,13 @@ public static partial class DataValidationService
         {
             return false;
         }
-        Regex regex = GetEmailRegex();
-        return regex.IsMatch(email);
+        return EmailRegex.IsMatch(email);
     }
 
     /// <summary>
     /// Retrieves a regular expression to validate email addresses against the email address format specified in RFC 5322.
     /// </summary>
-    public static RegexDescriptor EmailAddress => new(GetEmailRegex(), EMAIL_ADDRESS_PATTERN);
+    public static RegexDescriptor EmailAddress => new(EmailRegex, EMAIL_ADDRESS_PATTERN);
 
     /// <summary>
     /// Checks if the given string is a valid phone number.
@@ -38,14 +37,13 @@ public static partial class DataValidationService
         {
             return false;
         }
-        Regex regex = GetPhoneRegex();
-        return regex.IsMatch(phoneNumber);
+        return PhoneRegex.IsMatch(phoneNumber);
     }
 
     /// <summary>
     /// Retrieves a regular expression to validate phone numbers.
     /// </summary>
-    public static RegexDescriptor PhoneNumber => new(GetPhoneRegex(), PHONE_NUMBER_PATTERN);
+    public static RegexDescriptor PhoneNumber => new(PhoneRegex, PHONE_NUMBER_PATTERN);
 
     /// <summary>
     /// Checks if the given string is a valid HTTP, HTTPS, or FTP URL as defined by RFC 3986.
@@ -58,14 +56,13 @@ public static partial class DataValidationService
         {
             return false;
         }
-        Regex regex = GetUrlRegex();
-        return regex.IsMatch(url);
+        return UrlRegex.IsMatch(url);
     }
 
     /// <summary>
     /// Retrieves a regular expression to validate HTTP, HTTPS, or FTP URLs against the URL format specified in RFC 3986.
     /// </summary>
-    public static RegexDescriptor Url => new(GetUrlRegex(), URL_PATTERN);
+    public static RegexDescriptor Url => new(UrlRegex, URL_PATTERN);
 
     /// <summary>
     /// Checks if the given string is a valid iban conforming to the ISO 13616 standard.
@@ -78,12 +75,11 @@ public static partial class DataValidationService
         {
             return false;
         }
-        Regex regex = GetIbanRegex();
-        return regex.IsMatch(iban);
+        return IbanRegex.IsMatch(iban);
     }
 
     /// <summary>
     /// Retrieves a regular expression to validate ibans against the iban format specified in ISO 13616.
     /// </summary>
-    public static RegexDescriptor Iban => new(GetIbanRegex(), IBAN_PATTERN);
+    public static RegexDescriptor Iban => new(IbanRegex, IBAN_PATTERN);
 }

@@ -35,9 +35,7 @@ public unsafe class AllocationTracker<TMemoryManager> : IMemoryManager, IAllocat
 
     /// <inheritdoc/>
     [StackTraceHidden]
-#pragma warning disable IL2046 // 'RequiresUnreferencedCodeAttribute' annotations must match across all interface implementations or overrides.
     public static void* Calloc(int count, int size)
-#pragma warning restore IL2046 // 'RequiresUnreferencedCodeAttribute' annotations must match across all interface implementations or overrides.
     {
         void* p = TMemoryManager.Calloc(count, size);
         Allocation allocation = new(new IntPtr(p), (ulong)count * (ulong)size, new StackTrace());
@@ -46,9 +44,7 @@ public unsafe class AllocationTracker<TMemoryManager> : IMemoryManager, IAllocat
     }
 
     /// <inheritdoc/>
-#pragma warning disable IL2046 // 'RequiresUnreferencedCodeAttribute' annotations must match across all interface implementations or overrides.
     public static void Free(void* memory)
-#pragma warning restore IL2046 // 'RequiresUnreferencedCodeAttribute' annotations must match across all interface implementations or overrides.
     {
         TMemoryManager.Free(memory);
         s_allocations.TryRemove((nuint)memory, out _);
@@ -56,9 +52,7 @@ public unsafe class AllocationTracker<TMemoryManager> : IMemoryManager, IAllocat
 
     /// <inheritdoc/>
     [StackTraceHidden]
-#pragma warning disable IL2046 // 'RequiresUnreferencedCodeAttribute' annotations must match across all interface implementations or overrides.
     public static void* Malloc(int size)
-#pragma warning restore IL2046 // 'RequiresUnreferencedCodeAttribute' annotations must match across all interface implementations or overrides.
     {
         void* p = TMemoryManager.Malloc(size);
         Allocation allocation = new(new IntPtr(p), (ulong)size, new StackTrace());
@@ -68,9 +62,7 @@ public unsafe class AllocationTracker<TMemoryManager> : IMemoryManager, IAllocat
 
     /// <inheritdoc/>
     [StackTraceHidden]
-#pragma warning disable IL2046 // 'RequiresUnreferencedCodeAttribute' annotations must match across all interface implementations or overrides.
     public static void* Realloc(void* previous, int newSize)
-#pragma warning restore IL2046 // 'RequiresUnreferencedCodeAttribute' annotations must match across all interface implementations or overrides.
     {
         s_allocations.TryRemove((nuint)previous, out _);
         void* p = TMemoryManager.Realloc(previous, newSize);

@@ -7,7 +7,7 @@ namespace Wkg.Tests;
 
 public abstract class BaseTest
 {
-    private static readonly object s_lock = new();
+    private static readonly Lock s_lock = new();
     private static bool s_isInitialized = false;
 
     private protected BaseTest()

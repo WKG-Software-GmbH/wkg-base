@@ -25,7 +25,7 @@ public class ColoredThreadBasedConsoleSink : ILogSink
         ConsoleColor.DarkGray,
     ];
 
-    private static readonly object s_lock = new();
+    private static readonly Lock s_lock = new();
 
     /// <inheritdoc/>
     public void Log(ref readonly LogEntry logEntry)

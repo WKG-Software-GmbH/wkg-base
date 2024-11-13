@@ -1,5 +1,4 @@
 using System.Diagnostics.CodeAnalysis;
-using Wkg.Reflection.Aot.TrimmingSupport;
 
 namespace Wkg.Reflection.Extensions;
 

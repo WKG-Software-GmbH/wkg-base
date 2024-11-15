@@ -7,7 +7,7 @@ namespace Wkg.Threading.Workloads.WorkloadTypes;
 
 internal class AnonymousWorkloadPoolManager(int _capacity)
 {
-    private readonly object _lock = new();
+    private readonly Lock _lock = new();
     private ObjectPool<AnonymousWorkloadImpl>? _pool;
     private ObjectPool<AnonymousWorkloadImplWithDI>? _poolWithDI;
 

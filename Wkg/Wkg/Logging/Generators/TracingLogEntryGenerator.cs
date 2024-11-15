@@ -48,10 +48,8 @@ public class TracingLogEntryGenerator : ILogEntryGenerator<TracingLogEntryGenera
         _config = config;
 
     /// <inheritdoc/>
-#pragma warning disable IL2046 // 'RequiresUnreferencedCodeAttribute' annotations must match across all interface implementations or overrides.
     public static TracingLogEntryGenerator Create(CompiledLoggerConfiguration config) =>
         new(config);
-#pragma warning restore IL2046 // 'RequiresUnreferencedCodeAttribute' annotations must match across all interface implementations or overrides.
 
     /// <inheritdoc/>
     [StackTraceHidden]

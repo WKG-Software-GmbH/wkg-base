@@ -35,9 +35,7 @@ public class BalancedLogEntryGenerator : DetailedAotLogEntryGenerator, ILogEntry
 
     /// <inheritdoc/>
     [RequiresUnreferencedCode("Requires reflective access to determine the assembly name of the caller.")]
-#pragma warning disable IL2046 // 'RequiresUnreferencedCodeAttribute' annotations must match across all interface implementations or overrides.
     public static new BalancedLogEntryGenerator Create(CompiledLoggerConfiguration config) => new(config);
-#pragma warning restore IL2046 // 'RequiresUnreferencedCodeAttribute' annotations must match across all interface implementations or overrides.
 
     /// <summary>
     /// Generates the header for the <paramref name="entry"/> and appends it to the <paramref name="builder"/>.

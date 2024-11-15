@@ -17,7 +17,7 @@ namespace Wkg.Threading.Workloads.Queuing.Classful.RoundRobin;
 internal sealed class RoundRobinLockingQdisc<THandle> : ClassfulQdisc<THandle>, IClassfulQdisc<THandle>
     where THandle : unmanaged
 {
-    private readonly object _syncRoot;
+    private readonly Lock _syncRoot;
     private readonly IQdisc?[] _localLasts;
     private readonly IClassifyingQdisc<THandle> _localQueue;
 
@@ -29,7 +29,7 @@ internal sealed class RoundRobinLockingQdisc<THandle> : ClassfulQdisc<THandle>, 
         _localQueue = localQueueBuilder.BuildUnsafe(default(THandle), MatchNothingPredicate);
         _localLasts = new IQdisc[maxConcurrency];
         _children = [_localQueue];
-        _syncRoot = new object();
+        _syncRoot = new Lock();
     }
 
     protected override void OnInternalInitialize(INotifyWorkScheduled parentScheduler) =>

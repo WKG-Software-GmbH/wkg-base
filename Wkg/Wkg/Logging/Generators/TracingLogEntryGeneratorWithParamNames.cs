@@ -31,10 +31,8 @@ public class TracingLogEntryGeneratorWithParamNames : TracingLogEntryGenerator, 
     }
 
     /// <inheritdoc/>
-#pragma warning disable IL2046 // 'RequiresUnreferencedCodeAttribute' annotations must match across all interface implementations or overrides.
     public static new TracingLogEntryGeneratorWithParamNames Create(CompiledLoggerConfiguration config) =>
         new(config);
-#pragma warning restore IL2046 // 'RequiresUnreferencedCodeAttribute' annotations must match across all interface implementations or overrides.
 
     /// <inheritdoc/>
     protected override string GetTargetSite(MethodBase method)

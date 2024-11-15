@@ -17,7 +17,7 @@ namespace Wkg.Threading.Workloads.Queuing.Classful.PrioFast;
 internal sealed class PrioFastLockingBitmapQdisc<THandle> : ClassfulQdisc<THandle>, IClassfulQdisc<THandle>
     where THandle : unmanaged
 {
-    private readonly object _syncRoot = new();
+    private readonly Lock _syncRoot = new();
     private readonly BitArray _dataMap;
     private readonly IQdisc?[] _localLasts;
     private readonly IClassifyingQdisc<THandle> _localQueue;

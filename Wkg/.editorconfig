@@ -310,3 +310,7 @@ dotnet_naming_style.begins_with_t.required_prefix = T
 dotnet_naming_style.begins_with_t.required_suffix = 
 dotnet_naming_style.begins_with_t.word_separator = 
 dotnet_naming_style.begins_with_t.capitalization = pascal_case
+
+# The compiler seems to get confused and thinks that a suppression is unnecessary when it is necessary.
+# Allow suppression of "CA2263:Prefer generic overload when type is known"
+dotnet_remove_unnecessary_suppression_exclusions = CA2263

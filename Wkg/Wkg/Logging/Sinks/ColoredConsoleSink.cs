@@ -8,7 +8,7 @@
 /// </remarks>
 public class ColoredConsoleSink : ILogSink
 {
-    private static readonly object s_lock = new();
+    private static readonly Lock s_lock = new();
 
     private static readonly ConsoleColor[] s_colorsByLogLevel =
     [

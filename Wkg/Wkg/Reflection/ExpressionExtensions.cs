@@ -143,7 +143,7 @@ public static class ExpressionExtensions
         Expression memberAccessExpression)
         where TMemberInfo : MemberInfo
     {
-        IReadOnlyList<TMemberInfo>? memberInfos = MatchMemberAccess<TMemberInfo>(parameterExpression, memberAccessExpression);
+        List<TMemberInfo>? memberInfos = MatchMemberAccess<TMemberInfo>(parameterExpression, memberAccessExpression);
 
         return memberInfos?.Count == 1 ? memberInfos[0] : null;
     }

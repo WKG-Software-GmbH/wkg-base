@@ -25,24 +25,24 @@ public static partial class DataValidationService
     /// From .NET Framework 4.8 source code: https://referencesource.microsoft.com/#System.ComponentModel.DataAnnotations/DataAnnotations/EmailAddressAttribute.cs with 2 second timeout
     /// </summary>
     [GeneratedRegex(EMAIL_ADDRESS_PATTERN, DEFAULT_OPTIONS, 2000)]
-    private static partial Regex GetEmailRegex();
+    private static partial Regex EmailRegex { get; }
 
     /// <summary>
     /// From .NET Framework 4.8 source code: https://referencesource.microsoft.com/#System.ComponentModel.DataAnnotations/DataAnnotations/PhoneAttribute.cs with 2 second timeout
     /// </summary>
     /// <returns></returns>
     [GeneratedRegex(PHONE_NUMBER_PATTERN, DEFAULT_OPTIONS, 2000)]
-    private static partial Regex GetPhoneRegex();
+    private static partial Regex PhoneRegex { get; }
 
     /// <summary>
     /// From .NET Framework 4.8 source code: https://referencesource.microsoft.com/#System.ComponentModel.DataAnnotations/DataAnnotations/UrlAttribute.cs with 2 second timeout
     /// </summary>
     [GeneratedRegex(URL_PATTERN, DEFAULT_OPTIONS, 2000)]
-    private static partial Regex GetUrlRegex();
+    private static partial Regex UrlRegex { get; }
 
     /// <summary>
     /// From stackoverflow: https://stackoverflow.com/a/44657292/14395043
     /// </summary>
     [GeneratedRegex(IBAN_PATTERN, DEFAULT_OPTIONS, 2000)]
-    private static partial Regex GetIbanRegex();
+    private static partial Regex IbanRegex { get; }
 }

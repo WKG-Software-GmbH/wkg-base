@@ -1,4 +1,4 @@
-﻿using System.Runtime.CompilerServices;
+using System.Runtime.CompilerServices;
 using Wkg.Internals.Diagnostic;
 using Wkg.Logging.Writers;
 using Wkg.Threading.Workloads.Continuations;
@@ -112,11 +112,13 @@ public abstract class Workload<TResult> : AwaitableWorkload, IWorkload<TResult>
             // this should get optimized away by the JIT
             if (typeof(TResult).IsValueType)
             {
+                // if TResult is a value type, then it must be boxed
                 result = Unsafe.As<WorkloadResultBox<TResult>>(box).Result;
             }
             else
             {
-                result = Unsafe.BitCast<object, TResult>(box);
+                // TResult is a reference type, so we can just the reference
+                result = Unsafe.As<object, TResult>(ref box);
             }
         }
         return new WorkloadResult<TResult>(Status, Volatile.Read(ref _exception), result);

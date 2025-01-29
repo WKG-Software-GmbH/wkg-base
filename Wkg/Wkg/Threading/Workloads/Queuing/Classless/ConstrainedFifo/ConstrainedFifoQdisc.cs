@@ -6,8 +6,6 @@ using Wkg.Threading.Workloads.Queuing.Routing;
 
 namespace Wkg.Threading.Workloads.Queuing.Classless.ConstrainedFifo;
 
-using static ConcurrentBoolean;
-
 internal class ConstrainedFifoQdisc<THandle> : ClasslessQdisc<THandle>, IClassifyingQdisc<THandle> where THandle : unmanaged
 {
     private protected readonly AbstractWorkloadBase?[] _workloads;
@@ -28,7 +26,7 @@ internal class ConstrainedFifoQdisc<THandle> : ClasslessQdisc<THandle>, IClassif
         {
             Head = 0,
             Tail = 0,
-            IsEmpty = TRUE
+            IsEmpty = true
         };
         Volatile.Write(ref _state, initialState.UnderlyingStorage);
         _workloads = new AbstractWorkloadBase[maxCount];

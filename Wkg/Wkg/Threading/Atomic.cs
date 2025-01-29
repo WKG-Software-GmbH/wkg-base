@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using Wkg.Common;
 
 namespace Wkg.Threading;
@@ -11,6 +12,106 @@ namespace Wkg.Threading;
 /// </remarks>
 public static class Atomic
 {
+    #region Interlocked
+
+    /// <summary>
+    /// Sets a <see cref="ConcurrentBoolean"/> to the specified value and returns the original value, as an atomic operation.
+    /// </summary>
+    /// <param name="location1">The variable to set to the specified value.</param>
+    /// <param name="value">The value to which the <paramref name="location1"/> parameter is set.</param>
+    /// <returns>The original value of <paramref name="location1"/>.</returns>
+    /// <exception cref="NullReferenceException">The address of <paramref name="location1"/> is a null pointer.</exception>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool Exchange(ref ConcurrentBoolean location1, bool value) =>
+        Interlocked.Exchange(ref Unsafe.As<ConcurrentBoolean, uint>(ref location1), (uint)(ConcurrentBoolean)value) != ConcurrentBoolean.FALSE;
+
+    /// <summary>
+    /// Compares two <see cref="ConcurrentBoolean"/> values for equality and, if they are equal, replaces the first value, as an atomic operation.
+    /// </summary>
+    /// <param name="location1">The destination, whose value is compared with <paramref name="comparand"/> and possibly replaced.</param>
+    /// <param name="value">The value that replaces the destination value if the comparison results in equality.</param>
+    /// <param name="comparand">The value that is compared to the value at <paramref name="location1"/>.</param>
+    /// <returns>The original value in <paramref name="location1"/>.</returns>
+    /// <exception cref="NullReferenceException">The address of <paramref name="location1"/> is a null pointer.</exception>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool CompareExchange(ref ConcurrentBoolean location1, bool value, bool comparand) =>
+        Interlocked.CompareExchange(ref Unsafe.As<ConcurrentBoolean, uint>(ref location1), (uint)(ConcurrentBoolean)value, (uint)(ConcurrentBoolean)comparand) != ConcurrentBoolean.FALSE;
+
+    /// <summary>
+    /// Sets a variable of the specified type <typeparamref name="TEnum"/> to a specified value and returns the original value, as an atomic operation.
+    /// </summary>
+    /// <typeparam name="TEnum">The type to be used for <paramref name="location1"/> and <paramref name="value"/>. 
+    /// This type must be an enum type whose underlying size is 32 or 64 bits.</typeparam>
+    /// <param name="location1">The variable to set to the specified value. This is a reference parameter (<see langword="ref"/> in C#, <c>ByRef</c> in Visual Basic).</param>
+    /// <param name="value">The value to which the <paramref name="location1"/> parameter is set.</param>
+    /// <returns>The original value of <paramref name="location1"/>.</returns>
+    /// <exception cref="NullReferenceException">The address of <paramref name="location1"/> is a null pointer.</exception>
+    /// <exception cref="NotSupportedException">An unsupported <typeparamref name="TEnum"/> is specified.</exception>
+    public static TEnum Exchange<TEnum>(ref TEnum location1, TEnum value) where TEnum : unmanaged, Enum
+    {
+        int size = Unsafe.SizeOf<TEnum>();
+        if (size == sizeof(uint))
+        {
+            // we know that the size of the enum matches uint, so we can safely static_cast the ByRef and all values to uint
+            // and CAS-in the uint value.
+            uint original = Interlocked.Exchange(ref Unsafe.As<TEnum, uint>(ref location1), Unsafe.BitCast<TEnum, uint>(value));
+            // static_cast back to the original enum type
+            return Unsafe.BitCast<uint, TEnum>(original);
+        }
+        if (size == sizeof(ulong))
+        {
+            ulong original = Interlocked.Exchange(ref Unsafe.As<TEnum, ulong>(ref location1), Unsafe.BitCast<TEnum, ulong>(value));
+            return Unsafe.BitCast<ulong, TEnum>(original);
+        }
+        ThrowUnsupportedEnumSize<TEnum>();
+        return default;
+    }
+
+    /// <summary>
+    /// Compares two <typeparamref name="TEnum"/> values for equality and, if they are equal, replaces the first value, as an atomic operation.
+    /// </summary>
+    /// <typeparam name="TEnum">The type to be used for <paramref name="location1"/>, <paramref name="value"/>, and <paramref name="comparand"/>. 
+    /// This type must be an enum type whose underlying size is 32 or 64 bits.</typeparam>
+    /// <param name="location1">The destination, whose value is compared with <paramref name="comparand"/> and possibly replaced.</param>
+    /// <param name="value">The value that replaces the destination value if the comparison results in equality.</param>
+    /// <param name="comparand">The value that is compared to the value at <paramref name="location1"/>.</param>
+    /// <returns>The original value in <paramref name="location1"/>.</returns>
+    /// <exception cref="NullReferenceException">The address of <paramref name="location1"/> is a null pointer.</exception>
+    /// <exception cref="NotSupportedException">An unsupported <typeparamref name="TEnum"/> is specified.</exception>
+    public static TEnum CompareExchange<TEnum>(ref TEnum location1, TEnum value, TEnum comparand) where TEnum : unmanaged, Enum
+    {
+        int size = Unsafe.SizeOf<TEnum>();
+        if (size == sizeof(uint))
+        {
+            // we know that the size of the enum matches uint, so we can safely static_cast the ByRef and all values to uint
+            // and CAS-in the uint value.
+            uint original = Interlocked.CompareExchange(ref Unsafe.As<TEnum, uint>(ref location1), Unsafe.BitCast<TEnum, uint>(value), Unsafe.BitCast<TEnum, uint>(comparand));
+            // static_cast back to the original enum type
+            return Unsafe.BitCast<uint, TEnum>(original);
+        }
+        if (size == sizeof(ulong))
+        {
+            ulong original = Interlocked.CompareExchange(ref Unsafe.As<TEnum, ulong>(ref location1), Unsafe.BitCast<TEnum, ulong>(value), Unsafe.BitCast<TEnum, ulong>(comparand));
+            return Unsafe.BitCast<ulong, TEnum>(original);
+        }
+        ThrowUnsupportedEnumSize<TEnum>();
+        return default;
+    }
+
+    [DoesNotReturn]
+    private static void ThrowUnsupportedEnumSize<TEnum>() => 
+        throw new NotSupportedException($"Unable to safely perform CAS operation on enum type {typeof(TEnum)}: enum size too small. Must be 32 or 64 bit");
+
+    #endregion Interlocked
+
+    #region Read
+
+    /// <inheritdoc cref="Volatile.Read(ref readonly bool)"/>
+    public static bool VolatileRead(ref ConcurrentBoolean location) =>
+        Volatile.Read(ref Unsafe.As<ConcurrentBoolean, uint>(ref location)) != ConcurrentBoolean.FALSE;
+
+    #endregion Read
+
     #region IncrementModulo
 
     /// <summary>

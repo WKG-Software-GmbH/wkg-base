@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 namespace Wkg.Threading.Workloads.Continuations;
 
@@ -11,6 +12,6 @@ internal class ThreadPoolContinuation(IWorkloadContinuation _innerContinuation) 
     private void InvokeInternal(object? workload)
     {
         Debug.Assert(workload is not null);
-        _innerContinuation.Invoke(ReinterpretCast<AbstractWorkloadBase>(workload));
+        _innerContinuation.Invoke(Unsafe.As<AbstractWorkloadBase>(workload));
     }
 }

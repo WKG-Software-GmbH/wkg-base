@@ -112,11 +112,11 @@ public abstract class Workload<TResult> : AwaitableWorkload, IWorkload<TResult>
             // this should get optimized away by the JIT
             if (typeof(TResult).IsValueType)
             {
-                result = ReinterpretCast<object, WorkloadResultBox<TResult>>(box).Result;
+                result = Unsafe.As<WorkloadResultBox<TResult>>(box).Result;
             }
             else
             {
-                result = Unsafe.As<object, TResult>(ref box);
+                result = Unsafe.BitCast<object, TResult>(box);
             }
         }
         return new WorkloadResult<TResult>(Status, Volatile.Read(ref _exception), result);

@@ -111,11 +111,11 @@ public abstract class TaskWorkload<TResult> : AsyncWorkload, IWorkload<TResult>
         {
             if (typeof(TResult).IsValueType)
             {
-                result = ReinterpretCast<object, WorkloadResultBox<TResult>>(resultContainer).Result;
+                result = Unsafe.As<WorkloadResultBox<TResult>>(resultContainer).Result;
             }
             else
             {
-                result = Unsafe.As<object,TResult>(ref resultContainer);
+                result = Unsafe.BitCast<object, TResult>(resultContainer);
             }
         }
         return new(Status, Volatile.Read(ref _exception), result);

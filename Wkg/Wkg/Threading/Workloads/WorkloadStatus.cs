@@ -3,11 +3,8 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using Wkg.Text;
-using Wkg.Unmanaged;
 
 namespace Wkg.Threading.Workloads;
-
-using static TypeReinterpreter;
 
 /// <summary>
 /// Represents the status of a workload.
@@ -102,14 +99,14 @@ public readonly struct WorkloadStatus
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static implicit operator uint(WorkloadStatus status) =>
-        ReinterpretCast<WorkloadStatus, uint>(status);
+        Unsafe.BitCast<WorkloadStatus, uint>(status);
 
     /// <summary>
     /// Reinterprets the specified <paramref name="value"/> as a <see cref="WorkloadStatus"/>.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static implicit operator WorkloadStatus(uint value) =>
-        ReinterpretCast<uint, WorkloadStatus>(value);
+        Unsafe.BitCast<uint, WorkloadStatus>(value);
 
     private static string GetFlagName(WorkloadStatus flag) => (uint)flag switch
     {
@@ -135,7 +132,7 @@ public readonly struct WorkloadStatus
         // go over every flag and append it to the string builder
         for (int i = 0; i < 32; i++)
         {
-            WorkloadStatus flag = ReinterpretCast<uint, WorkloadStatus>(1u << i);
+            WorkloadStatus flag = Unsafe.BitCast<uint, WorkloadStatus>(1u << i);
             if (IsOneOf(flag))
             {
                 if (builder.Length > 0)

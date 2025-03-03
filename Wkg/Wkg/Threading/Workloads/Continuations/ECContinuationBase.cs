@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 namespace Wkg.Threading.Workloads.Continuations;
 
@@ -40,6 +41,6 @@ internal abstract class ECContinuationBase : IWorkloadContinuation
     protected void InvokeContinuation(object? workload)
     {
         Debug.Assert(workload is AbstractWorkloadBase);
-        _innerContinuation.Invoke(ReinterpretCast<AbstractWorkloadBase>(workload));
+        _innerContinuation.Invoke(Unsafe.As<AbstractWorkloadBase>(workload));
     }
 }

@@ -150,7 +150,7 @@ public ref struct ConcurrentBitmap56
     /// <param name="index">The index of the bit to update.</param>
     /// <param name="isSet"><see langword="true"/> to set the bit at the specified index, <see langword="false"/> to clear the bit at the specified index.</param>
     /// <returns>The updated <see cref="ConcurrentBitmap56"/> that was written to the specified <paramref name="state"/>.</returns>
-    public static ConcurrentBitmap56 UpdateBit(ref ConcurrentBitmap56State state, int index, ConcurrentBoolean isSet)
+    public static ConcurrentBitmap56 UpdateBit(ref ConcurrentBitmap56State state, int index, bool isSet)
     {
         Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, 55, nameof(index));
         return UpdateBitUnsafe(ref state, index, isSet);
@@ -163,9 +163,10 @@ public ref struct ConcurrentBitmap56
     /// <param name="index">The index of the bit to update.</param>
     /// <param name="isSet"><see langword="true"/> to set the bit at the specified index, <see langword="false"/> to clear the bit at the specified index.</param>
     /// <returns>The updated <see cref="ConcurrentBitmap56"/> that was written to the specified <paramref name="state"/>.</returns>
-    public static ConcurrentBitmap56 UpdateBitUnsafe(ref ConcurrentBitmap56State state, int index, ConcurrentBoolean isSet)
+    public static ConcurrentBitmap56 UpdateBitUnsafe(ref ConcurrentBitmap56State state, int index, bool isSet)
     {
         Debug.Assert(index is >= 0 and < 56);
+        ConcurrentBoolean bitState = isSet;
         ref ulong target = ref AsUlongPointer(ref state);
         ulong oldState, newState;
         ConcurrentBitmap56 map;
@@ -174,7 +175,7 @@ public ref struct ConcurrentBitmap56
             oldState = Volatile.Read(ref target);
             map = new ConcurrentBitmap56(oldState);
             byte token = map._guardToken;
-            map._state = UpdateBitUnsafe(oldState, index, isSet);
+            map._state = UpdateBitUnsafe(oldState, index, bitState);
             // write the new guard token to prevent ABA issues
             map._guardToken = (byte)(token + 1);
             // the guard token is included in the state, so we can simply write it back
@@ -191,7 +192,7 @@ public ref struct ConcurrentBitmap56
     /// <param name="index">The index of the bit to update.</param>
     /// <param name="isSet"><see langword="true"/> to set the bit at the specified index to 1, <see langword="false"/> to clear the bit at the specified index to 0.</param>
     /// <returns><see langword="true"/> if the bit was updated, otherwise <see langword="false"/> if the specified <paramref name="token"/> was invalid.</returns>
-    public static bool TryUpdateBit(ref ConcurrentBitmap56State state, byte token, int index, ConcurrentBoolean isSet)
+    public static bool TryUpdateBit(ref ConcurrentBitmap56State state, byte token, int index, bool isSet)
     {
         Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, 55, nameof(index));
         return TryUpdateBitUnsafe(ref state, token, index, isSet);
@@ -205,7 +206,7 @@ public ref struct ConcurrentBitmap56
     /// <param name="index">The index of the bit to update.</param>
     /// <param name="isSet"><see langword="true"/> to set the bit at the specified index to 1, <see langword="false"/> to clear the bit at the specified index to 0.</param>
     /// <returns><see langword="true"/> if the bit was updated, otherwise <see langword="false"/> if the specified <paramref name="token"/> was invalid.</returns>
-    public static bool TryUpdateBitUnsafe(ref ConcurrentBitmap56State state, byte token, int index, ConcurrentBoolean isSet)
+    public static bool TryUpdateBitUnsafe(ref ConcurrentBitmap56State state, byte token, int index, bool isSet)
     {
         Debug.Assert(index is >= 0 and < 56);
         ref ulong target = ref AsUlongPointer(ref state);
@@ -379,9 +380,10 @@ public ref struct ConcurrentBitmap56
     /// <param name="state">A reference to the <see cref="ConcurrentBitmap56State"/>.</param>
     /// <param name="index">The index at which to insert the new bit.</param>
     /// <param name="isInitiallySet"><see langword="true"/> to set the bit at the specified index, <see langword="false"/> to clear the bit at the specified index.</param>
-    public static void InsertBitAt(ref ConcurrentBitmap56State state, int index, ConcurrentBoolean isInitiallySet)
+    public static void InsertBitAt(ref ConcurrentBitmap56State state, int index, bool isInitiallySet)
     {
         Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, 55, nameof(index));
+        ulong initialBitState = ((ConcurrentBoolean)isInitiallySet).As64BitMask();
         ref ulong target = ref AsUlongPointer(ref state);
         ulong oldState, newState;
         do
@@ -395,7 +397,7 @@ public ref struct ConcurrentBitmap56
             ulong upper = oldState & ~splitMask & GetFullMaskUnsafe(56);
             ulong expandedState = (upper << 1) | lower;
             // we can expand the boolean mask to 64 for true => ulong.MaxValue and false => 0
-            map._state = expandedState | (isInitiallySet.As64BitMask() & (1uL << index));
+            map._state = expandedState | (initialBitState & (1uL << index));
             // write the new guard token to prevent ABA issues
             map._guardToken = (byte)(token + 1);
             // the guard token is included in the state, so we can simply write it back
@@ -452,19 +454,9 @@ public ref struct ConcurrentBitmap56
     /// <summary>
     /// Converts the specified <see cref="ConcurrentBitmap56"/> to its underlying <see cref="ConcurrentBitmap56State"/> state.
     /// </summary>
-    public static unsafe explicit operator ConcurrentBitmap56State(ConcurrentBitmap56 value) => 
+    public static explicit operator ConcurrentBitmap56State(ConcurrentBitmap56 value) => 
         // we can do this because the struct size is the same
-        // also: nothing to see here, move along. pretend this is a normal cast ;)
-        *(ConcurrentBitmap56State*)&value;
-
-    /// <summary>
-    /// Converts the specified <see cref="ConcurrentBitmap56State"/> to a <see cref="ConcurrentBitmap56"/>.
-    /// </summary>
-    [Obsolete("Explicitly casting to ConcurrentBitmap56 is not safe in a multithreaded environment and may result in non-atomic reads and possibly data corruption. Use the static methods provided by ConcurrentBitmap56 instead.")]
-    public static unsafe explicit operator ConcurrentBitmap56(ConcurrentBitmap56State value) =>
-        // we can do this because the struct size is the same
-        // also: nothing to see here, move along. pretend this is a normal cast ;)
-        *(ConcurrentBitmap56*)&value;
+        Unsafe.BitCast<ConcurrentBitmap56, ConcurrentBitmap56State>(value);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static ulong GetFullMask(int capacity)

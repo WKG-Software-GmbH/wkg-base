@@ -1,9 +1,8 @@
 ﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using Wkg.Threading.Workloads.Continuations;
 
 namespace Wkg.Threading.Workloads;
-
-using static ConcurrentBoolean;
 
 public partial class Workload
 {
@@ -107,15 +106,15 @@ public partial class Workload
     {
         internal readonly TaskCompletionSource<AwaitableWorkload> _tcs = new();
         private readonly IReadOnlyList<AwaitableWorkload> _workloads = _workloads;
-        private uint _completed;
+        private ConcurrentBoolean _completed;
         private volatile AwaitableWorkload? _completedWorkload;
 
-        public bool IsCompleted => Volatile.Read(ref _completed) == TRUE;
+        public bool IsCompleted => Atomic.VolatileRead(ref _completed);
 
         public void Invoke(AbstractWorkloadBase workload)
         {
             // fire the TCS only once (the first time this method is invoked)
-            if (Interlocked.CompareExchange(ref _completed, TRUE, FALSE) == FALSE)
+            if (!Atomic.CompareExchange(ref _completed, value: true, comparand: false))
             {
                 // we know that the workload is an AwaitableWorkload because that's the only type
                 // we subscribe to continuations on
@@ -133,7 +132,7 @@ public partial class Workload
         public void InvokeInline(AbstractWorkloadBase workload)
         {
             // fire the TCS only once (the first time this method is invoked)
-            if (Interlocked.CompareExchange(ref _completed, TRUE, FALSE) == FALSE)
+            if (!Atomic.CompareExchange(ref _completed, value: true, comparand: false))
             {
                 // we know that the workload is an AwaitableWorkload because that's the only type
                 // we subscribe to continuations on
@@ -145,8 +144,9 @@ public partial class Workload
 
         private static void Cleanup(object? state)
         {
+            Debug.Assert(state is not null);
             // the only possible state we can get here is the WhenAnyAwaiterState instance
-            WhenAnyAwaiterState self = ReinterpretCast<WhenAnyAwaiterState>(state)!;
+            WhenAnyAwaiterState self = Unsafe.As<WhenAnyAwaiterState>(state);
             foreach (AwaitableWorkload workload in self._workloads)
             {
                 // only remove the continuation if it hasn't been invoked yet

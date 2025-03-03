@@ -6,6 +6,7 @@ namespace Wkg.Unmanaged;
 /// <summary>
 /// Provides methods to reinterpret cast between types.
 /// </summary>
+[Obsolete("Use System.Runtime.CompilerServices.Unsafe instead.")]
 public static class TypeReinterpreter
 {
     /// <summary>
@@ -50,24 +51,23 @@ public static class TypeReinterpreter
     /// <typeparam name="TFrom">The source unmanaged value type to reinterpret cast from.</typeparam>
     /// <typeparam name="TTo">The target unmanaged value type to reinterpret cast to.</typeparam>
     /// <param name="from">The value to reinterpret cast.</param>
-    /// <param name="_">(Ignore this) A dummy parameter to allow type inference.</param>
     /// <returns>The specified <paramref name="from"/> unmanaged value type reinterpreted as the specified <typeparamref name="TTo"/> unmanaged value type.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static unsafe TTo ReinterpretCast<TFrom, TTo>(TFrom from, TTo? _ = default)
-        where TFrom : unmanaged
-        where TTo : unmanaged => 
-            *(TTo*)&from;
+    public static TTo ReinterpretCast<TFrom, TTo>(TFrom from)
+        where TFrom : struct, allows ref struct
+        where TTo : struct, allows ref struct =>
+            Unsafe.BitCast<TFrom, TTo>(from);
 
     /// <summary>
-    /// Reinterprets the specified <paramref name="from"/> unmanaged ByRef value type as the specified <typeparamref name="TTo"/> unmanaged ByRef value type.
+    /// Reinterprets the specified <paramref name="from"/> ByRef type as the specified <typeparamref name="TTo"/> ByRef type.
     /// </summary>
-    /// <typeparam name="TFrom">The source unmanaged ByRef value type to reinterpret cast from.</typeparam>
-    /// <typeparam name="TTo">The target unmanaged ByRef value type to reinterpret cast to.</typeparam>
+    /// <typeparam name="TFrom">The source ByRef type to reinterpret cast from.</typeparam>
+    /// <typeparam name="TTo">The target ByRef type to reinterpret cast to.</typeparam>
     /// <param name="from">The value to reinterpret cast.</param>
-    /// <returns>The specified <paramref name="from"/> unmanaged ByRef value type reinterpreted as the specified <typeparamref name="TTo"/> unmanaged ByRef value type.</returns>
+    /// <returns>The specified <paramref name="from"/> ByRef type reinterpreted as the specified <typeparamref name="TTo"/> ByRef type.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static unsafe ref TTo ReinterpretCastByRef<TFrom, TTo>(ref TFrom from)
-        where TFrom : unmanaged
-        where TTo : unmanaged =>
-            ref Unsafe.AsRef<TTo>(Unsafe.AsPointer(ref from));
+    public static ref TTo ReinterpretCastByRef<TFrom, TTo>(ref TFrom from)
+        where TFrom : allows ref struct
+        where TTo : allows ref struct =>
+            ref Unsafe.As<TFrom, TTo>(ref from);
 }

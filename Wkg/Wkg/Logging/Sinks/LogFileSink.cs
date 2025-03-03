@@ -1,11 +1,11 @@
-﻿using System.Text;
+using System.Text;
 
 namespace Wkg.Logging.Sinks;
 
 /// <summary>
 /// Logs messages to a file.
 /// </summary>
-internal class LogFileSink : ILogSink
+public class LogFileSink : ILogSink
 {
     /// <summary>
     /// Lock object for file access.

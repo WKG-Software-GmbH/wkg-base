@@ -1,5 +1,4 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Wkg.Threading.Workloads.Factories;
+﻿using Wkg.Threading.Workloads.Factories;
 using Wkg.Threading.Workloads.Configuration;
 using Wkg.Threading.Workloads.Queuing.Classless.Fifo;
 using System.Diagnostics;
@@ -10,17 +9,19 @@ using Wkg.Threading.Workloads;
 namespace Wkg.Tests.Threading.Workloads;
 
 [TestClass]
-public class AwaitableWorkloadTests
+public sealed class AwaitableWorkloadTests
 {
+    public TestContext TestContext { get; set; }
+
     private static ClasslessWorkloadFactory<int> CreateDefaultFactory() => WorkloadFactoryBuilder.Create<int>()
         .UseAnonymousWorkloadPooling(4)
         .UseMaximumConcurrency(1)
         .UseClasslessRoot<Fifo>(1);
 
     [TestMethod]
-    public async Task TestAwait1()
+    public async Task TestAwait1Async()
     {
-        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        using ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
         Workload<int> workload = factory.ScheduleAsync(_ =>
         {
             Thread.Sleep(100);
@@ -33,10 +34,10 @@ public class AwaitableWorkloadTests
     }
 
     [TestMethod]
-    public async Task TestAwait2()
+    public async Task TestAwait2Async()
     {
-        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
-        Workload workload = factory.ScheduleAsync(_ => Thread.Sleep(100));
+        using ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        Workload workload = factory.ScheduleAsync(_ => Thread.Sleep(100), cancellationToken: TestContext.CancellationToken);
 
         WorkloadResult result = await workload;
         Assert.IsTrue(result.IsSuccess);
@@ -45,7 +46,7 @@ public class AwaitableWorkloadTests
     [TestMethod]
     public void TestBlockingWaitImplicit1()
     {
-        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        using ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
         Workload<int> workload = factory.ScheduleAsync(_ =>
         {
             Thread.Sleep(100);
@@ -59,8 +60,8 @@ public class AwaitableWorkloadTests
     [TestMethod]
     public void TestBlockingWaitImplicit2()
     {
-        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
-        Workload workload = factory.ScheduleAsync(_ => Thread.Sleep(100));
+        using ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        Workload workload = factory.ScheduleAsync(_ => Thread.Sleep(100), cancellationToken: TestContext.CancellationToken);
 
         WorkloadResult result = workload.GetAwaiter().GetResult();
         Assert.IsTrue(result.IsSuccess);
@@ -69,7 +70,7 @@ public class AwaitableWorkloadTests
     [TestMethod]
     public void TestBlockingWaitImplicit3()
     {
-        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        using ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
         Workload<int> workload = factory.ScheduleAsync(_ =>
         {
             Thread.Sleep(100);
@@ -83,8 +84,8 @@ public class AwaitableWorkloadTests
     [TestMethod]
     public void TestBlockingWaitImplicit4()
     {
-        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
-        Workload workload = factory.ScheduleAsync(_ => Thread.Sleep(100));
+        using ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        Workload workload = factory.ScheduleAsync(_ => Thread.Sleep(100), cancellationToken: TestContext.CancellationToken);
 
         WorkloadResult result = workload.Result;
         Assert.IsTrue(result.IsSuccess);
@@ -93,13 +94,13 @@ public class AwaitableWorkloadTests
     [TestMethod]
     public void TestContinueWith1()
     {
-        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        using ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
         Workload<int> workload = factory.ScheduleAsync(_ =>
         {
             Thread.Sleep(100);
             return 1;
         });
-        ManualResetEventSlim mres = new(false);
+        using ManualResetEventSlim mres = new(false);
         workload.ContinueWith(result =>
         {
             Assert.IsTrue(result.IsSuccess);
@@ -109,15 +110,15 @@ public class AwaitableWorkloadTests
             Assert.IsTrue(new StackTrace().GetFrames().All(frame => frame.GetMethod()?.Name != nameof(TestContinueWith1)));
             mres.Set();
         });
-        mres.Wait();
+        mres.Wait(TestContext.CancellationToken);
     }
 
     [TestMethod]
     public void TestContinueWith2()
     {
-        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
-        Workload workload = factory.ScheduleAsync(_ => Thread.Sleep(100));
-        ManualResetEventSlim mres = new(false);
+        using ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        Workload workload = factory.ScheduleAsync(_ => Thread.Sleep(100), cancellationToken: TestContext.CancellationToken);
+        using ManualResetEventSlim mres = new(false);
         workload.ContinueWith(result =>
         {
             Assert.IsTrue(result.IsSuccess);
@@ -126,16 +127,16 @@ public class AwaitableWorkloadTests
             Assert.IsTrue(new StackTrace().GetFrames().All(frame => frame.GetMethod()?.Name != nameof(TestContinueWith2)));
             mres.Set();
         });
-        mres.Wait();
+        mres.Wait(TestContext.CancellationToken);
     }
 
     [TestMethod]
     public void TestContinueWithInline1()
     {
-        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        using ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
         Workload<int> workload = factory.ScheduleAsync(_ => 1);
         Thread.Sleep(100);
-        ManualResetEventSlim mres = new(false);
+        using ManualResetEventSlim mres = new(false);
         workload.ContinueWith(result =>
         {
             Assert.IsTrue(result.IsSuccess);
@@ -145,16 +146,16 @@ public class AwaitableWorkloadTests
             Assert.IsTrue(new StackTrace().GetFrames().Any(frame => frame.GetMethod()?.Name == nameof(TestContinueWithInline1)));
             mres.Set();
         });
-        mres.Wait();
+        mres.Wait(TestContext.CancellationToken);
     }
 
     [TestMethod]
     public void TestContinueWithInline2()
     {
-        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
-        Workload workload = factory.ScheduleAsync(Pass);
+        using ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        Workload workload = factory.ScheduleAsync(Pass, cancellationToken: TestContext.CancellationToken);
         Thread.Sleep(100);
-        ManualResetEventSlim mres = new(false);
+        using ManualResetEventSlim mres = new(false);
         workload.ContinueWith(result =>
         {
             Assert.IsTrue(result.IsSuccess);
@@ -163,19 +164,19 @@ public class AwaitableWorkloadTests
             Assert.IsTrue(new StackTrace().GetFrames().Any(frame => frame.GetMethod()?.Name == nameof(TestContinueWithInline2)));
             mres.Set();
         });
-        mres.Wait();
+        mres.Wait(TestContext.CancellationToken);
     }
 
     [TestMethod]
     public void TestBlockingWaitExplicit1()
     {
-        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        using ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
         Workload<int> workload = factory.ScheduleAsync(_ =>
         {
             Thread.Sleep(100);
             return 1;
         });
-        workload.Wait();
+        workload.Wait(TestContext.CancellationToken);
         WorkloadResult<int> result = workload.Result;
         Assert.IsTrue(result.IsSuccess);
         Assert.AreEqual(1, result.Result);
@@ -184,9 +185,9 @@ public class AwaitableWorkloadTests
     [TestMethod]
     public void TestBlockingWaitExplicit2()
     {
-        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
-        Workload workload = factory.ScheduleAsync(_ => Thread.Sleep(100));
-        workload.Wait();
+        using ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        Workload workload = factory.ScheduleAsync(_ => Thread.Sleep(100), cancellationToken: TestContext.CancellationToken);
+        workload.Wait(TestContext.CancellationToken);
         WorkloadResult result = workload.Result;
         Assert.IsTrue(result.IsSuccess);
     }
@@ -194,13 +195,13 @@ public class AwaitableWorkloadTests
     [TestMethod]
     public void TestBlockingWaitExplicitWithTimeout1()
     {
-        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        using ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
         Workload<int> workload = factory.ScheduleAsync(_ =>
         {
             Thread.Sleep(1000);
             return 1;
         });
-        bool waitResult = workload.Wait(TimeSpan.FromMilliseconds(100));
+        bool waitResult = workload.Wait(TimeSpan.FromMilliseconds(100), TestContext.CancellationToken);
         Assert.IsFalse(waitResult);
         WorkloadResult<int> result = workload.GetAwaiter().GetResult();
         Assert.IsTrue(result.IsSuccess);
@@ -210,9 +211,9 @@ public class AwaitableWorkloadTests
     [TestMethod]
     public void TestBlockingWaitExplicitWithTimeout2()
     {
-        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
-        Workload workload = factory.ScheduleAsync(_ => Thread.Sleep(1000));
-        bool waitResult = workload.Wait(TimeSpan.FromMilliseconds(100));
+        using ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        Workload workload = factory.ScheduleAsync(_ => Thread.Sleep(1000), cancellationToken: TestContext.CancellationToken);
+        bool waitResult = workload.Wait(TimeSpan.FromMilliseconds(100), TestContext.CancellationToken);
         Assert.IsFalse(waitResult);
         WorkloadResult result = workload.GetAwaiter().GetResult();
         Assert.IsTrue(result.IsSuccess);
@@ -221,13 +222,13 @@ public class AwaitableWorkloadTests
     [TestMethod]
     public void TestBlockingWaitExplicitWithTimeout3()
     {
-        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        using ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
         Workload<int> workload = factory.ScheduleAsync(_ =>
         {
             Thread.Sleep(100);
             return 1;
         });
-        bool waitResult = workload.Wait(TimeSpan.FromMilliseconds(250));
+        bool waitResult = workload.Wait(TimeSpan.FromMilliseconds(250), TestContext.CancellationToken);
         Assert.IsTrue(waitResult);
         WorkloadResult<int> result = workload.Result;
         Assert.IsTrue(result.IsSuccess);
@@ -237,19 +238,19 @@ public class AwaitableWorkloadTests
     [TestMethod]
     public void TestBlockingWaitExplicitWithTimeout4()
     {
-        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
-        Workload workload = factory.ScheduleAsync(_ => Thread.Sleep(100));
-        bool waitResult = workload.Wait(TimeSpan.FromMilliseconds(250));
+        using ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        Workload workload = factory.ScheduleAsync(_ => Thread.Sleep(100), cancellationToken: TestContext.CancellationToken);
+        bool waitResult = workload.Wait(TimeSpan.FromMilliseconds(250), TestContext.CancellationToken);
         Assert.IsTrue(waitResult);
         WorkloadResult result = workload.GetAwaiter().GetResult();
         Assert.IsTrue(result.IsSuccess);
     }
 
     [TestMethod]
-    public async Task TestCancellationDuringScheduling1()
+    public async Task TestCancellationDuringScheduling1Async()
     {
-        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
-        ManualResetEventSlim mres = new(false);
+        using ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        using ManualResetEventSlim mres = new(false);
         factory.Schedule(mres.Wait);
         Workload<int> workload = factory.ScheduleAsync(_ =>
         {
@@ -265,12 +266,12 @@ public class AwaitableWorkloadTests
     }
 
     [TestMethod]
-    public async Task TestCancellationDuringScheduling2()
+    public async Task TestCancellationDuringScheduling2Async()
     {
-        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
-        ManualResetEventSlim mres = new(false);
+        using ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        using ManualResetEventSlim mres = new(false);
         factory.Schedule(mres.Wait);
-        Workload workload = factory.ScheduleAsync(_ => Thread.Sleep(100));
+        Workload workload = factory.ScheduleAsync(_ => Thread.Sleep(100), cancellationToken: TestContext.CancellationToken);
         bool cancellationResult = workload.TryCancel();
         Assert.IsTrue(cancellationResult);
         mres.Set();
@@ -279,13 +280,13 @@ public class AwaitableWorkloadTests
     }
 
     [TestMethod]
-    public async Task TestCancellationDuringExecution1()
+    public async Task TestCancellationDuringExecution1Async()
     {
-        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
-        ManualResetEventSlim mres = new(false);
+        using ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        using ManualResetEventSlim mres = new(false);
         Workload<int> workload = factory.ScheduleAsync(token =>
         {
-            mres.Wait();
+            mres.Wait(TestContext.CancellationToken);
             token.ThrowIfCancellationRequested();
             return 1;
         });
@@ -298,15 +299,15 @@ public class AwaitableWorkloadTests
     }
 
     [TestMethod]
-    public async Task TestCancellationDuringExecution2()
+    public async Task TestCancellationDuringExecution2Async()
     {
-        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
-        ManualResetEventSlim mres = new(false);
+        using ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        using ManualResetEventSlim mres = new(false);
         Workload workload = factory.ScheduleAsync(token =>
         {
-            mres.Wait();
+            mres.Wait(TestContext.CancellationToken);
             token.ThrowIfCancellationRequested();
-        });
+        }, cancellationToken: TestContext.CancellationToken);
         bool cancellationResult = workload.TryCancel();
         Assert.IsTrue(cancellationResult);
         mres.Set();
@@ -315,18 +316,18 @@ public class AwaitableWorkloadTests
     }
 
     [TestMethod]
-    public async Task TestCancellationDuringExecution3()
+    public async Task TestCancellationDuringExecution3Async()
     {
-        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
-        ManualResetEventSlim mres = new(false);
-        ManualResetEventSlim isRunningMres = new(false);
+        using ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        using ManualResetEventSlim mres = new(false);
+        using ManualResetEventSlim isRunningMres = new(false);
         Workload<int> workload = factory.ScheduleAsync(token =>
         {
             isRunningMres.Set();
-            mres.Wait();
+            mres.Wait(TestContext.CancellationToken);
             return token.IsCancellationRequested ? 1 : 2;
         });
-        isRunningMres.Wait();
+        isRunningMres.Wait(TestContext.CancellationToken);
         bool cancellationResult = workload.TryCancel();
         Assert.IsTrue(cancellationResult);
         mres.Set();
@@ -338,13 +339,13 @@ public class AwaitableWorkloadTests
     }
 
     [TestMethod]
-    public async Task TestCancellationDuringExecution4()
+    public async Task TestCancellationDuringExecution4Async()
     {
-        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
-        ManualResetEventSlim mres = new(false);
+        using ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        using ManualResetEventSlim mres = new(false);
         Workload<int> workload = factory.ScheduleAsync(token =>
         {
-            mres.Wait();
+            mres.Wait(TestContext.CancellationToken);
             if (token.IsCancellationRequested)
             {
                 token.MarkCanceled();
@@ -361,14 +362,14 @@ public class AwaitableWorkloadTests
     }
 
     [TestMethod]
-    public async Task TestCancellationUsingCancellationTokenDuringScheduling1()
+    public async Task TestCancellationUsingCancellationTokenDuringScheduling1Async()
     {
-        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
-        CancellationTokenSource cts = new();
-        ManualResetEventSlim mres = new(false);
+        using ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        using CancellationTokenSource cts = new();
+        using ManualResetEventSlim mres = new(false);
         factory.Schedule(mres.Wait);
         Workload<int> workload = factory.ScheduleAsync(_ => 1, cts.Token);
-        cts.Cancel();
+        await cts.CancelAsync();
         mres.Set();
         WorkloadResult<int> result = await workload;
         Assert.IsTrue(result.IsCanceled);
@@ -376,12 +377,12 @@ public class AwaitableWorkloadTests
     }
 
     [TestMethod]
-    public async Task TestCancellationUsingCancellationTokenDuringScheduling2()
+    public async Task TestCancellationUsingCancellationTokenDuringScheduling2Async()
     {
-        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
-        CancellationTokenSource cts = new();
-        ManualResetEventSlim mres = new(false);
-        cts.Cancel();
+        using ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        using CancellationTokenSource cts = new();
+        using ManualResetEventSlim mres = new(false);
+        await cts.CancelAsync();
         Workload workload = factory.ScheduleAsync(_ => { }, cts.Token);
         Assert.IsTrue(workload.IsCompleted);
         Assert.AreEqual<WorkloadStatus>(WorkloadStatus.Canceled | WorkloadStatus.ContinuationsInvoked, workload.Status);
@@ -390,18 +391,18 @@ public class AwaitableWorkloadTests
     }
 
     [TestMethod]
-    public async Task TestCancellationUsingCancellationTokenDuringExecution1()
+    public async Task TestCancellationUsingCancellationTokenDuringExecution1Async()
     {
-        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
-        CancellationTokenSource cts = new();
-        ManualResetEventSlim mres = new(false);
+        using ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        using CancellationTokenSource cts = new();
+        using ManualResetEventSlim mres = new(false);
         Workload<int> workload = factory.ScheduleAsync(token =>
         {
-            mres.Wait();
+            mres.Wait(TestContext.CancellationToken);
             token.ThrowIfCancellationRequested();
             return 1;
         }, cts.Token);
-        cts.Cancel();
+        await cts.CancelAsync();
         mres.Set();
         WorkloadResult<int> result = await workload;
         Assert.IsTrue(result.IsCanceled);
@@ -409,37 +410,37 @@ public class AwaitableWorkloadTests
     }
 
     [TestMethod]
-    public async Task TestCancellationUsingCancellationTokenDuringExecution2()
+    public async Task TestCancellationUsingCancellationTokenDuringExecution2Async()
     {
-        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
-        CancellationTokenSource cts = new();
-        ManualResetEventSlim mres = new(false);
+        using ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        using CancellationTokenSource cts = new();
+        using ManualResetEventSlim mres = new(false);
         Workload workload = factory.ScheduleAsync(token =>
         {
-            mres.Wait();
+            mres.Wait(TestContext.CancellationToken);
             token.ThrowIfCancellationRequested();
         }, cts.Token);
-        cts.Cancel();
+        await cts.CancelAsync();
         mres.Set();
         WorkloadResult result = await workload;
         Assert.IsTrue(result.IsCanceled);
     }
 
     [TestMethod]
-    public async Task TestCancellationUsingCancellationTokenDuringExecution3()
+    public async Task TestCancellationUsingCancellationTokenDuringExecution3Async()
     {
-        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
-        CancellationTokenSource cts = new();
-        ManualResetEventSlim mres = new(false);
-        ManualResetEventSlim isRunningMres = new(false);
+        using ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        using CancellationTokenSource cts = new();
+        using ManualResetEventSlim mres = new(false);
+        using ManualResetEventSlim isRunningMres = new(false);
         Workload<int> workload = factory.ScheduleAsync(token =>
         {
             isRunningMres.Set();
-            mres.Wait();
+            mres.Wait(TestContext.CancellationToken);
             return token.IsCancellationRequested ? 1 : 2;
         }, cts.Token);
-        isRunningMres.Wait();
-        cts.Cancel();
+        isRunningMres.Wait(TestContext.CancellationToken);
+        await cts.CancelAsync();
         mres.Set();
         WorkloadResult<int> result = await workload;
         // workload did not honor cancellation and returned a result
@@ -449,14 +450,14 @@ public class AwaitableWorkloadTests
     }
 
     [TestMethod]
-    public async Task TestCancellationUsingCancellationTokenDuringExecution4()
+    public async Task TestCancellationUsingCancellationTokenDuringExecution4Async()
     {
-        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
-        CancellationTokenSource cts = new();
-        ManualResetEventSlim mres = new(false);
+        using ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        using CancellationTokenSource cts = new();
+        using ManualResetEventSlim mres = new(false);
         Workload<int> workload = factory.ScheduleAsync(token =>
         {
-            mres.Wait();
+            mres.Wait(TestContext.CancellationToken);
             if (token.IsCancellationRequested)
             {
                 token.MarkCanceled();
@@ -464,7 +465,7 @@ public class AwaitableWorkloadTests
             }
             return 1;
         }, cts.Token);
-        cts.Cancel();
+        await cts.CancelAsync();
         mres.Set();
         WorkloadResult<int> result = await workload;
         // workload honored cancellation and returned a result
@@ -472,16 +473,16 @@ public class AwaitableWorkloadTests
     }
 
     [TestMethod]
-    public async Task TestCancellationUsingCancellationTokenDuringExecution5()
+    public async Task TestCancellationUsingCancellationTokenDuringExecution5Async()
     {
-        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
-        CancellationTokenSource cts = new();
-        ManualResetEventSlim mres = new(false);
-        ManualResetEventSlim isRunningMres = new(false);
+        using ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        using CancellationTokenSource cts = new();
+        using ManualResetEventSlim mres = new(false);
+        using ManualResetEventSlim isRunningMres = new(false);
         Workload<int> workload = factory.ScheduleAsync(token =>
         {
             isRunningMres.Set();
-            mres.Wait();
+            mres.Wait(TestContext.CancellationToken);
             if (token.IsCancellationRequested)
             {
                 token.MarkCanceled();
@@ -489,8 +490,8 @@ public class AwaitableWorkloadTests
             }
             return 1;
         }, cts.Token);
-        isRunningMres.Wait();
-        cts.Cancel();
+        isRunningMres.Wait(TestContext.CancellationToken);
+        await cts.CancelAsync();
         Assert.AreEqual(WorkloadStatus.CancellationRequested, workload.Status);
         mres.Set();
         WorkloadResult<int> result = await workload;
@@ -500,9 +501,9 @@ public class AwaitableWorkloadTests
     }
 
     [TestMethod]
-    public async Task TestSelfCancellationWithException()
+    public async Task TestSelfCancellationWithExceptionAsync()
     {
-        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        using ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
         Workload<int> workload = factory.ScheduleAsync<int>(_ => throw new WorkloadCanceledException());
         WorkloadResult<int> result = await workload;
         Assert.IsTrue(result.IsCanceled);
@@ -510,11 +511,11 @@ public class AwaitableWorkloadTests
     }
 
     [TestMethod]
-    public async Task TestFaultedWorkload1()
+    public async Task TestFaultedWorkload1Async()
     {
-        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        using ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
         const string MESSAGE = "Test exception.";
-        Workload<int> workload = factory.ScheduleAsync<int>(_ => throw new Exception(MESSAGE));
+        Workload<int> workload = factory.ScheduleAsync<int>(_ => throw new InvalidOperationException(MESSAGE));
         WorkloadResult<int> result = await workload;
         Assert.AreEqual<WorkloadStatus>(WorkloadStatus.Faulted | WorkloadStatus.ContinuationsInvoked, workload.Status);
         Assert.IsTrue(result.IsFaulted);
@@ -524,11 +525,11 @@ public class AwaitableWorkloadTests
     }
 
     [TestMethod]
-    public async Task TestFaultedWorkload2()
+    public async Task TestFaultedWorkload2Async()
     {
-        ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
+        using ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
         const string MESSAGE = "Test exception.";
-        Workload workload = factory.ScheduleAsync(_ => throw new Exception(MESSAGE));
+        Workload workload = factory.ScheduleAsync(_ => throw new InvalidOperationException(MESSAGE), cancellationToken: TestContext.CancellationToken);
         WorkloadResult result = await workload;
         Assert.AreEqual<WorkloadStatus>(WorkloadStatus.Faulted | WorkloadStatus.ContinuationsInvoked, workload.Status);
         Assert.IsTrue(result.IsFaulted);

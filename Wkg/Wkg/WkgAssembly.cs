@@ -5,7 +5,7 @@ namespace Wkg;
 /// <summary>
 /// Provides version information for the Wkg assembly.
 /// </summary>
-public class WkgAssembly : DeploymentVersionInfo
+public sealed class WkgAssembly : DeploymentVersionInfo
 {
     private const string CI_DEPLOYMENT__VERSION_PREFIX = "0.0.0";
     private const string CI_DEPLOYMENT__VERSION_SUFFIX = "CI-INJECTED";

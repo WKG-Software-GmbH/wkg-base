@@ -147,5 +147,5 @@ public unsafe struct ResizableBuffer<T> : IDisposable where T : unmanaged
 
     /// <exception cref="ObjectDisposedException"/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private readonly void ValidateState() => ObjectDisposedException.ThrowIf(_basePointer == null, nameof(ResizableBuffer<T>));
+    private readonly void ValidateState() => ObjectDisposedException.ThrowIf(_basePointer == null, nameof(ResizableBuffer<>));
 }

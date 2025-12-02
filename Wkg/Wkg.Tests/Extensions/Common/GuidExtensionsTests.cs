@@ -1,11 +1,9 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Wkg.Common.Extensions;
-using Wkg.Tests;
+﻿using Wkg.Common.Extensions;
 
 namespace Wkg.Tests.Extensions.Common;
 
 [TestClass]
-public class GuidExtensionsTests : BaseTest
+public sealed class GuidExtensionsTests : BaseTest
 {
     [TestMethod]
     public void ToStringBigEndianTest()

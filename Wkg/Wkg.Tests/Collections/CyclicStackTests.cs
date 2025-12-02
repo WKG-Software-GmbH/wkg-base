@@ -1,10 +1,9 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Wkg.Collections;
+﻿using Wkg.Collections;
 
 namespace Wkg.Tests.Collections;
 
 [TestClass]
-public class CyclicStackTests : BaseTest
+public sealed class CyclicStackTests : BaseTest
 {
     [TestMethod]
     public void CyclicStackTest()
@@ -51,8 +50,8 @@ public class CyclicStackTests : BaseTest
         Assert.AreEqual(-2, cyclicStack.Pop());
 
         Assert.AreEqual(0, cyclicStack.Count);
-        Assert.ThrowsException<InvalidOperationException>(() => cyclicStack.Pop());
-        Assert.ThrowsException<InvalidOperationException>(() => cyclicStack.Peek());
+        Assert.ThrowsExactly<InvalidOperationException>(() => cyclicStack.Pop());
+        Assert.ThrowsExactly<InvalidOperationException>(() => cyclicStack.Peek());
 
         cyclicStack.Push(0);
         Assert.AreEqual(1, cyclicStack.Count);

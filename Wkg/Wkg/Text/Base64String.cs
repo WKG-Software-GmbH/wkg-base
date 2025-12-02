@@ -17,6 +17,7 @@ public static class Base64String
     /// <returns>The decoded UTF-8 string.</returns>
     public static string DecodeToUtf8(string base64EncodedString)
     {
+        ArgumentNullException.ThrowIfNull(base64EncodedString);
         // base64 is always ASCII, so string length == byte length
         byte[] base64Buffer = ArrayPool<byte>.Shared.Rent(base64EncodedString.Length);
         int bytesWritten = Encoding.ASCII.GetBytes(base64EncodedString, base64Buffer);
@@ -42,6 +43,7 @@ public static class Base64String
     /// <returns>The base64 encoded string.</returns>
     public static string EncodeFromUtf8(string utf8String)
     {
+        ArgumentNullException.ThrowIfNull(utf8String);
         // encoding is an inflating operation, so determine the maximum possible size
         int utf8ByteCount = Encoding.UTF8.GetByteCount(utf8String);
         int base64CharCount = Base64.GetMaxEncodedToUtf8Length(utf8ByteCount);

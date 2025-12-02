@@ -1,11 +1,12 @@
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Wkg.Threading;
 
 namespace Wkg.Tests.Threading;
 
 [TestClass]
-public class AlphaBetaLockSlimTests
+public sealed class AlphaBetaLockSlimTests
 {
+    public TestContext TestContext { get; set; }
+
     [TestMethod]
     public void TestEnterAndExitAlphaLock()
     {
@@ -46,7 +47,7 @@ public class AlphaBetaLockSlimTests
         abls.ExitBetaLock();
     }
 
-    [TestMethod, Timeout(10000)]
+    [TestMethod, Timeout(10000, CooperativeCancellation = true)]
     public void AlphasAreMutuallyExclusiveFromBetas()
     {
         using AlphaBetaLockSlim abls = new();
@@ -55,21 +56,21 @@ public class AlphaBetaLockSlimTests
             Task.Run(() =>
             {
                 abls.EnterAlphaLock();
-                barrier.SignalAndWait();
+                barrier.SignalAndWait(TestContext.CancellationToken);
                 Assert.IsTrue(abls.IsAlphaLockHeld);
-                barrier.SignalAndWait();
+                barrier.SignalAndWait(TestContext.CancellationToken);
                 abls.ExitAlphaLock();
-            }),
+            }, TestContext.CancellationToken),
             Task.Run(() =>
             {
-                barrier.SignalAndWait();
+                barrier.SignalAndWait(TestContext.CancellationToken);
                 Assert.IsFalse(abls.TryEnterBetaLock(0));
                 Assert.IsFalse(abls.IsBetaLockHeld);
-                barrier.SignalAndWait();
-            }));
+                barrier.SignalAndWait(TestContext.CancellationToken);
+            }, TestContext.CancellationToken));
     }
 
-    [TestMethod, Timeout(10000)]
+    [TestMethod, Timeout(10000, CooperativeCancellation = true)]
     public void BetasAreMutuallyExclusiveFromAlphas()
     {
         using AlphaBetaLockSlim abls = new();
@@ -78,21 +79,21 @@ public class AlphaBetaLockSlimTests
             Task.Run(() =>
             {
                 abls.EnterBetaLock();
-                barrier.SignalAndWait();
+                barrier.SignalAndWait(TestContext.CancellationToken);
                 Assert.IsTrue(abls.IsBetaLockHeld);
-                barrier.SignalAndWait();
+                barrier.SignalAndWait(TestContext.CancellationToken);
                 abls.ExitBetaLock();
-            }),
+            }, TestContext.CancellationToken),
             Task.Run(() =>
             {
-                barrier.SignalAndWait();
+                barrier.SignalAndWait(TestContext.CancellationToken);
                 Assert.IsFalse(abls.TryEnterAlphaLock(0));
                 Assert.IsFalse(abls.IsAlphaLockHeld);
-                barrier.SignalAndWait();
-            }));
+                barrier.SignalAndWait(TestContext.CancellationToken);
+            }, TestContext.CancellationToken));
     }
 
-    [TestMethod, Timeout(10000)]
+    [TestMethod, Timeout(10000, CooperativeCancellation = true)]
     public void AlphasArePermittedToBeEnteredConcurrently()
     {
         using AlphaBetaLockSlim abls = new();
@@ -101,21 +102,21 @@ public class AlphaBetaLockSlimTests
             Task.Run(() =>
             {
                 abls.EnterAlphaLock();
-                barrier.SignalAndWait();
+                barrier.SignalAndWait(TestContext.CancellationToken);
                 Assert.IsTrue(abls.IsAlphaLockHeld);
-                barrier.SignalAndWait();
+                barrier.SignalAndWait(TestContext.CancellationToken);
                 abls.ExitAlphaLock();
                 Assert.IsFalse(abls.IsAlphaLockHeld);
-                barrier.SignalAndWait();
-            }),
+                barrier.SignalAndWait(TestContext.CancellationToken);
+            }, TestContext.CancellationToken),
             Task.Run(() =>
             {
-                barrier.SignalAndWait();
+                barrier.SignalAndWait(TestContext.CancellationToken);
                 Assert.IsTrue(abls.TryEnterAlphaLock(0));
                 Assert.IsTrue(abls.IsAlphaLockHeld);
-                barrier.SignalAndWait();
+                barrier.SignalAndWait(TestContext.CancellationToken);
                 Assert.IsTrue(abls.IsAlphaLockHeld);
-                barrier.SignalAndWait();
+                barrier.SignalAndWait(TestContext.CancellationToken);
                 abls.ExitAlphaLock();
                 Assert.IsFalse(abls.IsAlphaLockHeld);
                 Assert.IsTrue(abls.TryEnterBetaLock(0));
@@ -124,10 +125,10 @@ public class AlphaBetaLockSlimTests
                 Assert.IsFalse(abls.IsBetaLockHeld);
                 Assert.AreEqual(0, abls.WaitingAlphaCount);
                 Assert.AreEqual(0, abls.WaitingBetaCount);
-            }));
+            }, TestContext.CancellationToken));
     }
 
-    [TestMethod, Timeout(10000)]
+    [TestMethod, Timeout(10000, CooperativeCancellation = true)]
     public void BetasArePermittedToBeEnteredConcurrently()
     {
         using AlphaBetaLockSlim abls = new();
@@ -136,21 +137,21 @@ public class AlphaBetaLockSlimTests
             Task.Run(() =>
             {
                 abls.EnterBetaLock();
-                barrier.SignalAndWait();
+                barrier.SignalAndWait(TestContext.CancellationToken);
                 Assert.IsTrue(abls.IsBetaLockHeld);
-                barrier.SignalAndWait();
+                barrier.SignalAndWait(TestContext.CancellationToken);
                 abls.ExitBetaLock();
                 Assert.IsFalse(abls.IsBetaLockHeld);
-                barrier.SignalAndWait();
-            }),
+                barrier.SignalAndWait(TestContext.CancellationToken);
+            }, TestContext.CancellationToken),
             Task.Run(() =>
             {
-                barrier.SignalAndWait();
+                barrier.SignalAndWait(TestContext.CancellationToken);
                 Assert.IsTrue(abls.TryEnterBetaLock(0));
                 Assert.IsTrue(abls.IsBetaLockHeld);
-                barrier.SignalAndWait();
+                barrier.SignalAndWait(TestContext.CancellationToken);
                 Assert.IsTrue(abls.IsBetaLockHeld);
-                barrier.SignalAndWait();
+                barrier.SignalAndWait(TestContext.CancellationToken);
                 abls.ExitBetaLock();
                 Assert.IsFalse(abls.IsBetaLockHeld);
                 Assert.IsTrue(abls.TryEnterAlphaLock(0));
@@ -159,10 +160,10 @@ public class AlphaBetaLockSlimTests
                 Assert.IsFalse(abls.IsAlphaLockHeld);
                 Assert.AreEqual(0, abls.WaitingAlphaCount);
                 Assert.AreEqual(0, abls.WaitingBetaCount);
-            }));
+            }, TestContext.CancellationToken));
     }
 
-    [TestMethod, Timeout(10000)]
+    [TestMethod, Timeout(10000, CooperativeCancellation = true)]
     public void AlphaToBetaChain()
     {
         using AlphaBetaLockSlim abls = new();
@@ -171,17 +172,17 @@ public class AlphaBetaLockSlimTests
         Task t = Task.Factory.StartNew(() =>
         {
             Assert.IsFalse(abls.TryEnterBetaLock(TimeSpan.FromMilliseconds(10)));
-            Task.Run(() => mres.Set());
-            mres.Wait();
+            Task.Run(() => mres.Set(), TestContext.CancellationToken);
+            mres.Wait(TestContext.CancellationToken);
             abls.EnterBetaLock();
             abls.ExitBetaLock();
         }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-        mres.Wait();
+        mres.Wait(TestContext.CancellationToken);
         abls.ExitAlphaLock();
         t.GetAwaiter().GetResult();
     }
 
-    [TestMethod, Timeout(10000)]
+    [TestMethod, Timeout(10000, CooperativeCancellation = true)]
     public void AlphaToBetaChainEnsureWait()
     {
         using AlphaBetaLockSlim abls = new();
@@ -190,16 +191,16 @@ public class AlphaBetaLockSlimTests
         Task t = Task.Factory.StartNew(() =>
         {
             Assert.IsFalse(abls.TryEnterBetaLock(TimeSpan.FromMilliseconds(10)));
-            Task.Run(() => Task.Delay(100).ContinueWith(_ => mres.Set()));
+            Task.Run(() => Task.Delay(100, TestContext.CancellationToken).ContinueWith(_ => mres.Set(), TestContext.CancellationToken), TestContext.CancellationToken);
             abls.EnterBetaLock();
             abls.ExitBetaLock();
         }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-        mres.Wait();
+        mres.Wait(TestContext.CancellationToken);
         abls.ExitAlphaLock();
         t.GetAwaiter().GetResult();
     }
 
-    [TestMethod, Timeout(10000)]
+    [TestMethod, Timeout(10000, CooperativeCancellation = true)]
     public void BetaToAlphaChain()
     {
         using AlphaBetaLockSlim abls = new();
@@ -208,17 +209,17 @@ public class AlphaBetaLockSlimTests
         Task t = Task.Factory.StartNew(() =>
         {
             Assert.IsFalse(abls.TryEnterAlphaLock(TimeSpan.FromMilliseconds(10)));
-            Task.Run(() => mres.Set());
-            mres.Wait();
+            Task.Run(() => mres.Set(), TestContext.CancellationToken);
+            mres.Wait(TestContext.CancellationToken);
             abls.EnterAlphaLock();
             abls.ExitAlphaLock();
         }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-        mres.Wait();
+        mres.Wait(TestContext.CancellationToken);
         abls.ExitBetaLock();
         t.GetAwaiter().GetResult();
     }
 
-    [TestMethod, Timeout(10000)]
+    [TestMethod, Timeout(10000, CooperativeCancellation = true)]
     public void BetaToAlphaChainEnsureWait()
     {
         using AlphaBetaLockSlim abls = new();
@@ -227,11 +228,11 @@ public class AlphaBetaLockSlimTests
         Task t = Task.Factory.StartNew(() =>
         {
             Assert.IsFalse(abls.TryEnterAlphaLock(TimeSpan.FromMilliseconds(10)));
-            Task.Run(() => Task.Delay(100).ContinueWith(_ => mres.Set()));
+            Task.Run(() => Task.Delay(100, TestContext.CancellationToken).ContinueWith(_ => mres.Set(), TestContext.CancellationToken), TestContext.CancellationToken);
             abls.EnterAlphaLock();
             abls.ExitAlphaLock();
         }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-        mres.Wait();
+        mres.Wait(TestContext.CancellationToken);
         abls.ExitBetaLock();
         t.GetAwaiter().GetResult();
     }
@@ -304,21 +305,21 @@ public class AlphaBetaLockSlimTests
     public void InvalidTimeouts()
     {
         using AlphaBetaLockSlim abls = new();
-        Assert.ThrowsException<ArgumentOutOfRangeException>(() => abls.TryEnterBetaLock(-2));
-        Assert.ThrowsException<ArgumentOutOfRangeException>(() => abls.TryEnterAlphaLock(-3));
-        Assert.ThrowsException<ArgumentOutOfRangeException>(() => abls.TryEnterAlphaLock(-4));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => abls.TryEnterBetaLock(-2));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => abls.TryEnterAlphaLock(-3));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => abls.TryEnterAlphaLock(-4));
 
-        Assert.ThrowsException<ArgumentOutOfRangeException>(() => abls.TryEnterBetaLock(TimeSpan.MaxValue));
-        Assert.ThrowsException<ArgumentOutOfRangeException>(() => abls.TryEnterAlphaLock(TimeSpan.MinValue));
-        Assert.ThrowsException<ArgumentOutOfRangeException>(() => abls.TryEnterAlphaLock(TimeSpan.FromMilliseconds(-2)));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => abls.TryEnterBetaLock(TimeSpan.MaxValue));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => abls.TryEnterAlphaLock(TimeSpan.MinValue));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => abls.TryEnterAlphaLock(TimeSpan.FromMilliseconds(-2)));
     }
 
     [TestMethod]
     public void InvalidExit()
     {
         using AlphaBetaLockSlim abls = new();
-        Assert.ThrowsException<SynchronizationLockException>(abls.ExitAlphaLock);
-        Assert.ThrowsException<SynchronizationLockException>(abls.ExitBetaLock);
+        Assert.ThrowsExactly<SynchronizationLockException>(abls.ExitAlphaLock);
+        Assert.ThrowsExactly<SynchronizationLockException>(abls.ExitBetaLock);
     }
 
     [TestMethod]
@@ -326,13 +327,13 @@ public class AlphaBetaLockSlimTests
     {
         using AlphaBetaLockSlim abls = new();
         abls.EnterAlphaLock();
-        Assert.ThrowsException<LockRecursionException>(() => abls.TryEnterAlphaLock(0));
-        Assert.ThrowsException<InvalidOperationException>(() => abls.TryEnterBetaLock(0));
+        Assert.ThrowsExactly<LockRecursionException>(() => abls.TryEnterAlphaLock(0));
+        Assert.ThrowsExactly<InvalidOperationException>(() => abls.TryEnterBetaLock(0));
         abls.ExitAlphaLock();
 
         abls.EnterBetaLock();
-        Assert.ThrowsException<InvalidOperationException>(() => abls.TryEnterAlphaLock(0));
-        Assert.ThrowsException<LockRecursionException>(() => abls.TryEnterBetaLock(0));
+        Assert.ThrowsExactly<InvalidOperationException>(() => abls.TryEnterAlphaLock(0));
+        Assert.ThrowsExactly<LockRecursionException>(() => abls.TryEnterBetaLock(0));
         abls.ExitBetaLock();
     }
 
@@ -341,13 +342,13 @@ public class AlphaBetaLockSlimTests
     {
         using AlphaBetaLockSlim abls = new();
         abls.EnterAlphaLock();
-        Assert.ThrowsException<LockRecursionException>(abls.EnterAlphaLock);
-        Assert.ThrowsException<InvalidOperationException>(abls.EnterBetaLock);
+        Assert.ThrowsExactly<LockRecursionException>(abls.EnterAlphaLock);
+        Assert.ThrowsExactly<InvalidOperationException>(abls.EnterBetaLock);
         abls.ExitAlphaLock();
 
         abls.EnterBetaLock();
-        Assert.ThrowsException<InvalidOperationException>(abls.EnterAlphaLock);
-        Assert.ThrowsException<LockRecursionException>(abls.EnterBetaLock);
+        Assert.ThrowsExactly<InvalidOperationException>(abls.EnterAlphaLock);
+        Assert.ThrowsExactly<LockRecursionException>(abls.EnterBetaLock);
         abls.ExitBetaLock();
     }
 }

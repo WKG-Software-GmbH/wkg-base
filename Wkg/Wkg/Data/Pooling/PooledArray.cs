@@ -21,8 +21,8 @@ public readonly struct PooledArray<T>
     /// <exception cref="ArgumentOutOfRangeException">Thrown if <paramref name="actualLength"/> is negative or greater than the length of the array.</exception>
     public PooledArray(T[] array, int actualLength)
     {
-        ArgumentNullException.ThrowIfNull(array, nameof(array));
-        Throw.ArgumentOutOfRangeException.IfNotInRange(actualLength, 0, array.Length, nameof(actualLength));
+        ArgumentNullException.ThrowIfNull(array);
+        ArgumentOutOfRangeException.ThrowIfNotInRange(actualLength, 0, array.Length);
 
         Array = array;
         _start = 0;
@@ -63,7 +63,7 @@ public readonly struct PooledArray<T>
     {
         get
         {
-            Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, _end - _start - 1, nameof(index));
+            ArgumentOutOfRangeException.ThrowIfNotInRange(index, 0, _end - _start - 1);
             return ref Array[_start + index];
         }
     }
@@ -77,8 +77,8 @@ public readonly struct PooledArray<T>
     /// <exception cref="ArgumentOutOfRangeException">Thrown if <paramref name="start"/> or <paramref name="length"/> is negative or greater than the length of the usable portion of the array.</exception>
     public PooledArray<T> Slice(int start, int length)
     {
-        Throw.ArgumentOutOfRangeException.IfNotInRange(start, 0, _end - _start, nameof(start));
-        Throw.ArgumentOutOfRangeException.IfNotInRange(length, 0, _end - _start - start, nameof(length));
+        ArgumentOutOfRangeException.ThrowIfNotInRange(start, 0, _end - _start);
+        ArgumentOutOfRangeException.ThrowIfNotInRange(length, 0, _end - _start - start);
         return new PooledArray<T>(Array, _start + start, length, noChecks: true);
     }
 

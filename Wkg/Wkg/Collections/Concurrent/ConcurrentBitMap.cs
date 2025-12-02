@@ -120,7 +120,7 @@ public sealed class ConcurrentBitmap : IDisposable, IParentNode
     /// <returns>A token for the specified index.</returns>
     public byte GetToken(int index)
     {
-        Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, Length - 1, nameof(index));
+        ArgumentOutOfRangeException.ThrowIfNotInRange(index, 0, Length - 1);
 
         // sync root is only used in write mode only when restructuring the tree or operating on cross-node boundaries
         using ILockOwnership readLock = SyncRoot.AcquireReadLock();
@@ -144,7 +144,7 @@ public sealed class ConcurrentBitmap : IDisposable, IParentNode
     /// <returns>A <see cref="GuardedBitInfo"/> snapshot for the specified index.</returns>
     public GuardedBitInfo GetBitInfo(int index)
     {
-        Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, Length - 1, nameof(index));
+        ArgumentOutOfRangeException.ThrowIfNotInRange(index, 0, Length - 1);
 
         // sync root is only used in write mode only when restructuring the tree or operating on cross-node boundaries
         using ILockOwnership readLock = SyncRoot.AcquireReadLock();
@@ -209,7 +209,7 @@ public sealed class ConcurrentBitmap : IDisposable, IParentNode
     /// <returns><see langword="true"/> if the bit at the specified <paramref name="index"/> is set to 1; otherwise, <see langword="false"/>.</returns>
     public bool IsBitSet(int index)
     {
-        Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, Length - 1, nameof(index));
+        ArgumentOutOfRangeException.ThrowIfNotInRange(index, 0, Length - 1);
 
         // sync root is only used in write mode only when restructuring the tree or operating on cross-node boundaries
         using ILockOwnership readLock = SyncRoot.AcquireReadLock();
@@ -233,7 +233,7 @@ public sealed class ConcurrentBitmap : IDisposable, IParentNode
     /// <param name="value">The value to set the bit to.</param>
     public void UpdateBit(int index, bool value)
     {
-        Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, Length - 1, nameof(index));
+        ArgumentOutOfRangeException.ThrowIfNotInRange(index, 0, Length - 1);
 
         // sync root is only used in write mode only when restructuring the tree or operating on cross-node boundaries
         using ILockOwnership readLock = SyncRoot.AcquireReadLock();
@@ -262,7 +262,7 @@ public sealed class ConcurrentBitmap : IDisposable, IParentNode
     /// <returns><see langword="true"/> if the update was successful; otherwise, <see langword="false"/>.</returns>
     public bool TryUpdateBit(int index, byte token, bool value)
     {
-        Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, Length - 1, nameof(index));
+        ArgumentOutOfRangeException.ThrowIfNotInRange(index, 0, Length - 1);
 
         // sync root is only used in write mode when restructuring the tree or operating on cross-node boundaries
         using ILockOwnership readLock = SyncRoot.AcquireWriteLock();
@@ -289,7 +289,7 @@ public sealed class ConcurrentBitmap : IDisposable, IParentNode
     /// <param name="grow"><see langword="true"/> to grow the bitmap by the inserted bit; otherwise, if <see langword="false"/>, the last bit (with the highest index) will be discarded.</param>
     public void InsertBitAt(int index, bool value, bool grow = false)
     {
-        Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, grow ? Length : Length - 1, nameof(index));
+        ArgumentOutOfRangeException.ThrowIfNotInRange(index, 0, grow ? Length : Length - 1);
 
         // requires global write lock
         using ILockOwnership writeLock = SyncRoot.AcquireWriteLock();
@@ -309,7 +309,7 @@ public sealed class ConcurrentBitmap : IDisposable, IParentNode
     /// <param name="shrink"><see langword="true"/> to shrink the bitmap by the removed bit; otherwise, if <see langword="false"/>, the last bit (with the highest index) will be set to 0.</param>
     public void RemoveBitAt(int index, bool shrink = false)
     {
-        Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, Length - 1, nameof(index));
+        ArgumentOutOfRangeException.ThrowIfNotInRange(index, 0, Length - 1);
 
         // requires global write lock
         using ILockOwnership writeLock = SyncRoot.AcquireWriteLock();

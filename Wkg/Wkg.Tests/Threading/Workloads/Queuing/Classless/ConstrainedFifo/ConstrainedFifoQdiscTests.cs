@@ -1,5 +1,4 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Wkg.Common.Extensions;
+﻿using Wkg.Common.Extensions;
 using Wkg.Threading.Workloads;
 using Wkg.Threading.Workloads.Configuration;
 using Wkg.Threading.Workloads.Configuration.Classless;
@@ -11,7 +10,7 @@ using CF = Wkg.Threading.Workloads.Queuing.Classless.ConstrainedFifo.Constrained
 namespace Wkg.Tests.Threading.Workloads.Queuing.Classless.ConstrainedFifo;
 
 [TestClass]
-public class ConstrainedFifoQdiscTests
+public sealed class ConstrainedFifoQdiscTests
 {
     private static readonly IQdiscBuilderContext s_context = new QdiscBuilderContext();
 
@@ -28,19 +27,19 @@ public class ConstrainedFifoQdiscTests
     [TestMethod]
     public void TestBuilder()
     {
-        Assert.ThrowsException<InvalidOperationException>(() =>
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
             CF.CreateBuilder(s_context).To<IClasslessQdiscBuilder>().Build(1, null));
 
-        Assert.ThrowsException<ArgumentOutOfRangeException>(() =>
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
             CF.CreateBuilder(s_context).WithCapacity(0).To<IClasslessQdiscBuilder>().Build(1, null));
 
-        Assert.ThrowsException<ArgumentOutOfRangeException>(() =>
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
             CF.CreateBuilder(s_context).WithCapacity(1).WithCapacity(0).To<IClasslessQdiscBuilder>().Build(1, null));
 
-        Assert.ThrowsException<InvalidOperationException>(() =>
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
             CF.CreateBuilder(s_context).WithCapacity(1).WithCapacity(3).To<IClasslessQdiscBuilder>().Build(1, null));
 
-        Assert.ThrowsException<ArgumentOutOfRangeException>(() =>
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
             CF.CreateBuilder(s_context).WithCapacity(-1).To<IClasslessQdiscBuilder>().Build(1, null));
 
         IClassifyingQdisc<int> qdisc = CF.CreateBuilder(s_context).WithCapacity(8).To<IClasslessQdiscBuilder>().Build(1, null);
@@ -51,7 +50,7 @@ public class ConstrainedFifoQdiscTests
     [TestMethod]
     public void TestEnqueueDequeue1()
     {
-        IClassifyingQdisc<int> qdisc = CreateDefaultQdisc(8);
+        using IClassifyingQdisc<int> qdisc = CreateDefaultQdisc(8);
         Assert.AreEqual(0, qdisc.BestEffortCount);
         Assert.IsTrue(qdisc.IsEmpty);
 
@@ -107,7 +106,7 @@ public class ConstrainedFifoQdiscTests
     [TestMethod]
     public void TestEnqueueDequeue2()
     {
-        IClassifyingQdisc<int> qdisc = CreateDefaultQdisc(4);
+        using IClassifyingQdisc<int> qdisc = CreateDefaultQdisc(4);
         Assert.AreEqual(0, qdisc.BestEffortCount);
         Assert.IsTrue(qdisc.IsEmpty);
 

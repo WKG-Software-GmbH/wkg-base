@@ -1,10 +1,9 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Wkg.Common.Extensions;
+﻿using Wkg.Common.Extensions;
 
 namespace Wkg.Tests.Extensions.Common;
 
 [TestClass]
-public class NullableValueTypeExtensionsTests
+public sealed class NullableValueTypeExtensionsTests
 {
     [TestMethod]
     public void IsNullOrDefaultTest()

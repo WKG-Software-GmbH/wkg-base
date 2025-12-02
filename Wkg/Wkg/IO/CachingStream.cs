@@ -1,4 +1,5 @@
-﻿using Wkg.Common.ThrowHelpers;
+﻿using System.Diagnostics.CodeAnalysis;
+using Wkg.Common.ThrowHelpers;
 using Wkg.Data.Pooling;
 
 namespace Wkg.IO;
@@ -79,11 +80,12 @@ public class CachingStream(Stream source, bool leaveOpen) : Stream
         return _cache.Read(buffer, offset, count);
     }
 
-    private static void ValidateBuffer(byte[] buffer, int offset, int count)
+    private static void ValidateBuffer([NotNull] byte[]? buffer, int offset, int count)
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(offset, nameof(offset));
-        ArgumentOutOfRangeException.ThrowIfNegative(count, nameof(count));
-        Throw.ArgumentOutOfRangeException.IfNotInRange(count, min: 0, max: buffer.Length - offset, nameof(count));
+        ArgumentNullException.ThrowIfNull(buffer);
+        ArgumentOutOfRangeException.ThrowIfNegative(offset);
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+        ArgumentOutOfRangeException.ThrowIfNotInRange(count, min: 0, max: buffer.Length - offset);
     }
 
     /// <inheritdoc/>
@@ -252,7 +254,7 @@ public class CachingStream(Stream source, bool leaveOpen) : Stream
             if (read > 0)
             {
                 // write to the cache
-                _cache.Write(cacheBuffer.Array, 0, read);
+                await _cache.WriteAsync(cacheBuffer.Array.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
                 // restore the position
                 _cache.Seek(position, SeekOrigin.Begin);
             }
@@ -295,6 +297,7 @@ public class CachingStream(Stream source, bool leaveOpen) : Stream
                 _cache.Dispose();
             }
             _disposedValue = true;
+            base.Dispose(disposing);
         }
     }
 
@@ -309,6 +312,7 @@ public class CachingStream(Stream source, bool leaveOpen) : Stream
             }
             _cache.Dispose();
             _disposedValue = true;
+            await base.DisposeAsync().ConfigureAwait(false);
         }
         GC.SuppressFinalize(this);
     }

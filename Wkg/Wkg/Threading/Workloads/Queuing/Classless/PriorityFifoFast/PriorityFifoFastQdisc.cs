@@ -118,7 +118,7 @@ internal class PriorityFifoFastQdisc<THandle> : ClassifyingQdisc<THandle>, INoti
             {
                 band = _defaultBand;
             }
-            Throw.ArgumentOutOfRangeException.IfNotInRange(band, 0, _bands.Length - 1, nameof(band));
+            ArgumentOutOfRangeException.ThrowIfNotInRange(band, 0, _bands.Length - 1);
             EnqueueDirectCore(workload, band);
             return true;
         }

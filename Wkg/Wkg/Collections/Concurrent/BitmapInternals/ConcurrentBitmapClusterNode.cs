@@ -6,7 +6,7 @@ using static Wkg.Collections.Concurrent.ConcurrentBitmap;
 
 namespace Wkg.Collections.Concurrent.BitmapInternals;
 
-internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
+internal sealed class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
 {
     // each cluster must track the fullness and emptiness of its segments, so 2 bits are required per segment
     // bits 0 to 27 are used for the segment emptiness state,
@@ -95,7 +95,7 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
             // how many segments do we need to remove?
             int lastSegmentRemovalSize = removalSize - _lastSegmentSize;
             // we always remove at least one segment (lastSegmentRemovalSize can be 0, but we don't want to keep an empty segment)
-            int removedSegmentCount = FastMath.Max((lastSegmentRemovalSize + SEGMENT_BIT_SIZE - 1) / SEGMENT_BIT_SIZE, 1);
+            int removedSegmentCount = Math.FastMax((lastSegmentRemovalSize + SEGMENT_BIT_SIZE - 1) / SEGMENT_BIT_SIZE, 1);
             int newTotalSegmentCount = _segmentCount - removedSegmentCount;
             _lastSegmentSize = SEGMENT_BIT_SIZE - (lastSegmentRemovalSize % SEGMENT_BIT_SIZE);
             int newLastSegmentIndex = newTotalSegmentCount - 1;
@@ -415,7 +415,7 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
         }
     }
 
-    protected virtual void Dispose(bool disposing)
+    private void Dispose(bool disposing)
     {
         if (!_disposedValue)
         {
@@ -440,10 +440,5 @@ internal class ConcurrentBitmapClusterNode : ConcurrentBitmapNode, IDisposable
 [InlineArray(SEGMENTS_PER_CLUSTER)]
 internal struct ConcurrentBitmap56StateCluster
 {
-#pragma warning disable IDE0044 // Add readonly modifier
-#pragma warning disable IDE0051 // Remove unused private members
-    // IntelliSense doesn't know about InlineArrayAttribute yet
     private ConcurrentBitmap56State _firstElement;
-#pragma warning restore IDE0051
-#pragma warning restore IDE0044
 }

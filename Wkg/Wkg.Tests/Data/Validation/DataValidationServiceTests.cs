@@ -1,11 +1,9 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Wkg.Data.Validation;
-using Wkg.Tests;
+﻿using Wkg.Data.Validation;
 
 namespace Wkg.Tests.Data.Validation;
 
 [TestClass]
-public class DataValidationServiceTests : BaseTest
+public sealed class DataValidationServiceTests : BaseTest
 {
     private static readonly string[] s_validEmailAddresses =
     [
@@ -17,7 +15,7 @@ public class DataValidationServiceTests : BaseTest
         "1234567890@example.com",
         "email@example-one.com",
         "_______@example.com",
-        "あいうえお@example.com",
+        "\u3042\u3044\u3046\u3048\u304A@example.com",
         "email@example.name",
         "email@example.museum",
         "email@example.co.jp",

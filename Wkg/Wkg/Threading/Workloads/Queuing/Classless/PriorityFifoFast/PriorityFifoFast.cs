@@ -65,7 +65,7 @@ public class PriorityFifoFast : ClasslessQdiscBuilder<PriorityFifoFast>, IClassl
         {
             throw new InvalidOperationException("The configured band handles are not of the expected type.");
         }
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(bandCount, 1, nameof(bandCount));
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(bandCount, 1);
         int defaultBand;
         if (_defaultBand == -1)
         {
@@ -75,7 +75,7 @@ public class PriorityFifoFast : ClasslessQdiscBuilder<PriorityFifoFast>, IClassl
         {
             defaultBand = _defaultBand;
         }
-        Throw.ArgumentOutOfRangeException.IfNotInRange(defaultBand, 0, bandCount - 1, nameof(defaultBand));
+        ArgumentOutOfRangeException.ThrowIfNotInRange(defaultBand, 0, bandCount - 1);
         Func<object?, int> bandSelector = _bandSelector ?? (state => defaultBand);
         return new PriorityFifoFastQdisc<THandle>(handle, bandHandles, bandCount, defaultBand, bandSelector, predicate);
     }

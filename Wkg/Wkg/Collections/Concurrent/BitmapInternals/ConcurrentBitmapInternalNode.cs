@@ -2,12 +2,11 @@
 using System.Text;
 using Wkg.Common;
 using Wkg.Data.Pooling;
+using static Wkg.Collections.Concurrent.ConcurrentBitmap;
 
 namespace Wkg.Collections.Concurrent.BitmapInternals;
 
-using static ConcurrentBitmap;
-
-internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
+internal sealed class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
 {
     // each node must track the fullness and emptiness of its clusters, so 2 bits are required per cluster
     // bits 0 to 27 are used for the cluster emptiness state,
@@ -342,7 +341,7 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
             Span<ConcurrentBitmapNode> children = _children.AsSpan();
             int remainingBits = additionalSize;
             ConcurrentBitmap56 nodeStateSnapshot = ConcurrentBitmap56.VolatileRead(ref _nodeState);
-            for (int i = FastMath.Max(oldLastChildIndex, 0); i < children.Length; i++, remainingBits -= _childMaxBitSize)
+            for (int i = Math.FastMax(oldLastChildIndex, 0); i < children.Length; i++, remainingBits -= _childMaxBitSize)
             {
                 // we need to grow the old last child, and add new children
                 if (i == oldLastChildIndex)
@@ -375,7 +374,7 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
                     }
                 }
             }
-            for (int i = FastMath.Max(oldLastChildIndex, 0); i < children.Length; i++)
+            for (int i = Math.FastMax(oldLastChildIndex, 0); i < children.Length; i++)
             {
                 UpdateStateSnapshot(ref nodeStateSnapshot, i);
             }
@@ -419,7 +418,7 @@ internal class ConcurrentBitmapInternalNode : ConcurrentBitmapNode
             int newLastChildIndex = newTotalChildCount - 1;
             int newLastChildSize = newTotalBitSize - (newLastChildIndex * _childMaxBitSize);
             ConcurrentBitmap56 nodeStateSnapshot = ConcurrentBitmap56.VolatileRead(ref _nodeState);
-            for (int i = FastMath.Max(newLastChildIndex, 0); i < children.Length; i++)
+            for (int i = Math.FastMax(newLastChildIndex, 0); i < children.Length; i++)
             {
                 // we need to shrink the old last child, and remove children
                 if (i == newLastChildIndex)

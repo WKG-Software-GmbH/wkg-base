@@ -54,6 +54,7 @@ public partial class LoggerConfiguration
 
     public partial LoggerConfiguration RegisterMainThread(Thread thread)
     {
+        ArgumentNullException.ThrowIfNull(thread);
         _mainThreadId = thread.ManagedThreadId;
         return this;
     }

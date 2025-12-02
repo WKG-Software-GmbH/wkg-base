@@ -1,5 +1,4 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Wkg.Threading.Workloads;
+﻿using Wkg.Threading.Workloads;
 using Wkg.Threading.Workloads.Configuration;
 using Wkg.Threading.Workloads.DependencyInjection;
 using Wkg.Threading.Workloads.DependencyInjection.Implementations;
@@ -9,8 +8,10 @@ using Wkg.Threading.Workloads.Queuing.Classless.Fifo;
 namespace Wkg.Tests.Threading.Workloads;
 
 [TestClass]
-public class WorkloadServiceProviderTests
+public sealed class WorkloadServiceProviderTests
 {
+    public TestContext TestContext { get; set; }
+
     private static ClasslessWorkloadFactoryWithDI<int> CreateDefaultFactory<TServiceProviderFactory>()
         where TServiceProviderFactory : class, IWorkloadServiceProviderFactory, new() => WorkloadFactoryBuilder.Create<int>()
         .UseAnonymousWorkloadPooling(4)
@@ -21,9 +22,9 @@ public class WorkloadServiceProviderTests
         .UseClasslessRoot<Fifo>(1);
 
     [TestMethod]
-    public async Task TestSimpleServiceProvider1()
+    public async Task TestSimpleServiceProvider1Async()
     {
-        ClasslessWorkloadFactoryWithDI<int> factory = CreateDefaultFactory<SimpleWorkloadServiceProviderFactory>();
+        using ClasslessWorkloadFactoryWithDI<int> factory = CreateDefaultFactory<SimpleWorkloadServiceProviderFactory>();
         WorkloadResult<int> result = await factory.ScheduleAsync((services, flag) =>
         {
             IMyService service = services.GetRequiredService<IMyService>();
@@ -31,7 +32,7 @@ public class WorkloadServiceProviderTests
         });
         Assert.AreEqual(1, result.Result);
         // wait for the worker thread to terminate
-        Thread.Sleep(1000);
+        await Task.Delay(1000, TestContext.CancellationToken);
         result = await factory.ScheduleAsync((services, flag) =>
         {
             IMyService service = services.GetRequiredService<IMyService>();
@@ -41,13 +42,13 @@ public class WorkloadServiceProviderTests
     }
 
     [TestMethod]
-    public async Task TestSimpleServiceProvider2()
+    public async Task TestSimpleServiceProvider2Async()
     {
-        ClasslessWorkloadFactoryWithDI<int> factory = CreateDefaultFactory<SimpleWorkloadServiceProviderFactory>();
-        ManualResetEventSlim mres = new(false);
+        using ClasslessWorkloadFactoryWithDI<int> factory = CreateDefaultFactory<SimpleWorkloadServiceProviderFactory>();
+        using ManualResetEventSlim mres = new(false);
         Workload<int> workload1 = factory.ScheduleAsync((services, flag) =>
         {
-            mres.Wait();
+            mres.Wait(TestContext.CancellationToken);
             IMyService service = services.GetRequiredService<IMyService>();
             return service.GetNext();
         });
@@ -64,15 +65,15 @@ public class WorkloadServiceProviderTests
     }
 
     [TestMethod]
-    public async Task TestSimpleServiceProvider3()
+    public async Task TestSimpleServiceProvider3Async()
     {
-        ClasslessWorkloadFactoryWithDI<int> factory = CreateDefaultFactory<SimpleWorkloadServiceProviderFactory>();
+        using ClasslessWorkloadFactoryWithDI<int> factory = CreateDefaultFactory<SimpleWorkloadServiceProviderFactory>();
         Workload<int> workload1 = factory.ScheduleAsync((services, flag) =>
         {
             MySingletonService service = services.GetRequiredService<MySingletonService>();
             return service.GetNext();
         });
-        Thread.Sleep(1000);
+        await Task.Delay(1000, TestContext.CancellationToken);
         Workload<int> workload2 = factory.ScheduleAsync((services, flag) =>
         {
             MySingletonService service = services.GetRequiredService<MySingletonService>();
@@ -85,9 +86,9 @@ public class WorkloadServiceProviderTests
     }
 
     [TestMethod]
-    public async Task TestSimpleServiceForNonExistingService()
+    public async Task TestSimpleServiceForNonExistingServiceAsync()
     {
-        ClasslessWorkloadFactoryWithDI<int> factory = CreateDefaultFactory<SimpleWorkloadServiceProviderFactory>();
+        using ClasslessWorkloadFactoryWithDI<int> factory = CreateDefaultFactory<SimpleWorkloadServiceProviderFactory>();
         WorkloadResult<int> result1 = await factory.ScheduleAsync((services, flag) =>
         {
             string service = services.GetRequiredService<string>();
@@ -98,9 +99,9 @@ public class WorkloadServiceProviderTests
     }
 
     [TestMethod]
-    public async Task TestSimpleServiceForNonExistingService2()
+    public async Task TestSimpleServiceForNonExistingService2Async()
     {
-        ClasslessWorkloadFactoryWithDI<int> factory = CreateDefaultFactory<SimpleWorkloadServiceProviderFactory>();
+        using ClasslessWorkloadFactoryWithDI<int> factory = CreateDefaultFactory<SimpleWorkloadServiceProviderFactory>();
         WorkloadResult<int> result1 = await factory.ScheduleAsync((services, flag) =>
         {
             bool b = services.TryGetService(out string? service);
@@ -116,9 +117,9 @@ public class WorkloadServiceProviderTests
     }
 
     [TestMethod]
-    public async Task TestPooledServiceProvider1()
+    public async Task TestPooledServiceProvider1Async()
     {
-        ClasslessWorkloadFactoryWithDI<int> factory = CreateDefaultFactory<PooledWorkloadServiceProviderFactory>();
+        using ClasslessWorkloadFactoryWithDI<int> factory = CreateDefaultFactory<PooledWorkloadServiceProviderFactory>();
         WorkloadResult<int> result = await factory.ScheduleAsync((services, flag) =>
         {
             IMyService service = services.GetRequiredService<IMyService>();
@@ -126,7 +127,7 @@ public class WorkloadServiceProviderTests
         });
         Assert.AreEqual(1, result.Result);
         // wait for the worker thread to terminate
-        Thread.Sleep(1000);
+        await Task.Delay(1000, TestContext.CancellationToken);
         result = await factory.ScheduleAsync((services, flag) =>
         {
             IMyService service = services.GetRequiredService<IMyService>();
@@ -137,13 +138,13 @@ public class WorkloadServiceProviderTests
     }
 
     [TestMethod]
-    public async Task TestPooledServiceProvider2()
+    public async Task TestPooledServiceProvider2Async()
     {
-        ClasslessWorkloadFactoryWithDI<int> factory = CreateDefaultFactory<PooledWorkloadServiceProviderFactory>();
-        ManualResetEventSlim mres = new(false);
+        using ClasslessWorkloadFactoryWithDI<int> factory = CreateDefaultFactory<PooledWorkloadServiceProviderFactory>();
+        using ManualResetEventSlim mres = new(false);
         Workload<int> workload1 = factory.ScheduleAsync((services, flag) =>
         {
-            mres.Wait();
+            mres.Wait(TestContext.CancellationToken);
             IMyService service = services.GetRequiredService<IMyService>();
             return service.GetNext();
         });
@@ -160,15 +161,15 @@ public class WorkloadServiceProviderTests
     }
 
     [TestMethod]
-    public async Task TestPooledServiceProvider3()
+    public async Task TestPooledServiceProvider3Async()
     {
-        ClasslessWorkloadFactoryWithDI<int> factory = CreateDefaultFactory<PooledWorkloadServiceProviderFactory>();
+        using ClasslessWorkloadFactoryWithDI<int> factory = CreateDefaultFactory<PooledWorkloadServiceProviderFactory>();
         Workload<int> workload1 = factory.ScheduleAsync((services, flag) =>
         {
             MySingletonService service = services.GetRequiredService<MySingletonService>();
             return service.GetNext();
         });
-        Thread.Sleep(1000);
+        await Task.Delay(1000, TestContext.CancellationToken);
         Workload<int> workload2 = factory.ScheduleAsync((services, flag) =>
         {
             MySingletonService service = services.GetRequiredService<MySingletonService>();
@@ -181,9 +182,9 @@ public class WorkloadServiceProviderTests
     }
 
     [TestMethod]
-    public async Task TestPooledServiceForNonExistingService()
+    public async Task TestPooledServiceForNonExistingServiceAsync()
     {
-        ClasslessWorkloadFactoryWithDI<int> factory = CreateDefaultFactory<PooledWorkloadServiceProviderFactory>();
+        using ClasslessWorkloadFactoryWithDI<int> factory = CreateDefaultFactory<PooledWorkloadServiceProviderFactory>();
         WorkloadResult<int> result1 = await factory.ScheduleAsync((services, flag) =>
         {
             string service = services.GetRequiredService<string>();
@@ -194,9 +195,9 @@ public class WorkloadServiceProviderTests
     }
 
     [TestMethod]
-    public async Task TestPooledServiceForNonExistingService2()
+    public async Task TestPooledServiceForNonExistingService2Async()
     {
-        ClasslessWorkloadFactoryWithDI<int> factory = CreateDefaultFactory<PooledWorkloadServiceProviderFactory>();
+        using ClasslessWorkloadFactoryWithDI<int> factory = CreateDefaultFactory<PooledWorkloadServiceProviderFactory>();
         WorkloadResult<int> result1 = await factory.ScheduleAsync((services, flag) =>
         {
             bool b = services.TryGetService(out string? service);

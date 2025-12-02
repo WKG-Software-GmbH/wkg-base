@@ -1,21 +1,20 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Wkg.Collections;
+﻿using Wkg.Collections;
 
 namespace Wkg.Tests.Collections;
 
 [TestClass]
-public class ResizableBufferTests : BaseTest
+public sealed class ResizableBufferTests : BaseTest
 {
     [TestMethod]
     public void ResizableBufferTest()
     {
         ResizableBuffer<byte> buffer;
 
-        Assert.ThrowsException<ArgumentOutOfRangeException>(() => buffer = new ResizableBuffer<byte>(-1));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => buffer = new ResizableBuffer<byte>(-1));
 
         buffer = new(4096);
         Assert.AreEqual(0, buffer.Length);
-        Assert.ThrowsException<ArgumentOutOfRangeException>(() => buffer[0]);
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => buffer[0]);
 
         byte[] myBytes = [0, 1, 2, 3, 4, 5, 6];
         buffer.Add(myBytes.AsSpan());
@@ -28,15 +27,15 @@ public class ResizableBufferTests : BaseTest
         Assert.AreEqual(5, myBytes[5]);
         Assert.AreEqual(6, myBytes[6]);
 
-        Assert.ThrowsException<ArgumentOutOfRangeException>(() => buffer[-1]);
-        Assert.ThrowsException<ArgumentOutOfRangeException>(() => buffer[7]);
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => buffer[-1]);
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => buffer[7]);
 
         buffer[0] = 42;
         Assert.AreEqual(42, buffer[0]);
 
         buffer.Dispose();
 
-        Assert.ThrowsException<ObjectDisposedException>(() => buffer[0]);
+        Assert.ThrowsExactly<ObjectDisposedException>(() => buffer[0]);
     }
 
     [TestMethod]
@@ -64,7 +63,7 @@ public class ResizableBufferTests : BaseTest
             }
         }
 
-        Assert.ThrowsException<ArgumentOutOfRangeException>(() => buffer[6]);
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => buffer[6]);
 
         buffer.Add([]);
         Assert.AreEqual(6, buffer.Length);
@@ -80,7 +79,7 @@ public class ResizableBufferTests : BaseTest
         Assert.AreEqual(5, buffer[0]);
 
         byte[] myArray = buffer.ToArray();
-        Assert.AreEqual(buffer.Length, myArray.Length);
+        Assert.HasCount(buffer.Length, myArray);
 
         myArray[0] = 10;
         Assert.AreEqual(5, buffer[0]);

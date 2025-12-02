@@ -22,6 +22,7 @@ public static class SyntacticSugar
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     public static object? Do(Action action)
     {
+        ArgumentNullException.ThrowIfNull(action);
         action();
         return __;
     }
@@ -32,6 +33,7 @@ public static class SyntacticSugar
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     public static object? Do<T>(Action<T> action, scoped T arg) where T : allows ref struct
     {
+        ArgumentNullException.ThrowIfNull(action);
         action(arg);
         return __;
     }
@@ -42,6 +44,7 @@ public static class SyntacticSugar
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     public static object? Do<T1, T2>(Action<T1, T2> action, scoped T1 arg1, scoped T2 arg2) where T1 : allows ref struct where T2 : allows ref struct
     {
+        ArgumentNullException.ThrowIfNull(action);
         action(arg1, arg2);
         return __;
     }
@@ -53,6 +56,7 @@ public static class SyntacticSugar
     public static object? Do<T1, T2, T3>(Action<T1, T2, T3> action, scoped T1 arg1, scoped T2 arg2, scoped T3 arg3) 
         where T1 : allows ref struct where T2 : allows ref struct where T3 : allows ref struct
     {
+        ArgumentNullException.ThrowIfNull(action);
         action(arg1, arg2, arg3);
         return __;
     }
@@ -65,6 +69,7 @@ public static class SyntacticSugar
         where T1 : allows ref struct where T2 : allows ref struct 
         where T3 : allows ref struct where T4 : allows ref struct
     {
+        ArgumentNullException.ThrowIfNull(action);
         action(arg1, arg2, arg3, arg4);
         return __;
     }

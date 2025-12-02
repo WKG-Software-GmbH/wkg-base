@@ -5,10 +5,9 @@ using System.Runtime.InteropServices;
 using System.Text;
 using Wkg.Common.ThrowHelpers;
 using Wkg.Threading;
+using static Wkg.Threading.ConcurrentBoolean;
 
 namespace Wkg.Collections.Concurrent;
-
-using static ConcurrentBoolean;
 
 /// <summary>
 /// Represents the state of a <see cref="ConcurrentBitmap56"/> that can be updated atomically.
@@ -81,7 +80,7 @@ public ref struct ConcurrentBitmap56
     /// <returns>Information about the bit at the specified <paramref name="index"/> in this bitmap.</returns>
     public readonly GuardedBitInfo GetBitInfo(int index)
     {
-        Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, 55, nameof(index));
+        ArgumentOutOfRangeException.ThrowIfNotInRange(index, 0, 55);
         ulong mask = 1uL << index;
         return new GuardedBitInfo((_state & mask) == mask, _guardToken, index);
     }
@@ -152,7 +151,7 @@ public ref struct ConcurrentBitmap56
     /// <returns>The updated <see cref="ConcurrentBitmap56"/> that was written to the specified <paramref name="state"/>.</returns>
     public static ConcurrentBitmap56 UpdateBit(ref ConcurrentBitmap56State state, int index, bool isSet)
     {
-        Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, 55, nameof(index));
+        ArgumentOutOfRangeException.ThrowIfNotInRange(index, 0, 55);
         return UpdateBitUnsafe(ref state, index, isSet);
     }
 
@@ -194,7 +193,7 @@ public ref struct ConcurrentBitmap56
     /// <returns><see langword="true"/> if the bit was updated, otherwise <see langword="false"/> if the specified <paramref name="token"/> was invalid.</returns>
     public static bool TryUpdateBit(ref ConcurrentBitmap56State state, byte token, int index, bool isSet)
     {
-        Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, 55, nameof(index));
+        ArgumentOutOfRangeException.ThrowIfNotInRange(index, 0, 55);
         return TryUpdateBitUnsafe(ref state, token, index, isSet);
     }
 
@@ -332,7 +331,7 @@ public ref struct ConcurrentBitmap56
     /// <param name="capacity">The size of the <paramref name="state"/> in bits.</param>
     public static void SetAll(ref ConcurrentBitmap56State state, int capacity)
     {
-        Throw.ArgumentOutOfRangeException.IfNotInRange(capacity, 1, 56, nameof(capacity));
+        ArgumentOutOfRangeException.ThrowIfNotInRange(capacity, 1, 56);
         ref ulong target = ref AsUlongPointer(ref state);
         ulong oldState, newState;
         do
@@ -357,7 +356,7 @@ public ref struct ConcurrentBitmap56
     /// <returns><see langword="true"/> if the <paramref name="state"/> was set, otherwise <see langword="false"/> if the specified <paramref name="token"/> was invalid.</returns>
     public static bool TrySetAll(ref ConcurrentBitmap56State state, byte token, int capacity)
     {
-        Throw.ArgumentOutOfRangeException.IfNotInRange(capacity, 1, 56, nameof(capacity));
+        ArgumentOutOfRangeException.ThrowIfNotInRange(capacity, 1, 56);
         ref ulong target = ref AsUlongPointer(ref state);
         ulong oldState, newState;
         oldState = Volatile.Read(ref target);
@@ -382,7 +381,7 @@ public ref struct ConcurrentBitmap56
     /// <param name="isInitiallySet"><see langword="true"/> to set the bit at the specified index, <see langword="false"/> to clear the bit at the specified index.</param>
     public static void InsertBitAt(ref ConcurrentBitmap56State state, int index, bool isInitiallySet)
     {
-        Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, 55, nameof(index));
+        ArgumentOutOfRangeException.ThrowIfNotInRange(index, 0, 55);
         ulong initialBitState = ((ConcurrentBoolean)isInitiallySet).As64BitMask();
         ref ulong target = ref AsUlongPointer(ref state);
         ulong oldState, newState;
@@ -412,7 +411,7 @@ public ref struct ConcurrentBitmap56
     /// <param name="index">The index of the bit to remove.</param>
     public static void RemoveBitAt(ref ConcurrentBitmap56State state, int index)
     {
-        Throw.ArgumentOutOfRangeException.IfNotInRange(index, 0, 55, nameof(index));
+        ArgumentOutOfRangeException.ThrowIfNotInRange(index, 0, 55);
         ref ulong target = ref AsUlongPointer(ref state);
         ulong oldState, newState;
         do
@@ -434,7 +433,7 @@ public ref struct ConcurrentBitmap56
     }
 
     /// <inheritdoc/>
-    public readonly override string ToString()
+    public override readonly string ToString()
     {
         // pre .NET 8 can't do ulong.ToString("B64") :(
         ulong s = _state;

@@ -1,10 +1,9 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Wkg.Collections;
+﻿using Wkg.Collections;
 
 namespace Wkg.Tests.Collections;
 
 [TestClass]
-public class CyclicQueueTests : BaseTest
+public sealed class CyclicQueueTests : BaseTest
 {
     [TestMethod]
     public void CyclicQueueTest()
@@ -50,8 +49,8 @@ public class CyclicQueueTests : BaseTest
         Assert.AreEqual(-6, cyclicQueue.Dequeue());
 
         Assert.AreEqual(0, cyclicQueue.Count);
-        Assert.ThrowsException<InvalidOperationException>(() => cyclicQueue.Dequeue());
-        Assert.ThrowsException<InvalidOperationException>(() => cyclicQueue.Peek());
+        Assert.ThrowsExactly<InvalidOperationException>(() => cyclicQueue.Dequeue());
+        Assert.ThrowsExactly<InvalidOperationException>(() => cyclicQueue.Peek());
 
         cyclicQueue.Enqueue(0);
         Assert.AreEqual(1, cyclicQueue.Count);

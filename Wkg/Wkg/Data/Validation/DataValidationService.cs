@@ -1,4 +1,4 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Diagnostics.CodeAnalysis;
 
 namespace Wkg.Data.Validation;
 
@@ -50,6 +50,7 @@ public static partial class DataValidationService
     /// </summary>
     /// <param name="url">The URL to validate.</param>
     /// <returns><see langword="true"/> if the given string is a valid URL; otherwise, <see langword="false"/>.</returns>
+    [SuppressMessage("Design", "CA1054:URI-like parameters should not be strings", Justification = "If we already had a URI instance, there would be no point to validate it.")]
     public static bool IsUrl(string? url)
     {
         if (string.IsNullOrWhiteSpace(url))

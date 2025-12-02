@@ -14,7 +14,7 @@ public sealed class ConstrainedLifo : ClasslessQdiscBuilder<ConstrainedLifo>, IC
 
     public ConstrainedLifo WithCapacity(int capacity)
     {
-        Throw.ArgumentOutOfRangeException.IfNotInRange(capacity, 1, ushort.MaxValue, nameof(capacity));
+        ArgumentOutOfRangeException.ThrowIfNotInRange(capacity, 1, ushort.MaxValue);
         if (_capacity != -1)
         {
             throw new InvalidOperationException("Capacity was already specified.");

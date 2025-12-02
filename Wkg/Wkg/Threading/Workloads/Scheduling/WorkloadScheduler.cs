@@ -209,7 +209,7 @@ internal class WorkloadScheduler : INotifyWorkScheduled
 
     private protected struct WorkerState(int _maximumConcurrencyLevel)
     {
-        private readonly ConcurrentBag<int> _workerIds = new(Enumerable.Range(0, _maximumConcurrencyLevel));
+        private readonly ConcurrentBag<int> _workerIds = [.. Enumerable.Range(0, _maximumConcurrencyLevel)];
         private int _currentDegreeOfParallelism = 0;
 
         public int VolatileWorkerCount => Volatile.Read(ref _currentDegreeOfParallelism);

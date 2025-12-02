@@ -10,7 +10,7 @@ namespace Wkg.Collections;
 /// Constructs a new instance of the <see cref="VolatileArray{T}"/> class with the specified length.
 /// </remarks>
 /// <param name="length">The length of the new array.</param>
-public class VolatileArray<T>(int length) : IEnumerable<T>, IEnumerator<T> where T : class
+public sealed class VolatileArray<T>(int length) : IEnumerable<T>, IEnumerator<T> where T : class
 {
     private readonly T[] _values = length == 0 ? [] : new T[length];
     private int _index = -1;

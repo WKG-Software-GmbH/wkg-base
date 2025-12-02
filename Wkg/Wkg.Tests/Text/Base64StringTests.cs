@@ -1,11 +1,10 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System.Text;
+﻿using System.Text;
 using Wkg.Text;
 
 namespace Wkg.Tests.Text;
 
 [TestClass]
-public class Base64StringTests
+public sealed class Base64StringTests
 {
     [TestMethod]
     public void DecodeToUtf8TestSimpleAscii()

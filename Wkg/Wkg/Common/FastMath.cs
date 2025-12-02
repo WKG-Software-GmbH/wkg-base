@@ -8,45 +8,28 @@ namespace Wkg.Common;
 /// than the BCL implementations in the <see cref="Math"/> API, but some additional preconditions may apply.
 /// </summary>
 [DebuggerStepThrough]
-public static unsafe class FastMath
+[Obsolete(OBSOLETE_MESSAGE)]
+public static class FastMath
 {
-    /// <summary>
-    /// Calculates the minimum of <paramref name="x"/> and <paramref name="y"/> where <c>int.MinValue &lt;= x - y &lt;= int.MaxValue</c>
-    /// </summary>
-    /// <param name="x">x, where <c>int.MinValue &lt;= x - y &lt;= int.MaxValue</c></param>
-    /// <param name="y">y, where <c>int.MinValue &lt;= x - y &lt;= int.MaxValue</c></param>
-    /// <returns>The minimum of <paramref name="x"/> and <paramref name="y"/></returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static int Min(int x, int y) =>
-        y + ((x - y) & ((x - y) >> 31));
+    private const string OBSOLETE_MESSAGE = "The FastMath.<SomeMethod> API is deprecated and has been replaced with Math.<SomeMethod> extension methods. The legacy FastMath API will be removed in a future version of this library";
 
-    /// <summary>
-    /// Calculates the minimum of <paramref name="x"/> and <paramref name="y"/> where <c>long.MinValue &lt;= x - y &lt;= long.MaxValue</c>
-    /// </summary>
-    /// <param name="x">x, where <c>long.MinValue &lt;= x - y &lt;= long.MaxValue</c></param>
-    /// <param name="y">y, where <c>long.MinValue &lt;= x - y &lt;= long.MaxValue</c></param>
-    /// <returns>The minimum of <paramref name="x"/> and <paramref name="y"/></returns>
+    /// <inheritdoc cref="MathExtensions.FastMin(int, int)" />
+    [Obsolete(OBSOLETE_MESSAGE)]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static long Min(long x, long y) =>
-        y + ((x - y) & ((x - y) >> 63));
+    public static int Min(int x, int y) => Math.FastMin(x, y);
 
-    /// <summary>
-    /// Calculates the maximum of <paramref name="x"/> and <paramref name="y"/> where <c>int.MinValue &lt;= x - y &lt;= int.MaxValue</c>
-    /// </summary>
-    /// <param name="x">x, where <c>int.MinValue &lt;= x - y &lt;= int.MaxValue</c></param>
-    /// <param name="y">y, where <c>int.MinValue &lt;= x - y &lt;= int.MaxValue</c></param>
-    /// <returns>The maximum of <paramref name="x"/> and <paramref name="y"/></returns>
+    /// <inheritdoc cref="MathExtensions.FastMin(long, long)" />
+    [Obsolete(OBSOLETE_MESSAGE)]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static int Max(int x, int y) =>
-        x - ((x - y) & ((x - y) >> 31));
+    public static long Min(long x, long y) => Math.FastMin(x, y);
 
-    /// <summary>
-    /// Calculates the maximum of <paramref name="x"/> and <paramref name="y"/> where <c>long.MinValue &lt;= x - y &lt;= long.MaxValue</c>
-    /// </summary>
-    /// <param name="x">x, where <c>long.MinValue &lt;= x - y &lt;= long.MaxValue</c></param>
-    /// <param name="y">y, where <c>long.MinValue &lt;= x - y &lt;= long.MaxValue</c></param>
-    /// <returns>The maximum of <paramref name="x"/> and <paramref name="y"/></returns>
+    /// <inheritdoc cref="MathExtensions.FastMax(int, int)" />
+    [Obsolete(OBSOLETE_MESSAGE)]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static long Max(long x, long y) =>
-        x - ((x - y) & ((x - y) >> 63));
+    public static int Max(int x, int y) => Math.FastMax(x, y);
+
+    /// <inheritdoc cref="MathExtensions.FastMax(long, long)" />
+    [Obsolete(OBSOLETE_MESSAGE)]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static long Max(long x, long y) => Math.FastMax(x, y);
 }

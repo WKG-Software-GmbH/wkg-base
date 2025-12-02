@@ -12,7 +12,7 @@ namespace Wkg.Data.Pooling;
 /// This pool is thread safe and prioritizes returning over renting.
 /// </remarks>
 /// <typeparam name="T">The type of the object to pool.</typeparam>
-public class ObjectPool<T> : IPool<T>, IDisposable where T : class, IPoolable<T>
+public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class, IPoolable<T>
 {
     private readonly T?[] _pool;
 
@@ -52,7 +52,7 @@ public class ObjectPool<T> : IPool<T>, IDisposable where T : class, IPoolable<T>
     public T Rent()
     {
         // no need to check for disposed, as the ABLS will throw an ObjectDisposedException if it is disposed
-        DebugLog.WriteDiagnostic($"Renting a {typeof(T).Name} from the {nameof(ObjectPool<T>)}.", LogWriter.Blocking);
+        DebugLog.WriteDiagnostic($"Renting a {typeof(T).Name} from the {nameof(ObjectPool<>)}.", LogWriter.Blocking);
         // returning takes precedence over renting, so we use the beta lock here
         using ILockOwnership betaLock = _abls.AcquireBetaLock();
         int original = Atomic.DecrementClampMinFast(ref _index, 0);
@@ -75,7 +75,7 @@ public class ObjectPool<T> : IPool<T>, IDisposable where T : class, IPoolable<T>
         // no need to check for disposed, as the ABLS will throw an ObjectDisposedException if it is disposed
         ArgumentNullException.ThrowIfNull(item, nameof(item));
 
-        DebugLog.WriteDiagnostic($"Returning a {typeof(T).Name} to the {nameof(ObjectPool<T>)}.", LogWriter.Blocking);
+        DebugLog.WriteDiagnostic($"Returning a {typeof(T).Name} to the {nameof(ObjectPool<>)}.", LogWriter.Blocking);
         // acquire the alpha lock to ensure that no other thread is renting while we (and possibly other threads) are returning
         using ILockOwnership alphaLock = _abls.AcquireAlphaLock();
         int myIndex = Atomic.IncrementClampMaxFast(ref _index, _pool.Length - 1);

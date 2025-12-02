@@ -1,8 +1,11 @@
-﻿namespace Wkg.Web;
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace Wkg.Web;
 
 /// <summary>
 /// Represents a span-base route data key-value pair.
 /// </summary>
+[SuppressMessage("Design", "CA1051:Do not declare visible instance fields", Justification = "Immutable structs may have public readonly fields for performance and simplicity.")]
 public readonly ref struct RouteDataRef
 {
     /// <summary>

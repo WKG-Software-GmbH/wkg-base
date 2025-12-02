@@ -15,6 +15,7 @@ public static class StringBuilderExtensions
     /// <returns>The specified <paramref name="builder"/>.</returns>
     public static StringBuilder AppendIndent(this StringBuilder builder, int indentLevel)
     {
+        ArgumentNullException.ThrowIfNull(builder);
         builder.Append(' ', indentLevel * 2);
         return builder;
     }

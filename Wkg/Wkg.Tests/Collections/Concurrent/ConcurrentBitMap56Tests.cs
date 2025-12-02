@@ -1,11 +1,10 @@
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Runtime.CompilerServices;
 using Wkg.Collections.Concurrent;
 
 namespace Wkg.Tests.Collections.Concurrent;
 
 [TestClass]
-public class ConcurrentBitmap56Tests
+public sealed class ConcurrentBitmap56Tests
 {
     [TestMethod]
     public void Full_ReturnsBitMapWithAllBitsSet1()

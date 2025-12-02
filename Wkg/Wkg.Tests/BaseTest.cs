@@ -1,5 +1,4 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Wkg.Unmanaged.MemoryManagement;
+﻿using Wkg.Unmanaged.MemoryManagement;
 using Wkg.Unmanaged.MemoryManagement.Implementations;
 using Wkg.Unmanaged.MemoryManagement.Implementations.AllocationTracking;
 

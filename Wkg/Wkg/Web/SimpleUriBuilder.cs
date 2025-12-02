@@ -157,7 +157,7 @@ public struct SimpleUriBuilder : IDisposable
     }
 
     /// <inheritdoc cref="Build" />
-    public readonly override string ToString() => _builder.ToString();
+    public override readonly string ToString() => _builder.ToString();
 
     /// <summary>
     /// Builds the URI string.

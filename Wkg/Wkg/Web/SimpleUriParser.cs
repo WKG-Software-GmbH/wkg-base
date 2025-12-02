@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Collections;
 using Wkg.Common;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Wkg.Web;
 
@@ -72,7 +73,7 @@ public readonly ref struct SimpleUriParser
     /// <summary>
     /// The schema and host of the URI, the host only if no schema is present, or an empty span if neither is present, or an empty span if no schema is present, e.g., <c>http://example.com</c>, <c>example.com</c>, or an empty span (the parsed URI was a path only).
     /// </summary>
-    public readonly ReadOnlySpan<char> SchemaHost => Uri[..FastMath.Min(_pathStartIndex, _queryStartIndex)];
+    public readonly ReadOnlySpan<char> SchemaHost => Uri[..Math.FastMin(_pathStartIndex, _queryStartIndex)];
 
     /// <summary>
     /// The host of the URI, e.g., <c>example.com</c>, or an empty span if no host is present (the parsed URI was a path only).
@@ -86,7 +87,7 @@ public readonly ref struct SimpleUriParser
             {
                 hostStartIndex += SCHEMA_DELIMITER.Length;
             }
-            return Uri[hostStartIndex..FastMath.Min(_pathStartIndex, _queryStartIndex)];
+            return Uri[hostStartIndex..Math.FastMin(_pathStartIndex, _queryStartIndex)];
         }
     }
 
@@ -98,12 +99,12 @@ public readonly ref struct SimpleUriParser
     /// <summary>
     /// The path of the URI, e.g., <c>/path</c>, or an empty span if no path is present (the parsed URI did not contain a path).
     /// </summary>
-    public readonly ReadOnlySpan<char> Path => Uri[FastMath.Min(_pathStartIndex, _queryStartIndex).._queryStartIndex];
+    public readonly ReadOnlySpan<char> Path => Uri[Math.FastMin(_pathStartIndex, _queryStartIndex).._queryStartIndex];
 
     /// <summary>
     /// The query string of the URI, e.g., <c>?key1=value1&amp;key2=value2</c>, or an empty span if no query string is present.
     /// </summary>
-    public readonly ReadOnlySpan<char> Query => Uri[FastMath.Min(_queryStartIndex + 1, Uri.Length)..];
+    public readonly ReadOnlySpan<char> Query => Uri[Math.FastMin(_queryStartIndex + 1, Uri.Length)..];
 
     /// <summary>
     /// Checks if the URI contains a query parameter with the specified <paramref name="key"/>.
@@ -140,6 +141,7 @@ public readonly ref struct SimpleUriParser
     /// <summary>
     /// Represents an enumerator for the query parameters of a URI.
     /// </summary>
+    [SuppressMessage("Design", "CA1034:Nested types should not be visible", Justification = "Enumerator types should not be used manually, nesting is acceptable and common practice.")]
     public ref struct Enumerator
     {
         private readonly ReadOnlySpan<char> _query;

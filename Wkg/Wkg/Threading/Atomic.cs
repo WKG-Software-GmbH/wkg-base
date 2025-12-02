@@ -191,7 +191,7 @@ public static class Atomic
         do
         {
             original = Volatile.Read(ref location);
-            newValue = FastMath.Max(original, value);
+            newValue = Math.FastMax(original, value);
         }
         while (Interlocked.CompareExchange(ref location, newValue, original) != original);
         return original;
@@ -276,7 +276,7 @@ public static class Atomic
             original = Volatile.Read(ref location);
             // believe it or not, this branchless version alone eliminates two branches and three jump labels
             // in the optimized x64 JIT assembly :0
-            incremented = FastMath.Min(original + 1, maxValue);
+            incremented = Math.FastMin(original + 1, maxValue);
         }
         while (Interlocked.CompareExchange(ref location, incremented, original) != original);
         return original;
@@ -359,7 +359,7 @@ public static class Atomic
         do
         {
             original = Volatile.Read(ref location);
-            decremented = FastMath.Max(original - 1, minValue);
+            decremented = Math.FastMax(original - 1, minValue);
         }
         while (Interlocked.CompareExchange(ref location, decremented, original) != original);
         return original;

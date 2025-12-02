@@ -1,13 +1,14 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Wkg.IO;
+﻿using Wkg.IO;
 
 namespace Wkg.Tests.IO;
 
 [TestClass]
-public class CachingStreamTests
+public sealed class CachingStreamTests : IDisposable
 {
     private MemoryStream _sourceStream = null!;
     private CachingStream _cachingStream = null!;
+
+    public TestContext TestContext { get; set; }
 
     [TestInitialize]
     public void Setup()
@@ -73,10 +74,10 @@ public class CachingStreamTests
     public async Task TestReadAsync()
     {
         byte[] buffer = new byte[10];
-        int bytesRead = await _cachingStream.ReadAsync(buffer);
+        int bytesRead = await _cachingStream.ReadAsync(buffer, TestContext.CancellationToken);
         Assert.AreEqual(10, bytesRead);
         Assert.IsTrue(buffer.AsSpan().SequenceEqual(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 }));
-        bytesRead = await _cachingStream.ReadAsync(buffer);
+        bytesRead = await _cachingStream.ReadAsync(buffer, TestContext.CancellationToken);
         Assert.AreEqual(10, bytesRead);
         Assert.IsTrue(buffer.AsSpan().SequenceEqual(new byte[] { 11, 12, 13, 14, 15, 16, 17, 18, 19, 20 }));
     }
@@ -123,33 +124,37 @@ public class CachingStreamTests
     [TestMethod]
     public async Task TestSeekAsync()
     {
-        long newPosition = await _cachingStream.SeekAsync(10, SeekOrigin.Begin);
+        long newPosition = await _cachingStream.SeekAsync(10, SeekOrigin.Begin, TestContext.CancellationToken);
         Assert.AreEqual(10, newPosition);
     }
 
     [TestMethod]
-    [ExpectedException(typeof(NotSupportedException))]
-    public void TestSetLength() => _cachingStream.SetLength(100);
+    public void TestSetLength() => Assert.ThrowsExactly<NotSupportedException>(() => _cachingStream.SetLength(100));
 
     [TestMethod]
-    [ExpectedException(typeof(NotSupportedException))]
-    public void TestWrite() => _cachingStream.Write(new byte[10], 0, 10);
+    public void TestWrite() => Assert.ThrowsExactly<NotSupportedException>(() => _cachingStream.Write(new byte[10], 0, 10));
 
     [TestMethod]
-    [ExpectedException(typeof(NotSupportedException))]
-    public void TestFlush() => _cachingStream.Flush();
+    public void TestFlush() => Assert.ThrowsExactly<NotSupportedException>(_cachingStream.Flush);
 
     [TestMethod]
     public void TestDispose()
     {
         _cachingStream.Dispose();
-        Assert.ThrowsException<ObjectDisposedException>(() => _cachingStream.ReadByte());
+        Assert.ThrowsExactly<ObjectDisposedException>(() => _cachingStream.ReadByte());
     }
 
     [TestMethod]
     public async Task TestDisposeAsync()
     {
         await _cachingStream.DisposeAsync();
-        Assert.ThrowsException<ObjectDisposedException>(() => _cachingStream.ReadByte());
+        Assert.ThrowsExactly<ObjectDisposedException>(() => _cachingStream.ReadByte());
+    }
+
+    public void Dispose()
+    {
+        GC.SuppressFinalize(this);
+        _cachingStream?.Dispose();
+        _sourceStream?.Dispose();
     }
 }

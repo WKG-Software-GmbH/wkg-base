@@ -135,7 +135,7 @@ public sealed class AwaitableWorkloadTests
     {
         using ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
         Workload<int> workload = factory.ScheduleAsync(_ => 1);
-        Thread.Sleep(100);
+        workload.Wait(TestContext.CancellationToken);
         using ManualResetEventSlim mres = new(false);
         workload.ContinueWith(result =>
         {
@@ -154,7 +154,7 @@ public sealed class AwaitableWorkloadTests
     {
         using ClasslessWorkloadFactory<int> factory = CreateDefaultFactory();
         Workload workload = factory.ScheduleAsync(Pass, cancellationToken: TestContext.CancellationToken);
-        Thread.Sleep(100);
+        workload.Wait(TestContext.CancellationToken);
         using ManualResetEventSlim mres = new(false);
         workload.ContinueWith(result =>
         {

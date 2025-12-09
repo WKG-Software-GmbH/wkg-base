@@ -17,7 +17,7 @@
     <PropertyGroup>
         <PackageId>Wkg</PackageId>
         <Title>WKG Base</Title>
-        <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <IsPackable>true</IsPackable>
         <Description>The WKG Base library provides general components and utilities for developing any .NET project type at WKG Software GmbH. Its core features include QoS-aware task scheduling, lightweight logging, and a set of reflection, threading, and performance utilities.</Description>
         <PackageReadmeFile>README.md</PackageReadmeFile>

@@ -2,44 +2,56 @@
 
 `Wkg` is a company-internal library providing reusable components for the development of any .NET project.
 
-- [`Wkg` Documentation](#wkg-documentation)
-  - [Components](#components)
-    - [`Wkg.Collections` Namespace](#wkgcollections-namespace)
-      - [`CyclicQueue` and `CyclicStack`](#cyclicqueue-and-cyclicstack)
-      - [VolatileArray](#volatilearray)
-      - [ResizableBuffer](#resizablebuffer)
-      - [Examples](#examples)
-    - [`Wkg.Data.Validation` Namespace](#wkgdatavalidation-namespace)
-      - [Examples](#examples-1)
-    - [`Wkg.IO` Namespace](#wkgio-namespace)
-      - [`CachingStream` Class](#cachingstream-class)
-    - [`Wkg.Extensions` Namespace](#wkgextensions-namespace)
-      - [`GuidExtensions` Class](#guidextensions-class)
-        - [Examples](#examples-2)
-      - [`NullableValueTypeExtensions` Class](#nullablevaluetypeextensions-class)
-      - [`ObjectExtensions` Class](#objectextensions-class)
-    - [`Wkg.Logging` Namespace](#wkglogging-namespace)
-      - [Interface Overview](#interface-overview)
-      - [Default `Logger` Implementation](#default-logger-implementation)
-      - [Configuration](#configuration)
-      - [Built-In `ILogEntryGenerator` Implementations](#built-in-ilogentrygenerator-implementations)
-      - [Logging Levels](#logging-levels)
-      - [Extending Logging](#extending-logging)
-    - [`Wkg.Unmanaged` Namespace](#wkgunmanaged-namespace)
-      - [Memory Management](#memory-management)
-        - [The `MemoryManager` Class](#the-memorymanager-class)
-          - [Configuration](#configuration-1)
-          - [Allocation Tracking](#allocation-tracking)
-          - [MemoryManager APIs](#memorymanager-apis)
-      - [`TypeReinterpreter` Class](#typereinterpreter-class)
-    - [`Wkg.Reflection` Namespace](#wkgreflection-namespace)
-    - [`Wkg.Web` Namespace](#wkgweb-namespace)
-      - [Simple URI Manipulation](#simple-uri-manipulation)
-    - [`Wkg.SyntacticSugar` Class](#wkgsyntacticsugar-class)
-      - [`Pass()` Method](#pass-method)
-        - [Examples](#examples-3)
-      - [Switch Expression Helpers](#switch-expression-helpers)
-      - [The Double-Discard Object](#the-double-discard-object)
+<!-- @import "[TOC]" {cmd="toc" depthFrom=2 depthTo=6 orderedList=false} -->
+
+<!-- code_chunk_output -->
+
+- [Components](#components)
+  - [`Wkg.Collections` Namespace](#wkgcollections-namespace)
+    - [`CyclicQueue` and `CyclicStack`](#cyclicqueue-and-cyclicstack)
+    - [VolatileArray](#volatilearray)
+    - [ResizableBuffer](#resizablebuffer)
+    - [Examples](#examples)
+  - [`Wkg.Data.Validation` Namespace](#wkgdatavalidation-namespace)
+    - [Examples](#examples-1)
+  - [`Wkg.IO` Namespace](#wkgio-namespace)
+    - [`CachingStream` Class](#cachingstream-class)
+  - [`Wkg.Extensions` Namespace](#wkgextensions-namespace)
+    - [`GuidExtensions` Class](#guidextensions-class)
+      - [Examples](#examples-2)
+    - [`NullableValueTypeExtensions` Class](#nullablevaluetypeextensions-class)
+    - [`ObjectExtensions` Class](#objectextensions-class)
+  - [`Wkg.Logging` Namespace](#wkglogging-namespace)
+    - [Interface Overview](#interface-overview)
+    - [Default `Logger` Implementation](#default-logger-implementation)
+    - [Configuration](#configuration)
+    - [Built-In `ILogEntryGenerator` Implementations](#built-in-ilogentrygenerator-implementations)
+    - [Logging Levels](#logging-levels)
+    - [Extending Logging](#extending-logging)
+  - [`Wkg.Unmanaged` Namespace](#wkgunmanaged-namespace)
+    - [Memory Management](#memory-management)
+      - [The `MemoryManager` Class](#the-memorymanager-class)
+        - [Configuration](#configuration-1)
+        - [Allocation Tracking](#allocation-tracking)
+        - [MemoryManager APIs](#memorymanager-apis)
+    - [`TypeReinterpreter` Class](#typereinterpreter-class)
+  - [`Wkg.Reflection` Namespace](#wkgreflection-namespace)
+  - [`Wkg.Web` Namespace](#wkgweb-namespace)
+    - [Simple URI Manipulation](#simple-uri-manipulation)
+  - [`Wkg.SyntacticSugar` Class](#wkgsyntacticsugar-class)
+    - [`Pass()` Method](#pass-method)
+      - [Examples](#examples-3)
+    - [Switch Expression Helpers](#switch-expression-helpers)
+    - [The Double-Discard Object](#the-double-discard-object)
+  - [`Wkg.Threading` Namespace](#wkgthreading-namespace)
+    - [`AsyncLock` and `AsyncLockResult`](#asynclock-and-asynclockresult)
+    - [`Atomic` Helpers](#atomic-helpers)
+    - [`ConcurrentBoolean` Struct](#concurrentboolean-struct)
+    - [`AlphaBetaLockSlim` Lock](#alphabetalockslim-lock)
+    - [`ILockOwnership` and Lock Scopes](#ilockownership-and-lock-scopes)
+    - [`Wait` Helpers](#wait-helpers)
+
+<!-- /code_chunk_output -->
 
 > :warning: **Warning**
 > This documentation is a work in progress and may not be complete or up-to-date. For the most accurate and up-to-date information, please refer to the source code and the XML documentation comments.
@@ -610,3 +622,219 @@ The return value of the switch expression is explicitly discarded by assigning i
 
 > :bulb: **Tip**
 > The combination of `__` and `Do()` allows for switch expressions to be used as dispatchers for void-operations, which can significantly reduce the amount of boilerplate code required to implement such dispatchers.
+
+### `Wkg.Threading` Namespace
+
+The `Threading` namespace provides building blocks for concurrent code that complement the standard .NET primitives. Components focus on safe composition, async-friendly synchronization, and efficient atomic operations without relying solely on low-level `Interlocked`/`Monitor` usage.
+
+#### `AsyncLock` and `AsyncLockResult`
+
+`AsyncLock` is a lightweight lock that can be used across asynchronous boundaries. Unlike `lock`/`Monitor`, it is designed for `async`/`await` code and prevents common deadlock patterns caused by mixing blocking waits and asynchronous work.
+
+- The lock is **reentrant per async flow**: the same logical async context can enter the lock multiple times as long as `Exit` happens the same number of times (handled internally by the helper methods).
+- Ownership is tracked via an `AsyncLocal<int>`; `IsHeld` reports whether the current async flow currently holds the lock.
+- Disposing the lock cancels pending waiters and causes them to observe a `LockDisposedException` (or a skipped `AsyncLockResult` when using the *Try* APIs).
+
+The recommended usage pattern is to pass delegates to the helper methods instead of manually acquiring and releasing the internal semaphore:
+
+```csharp
+AsyncLock gate = new();
+
+public Task<int> GetOrComputeValueAsync(CancellationToken ct)
+{
+    return gate.RunTaskAsync<int>(async cancellationToken =>
+    {
+        if (_hasCachedValue)
+        {
+            return _cachedValue;
+        }
+
+        int value = await ComputeValueAsync(cancellationToken);
+        _cachedValue = value;
+        _hasCachedValue = true;
+        return value;
+    }, ct);
+}
+```
+
+For fire-and-forget style work where you only need to ensure mutual exclusion, `RunActionAsync` provides a convenient overload:
+
+```csharp
+await gate.RunActionAsync(() =>
+{
+    // This body runs under the async lock
+    _counter++;
+});
+```
+
+When you need to gracefully handle disposal without throwing, use the `TryRun*` overloads which return `AsyncLockResult` / `AsyncLockResult<TResult>`:
+
+```csharp
+AsyncLockResult<int> result = await gate.TryRunTaskAsync<int>(async ct =>
+{
+    await Task.Delay(100, ct);
+    return 42;
+});
+
+if (result.TaskExecuted && result.TryGetResult(out int value))
+{
+    Console.WriteLine($"Lock acquired, result = {value}");
+}
+else
+{
+    // The lock was disposed before we could enter; decide how to proceed.
+}
+```
+
+`AsyncLockResult` (non-generic) can be used when no result value is needed; `TaskExecuted` indicates whether the delegate actually ran or was skipped because the lock was disposed.
+
+#### `Atomic` Helpers
+
+The static `Atomic` class provides additional atomic operations that complement `Interlocked`. All operations are **lock-free** and implemented in terms of `Interlocked`, `Volatile` and low-level `Unsafe` helpers.
+
+Typical use cases include thread-safe state tracking without full locks and efficient counters.
+
+Common APIs:
+
+- `Exchange(ref ConcurrentBoolean, bool)` / `CompareExchange(ref ConcurrentBoolean, bool, bool)` – lock-free updates of `ConcurrentBoolean` values.
+- `Exchange<TEnum>(ref TEnum, TEnum)` / `CompareExchange<TEnum>(ref TEnum, TEnum, TEnum)` – atomic updates for enum types with 32- or 64-bit underlying storage.
+- `IncrementModulo(ref T, modulo)` – atomically increments a value and wraps to `0` when `modulo` is reached.
+- `WriteMax`/`WriteMaxFast` – atomically clamp a value to the maximum of its current value and the provided candidate.
+
+Examples:
+
+```csharp
+ConcurrentBoolean isRunning = false;
+
+// Attempt to transition from false -> true atomically
+bool original = Atomic.CompareExchange(ref isRunning, value: true, comparand: false);
+if (!original)
+{
+    // We won the race and can start the worker
+    StartBackgroundWorker();
+}
+
+// Modulo counter example
+int index = 0;
+int slot = Atomic.IncrementModulo(ref index, modulo: 1024);
+buffer[slot] = item;
+```
+
+#### `ConcurrentBoolean` Struct
+
+`ConcurrentBoolean` is a tiny value type that represents a boolean in a form that is convenient for atomic operations and bit tricks.
+
+- Internally stored as a 32-bit `uint` sized for CAS operations.
+- Implicit conversions exist between `ConcurrentBoolean` and `bool` / `uint` to simplify usage with `Interlocked` and masks.
+- `As64BitMask()` returns a 64-bit all-zeros or all-ones mask, useful for branchless algorithms.
+
+In most cases you will not create `ConcurrentBoolean` directly; it is primarily intended for use with the `Atomic` helpers and concurrency-sensitive structures such as `AsyncLock`.
+
+```csharp
+ConcurrentBoolean flag = false;
+
+// Thread-safe set-with-observe-previous
+bool wasSet = Atomic.Exchange(ref flag, true);
+if (!wasSet)
+{
+    Console.WriteLine("Transitioned from false -> true");
+}
+```
+
+#### `AlphaBetaLockSlim` Lock
+
+`AlphaBetaLockSlim` is a specialized lock inspired by `ReaderWriterLockSlim`, but with two fully symmetric groups (`Alpha` and `Beta`) instead of read/write semantics.
+
+- Multiple threads from the same group can hold the lock concurrently.
+- Only one group can own the lock at a time; alpha and beta groups are mutually exclusive.
+- **Alpha has priority**: waiting alpha requests prevent new beta acquisitions and may starve beta workloads under contention.
+- Per-thread ownership is tracked to prevent recursion; attempting to re-enter from the same thread will throw.
+
+Use `AcquireAlphaLock` / `AcquireBetaLock` when you want `using`-style scopes, or `Enter*`/`TryEnter*` when integrating with existing patterns.
+
+```csharp
+AlphaBetaLockSlim gate = new();
+
+// Alpha group – typically high-priority or infrequent operations
+void PerformAlphaOperation()
+{
+    using ILockOwnership _ = gate.AcquireAlphaLock();
+    // Runs concurrently with other alpha callers, but never with beta callers
+    UpdateSharedConfiguration();
+}
+
+// Beta group – typically lower-priority or more frequent operations
+bool TryPerformBetaOperation(TimeSpan timeout)
+{
+    if (!gate.TryEnterBetaLock(timeout))
+    {
+        return false; // Could not acquire the beta group lock in time
+    }
+    try
+    {
+        ReadSharedConfiguration();
+        return true;
+    }
+    finally
+    {
+        gate.ExitBetaLock(); // via the corresponding API in AlphaBetaLockSlim
+    }
+}
+```
+
+Alpha/beta group semantics are intentionally application-defined. A common pattern is to treat alpha as a configuration or maintenance group and beta as the normal operational group.
+
+> :warning: **Warning**
+> `AlphaBetaLockSlim` does not support lock recursion within a group and forbids holding both an alpha and a beta lock on the same thread. Violations result in `LockRecursionException` or `InvalidOperationException`.
+
+#### `ILockOwnership` and Lock Scopes
+
+`ILockOwnership` is a small interface used to model scoped ownership of a lock. It inherits from `IDisposable` and is returned by APIs that should be used with `using` blocks to ensure deterministic release.
+
+It is implemented by several lock helpers, including:
+
+- `AlphaBetaLockSlim.AcquireAlphaLock()` / `AcquireBetaLock()`
+- The extension methods in `Wkg.Threading.Extensions.ReaderWriterLockSlimExtensions` (`AcquireReadLock`, `AcquireWriteLock`, `AcquireUpgradableReadLock`)
+
+The pattern is straightforward:
+
+```csharp
+ReaderWriterLockSlim rwls = new();
+
+using (rwls.AcquireReadLock())
+{
+    // Read section, automatically released at the end of the scope
+    Console.WriteLine(_state);
+}
+
+using (rwls.AcquireWriteLock())
+{
+    // Write section
+    _state++;
+}
+```
+
+By consistently using `ILockOwnership`-returning helpers with `using` statements, you reduce the risk of mismatched `Enter*`/`Exit*` calls and improve exception safety.
+
+#### `Wait` Helpers
+
+The static `Wait` class provides convenience helpers for waiting on arbitrary conditions without manually wiring spin loops and sleeps.
+
+- `Until(Func<bool> condition)` – waits indefinitely until the condition becomes `true`, using a combination of `SpinWait` and `Thread.Sleep`.
+- `Until(Func<bool> condition, TimeSpan timeout)` – waits until the condition becomes `true` or the timeout elapses.
+- Overloads accepting fine-grained spin/sleep configuration allow tuning for specific workloads.
+
+Example:
+
+```csharp
+bool isReady = Wait.Until(
+    condition: () => Volatile.Read(ref _readyFlag),
+    timeout: TimeSpan.FromSeconds(5));
+
+if (!isReady)
+{
+    throw new TimeoutException("Component did not become ready in time.");
+}
+```
+
+Internally, `Wait.Until` uses `SpinWait.SpinUntil` for short time spans (to reduce context switches) and falls back to periodic `Thread.Sleep` for longer waits.
